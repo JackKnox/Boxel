@@ -2,10 +2,17 @@
 
 #include "defines.h"
 
+#include "platform/platform.h"
+#include "utils/darray.h"
+
 #include <vulkan/vulkan.h>
 
 // Checks the given expression's return value against VK_SUCCESS.
-#define VK_CHECK(expr) expr
+#define VK_CHECK(expr)                       \
+    {                                        \
+        VkResult r = expr;                   \
+        if (r != VK_SUCCESS) __debugbreak(); \
+    }
 
 typedef struct vulkan_swapchain_support_info {
     VkSurfaceCapabilitiesKHR capabilities;

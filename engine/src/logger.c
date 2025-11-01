@@ -11,7 +11,6 @@
 
 void log_output(log_level level, const char* message, ...) {
     const char* level_strings[4] = { "[ERROR]: ", "[WARN]:  ", "[INFO]:  ", "[TRACE]: " };
-    b8 is_error = level < LOG_LEVEL_WARN;
 
     // Technically imposes a 32k character limit on a single log entry, but...
     // DON'T DO THAT!
@@ -31,7 +30,7 @@ void log_output(log_level level, const char* message, ...) {
     sprintf(out_message2, "%s%s\n", level_strings[level], out_message);
 
     // Platform-specific output.
-    if (is_error) {
+    if (level == LOG_LEVEL_ERROR) {
         platform_console_write_error(out_message2, level);
     }
     else {

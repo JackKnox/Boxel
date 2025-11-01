@@ -1,10 +1,10 @@
 #pragma once
 
 typedef enum log_level {
-    LOG_LEVEL_ERROR = 1,
-    LOG_LEVEL_WARN = 2,
-    LOG_LEVEL_INFO = 3,
-    LOG_LEVEL_TRACE = 5
+    LOG_LEVEL_ERROR = 0,
+    LOG_LEVEL_WARN = 1,
+    LOG_LEVEL_INFO = 2,
+    LOG_LEVEL_TRACE = 3
 } log_level;
 
 void log_output(log_level level, const char* message, ...);

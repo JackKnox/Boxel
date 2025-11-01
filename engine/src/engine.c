@@ -44,7 +44,7 @@ int render_thread_loop(void* arg) {
 	box_engine* e = (box_engine*)arg;
 
 	renderer_backend* backend = &e->render_state;
-	if (!backend->initialize(backend, &e->config)) {
+	if (!backend->initialize(backend, e)) {
 		return thrd_error;
 	}
 
@@ -68,6 +68,7 @@ int render_thread_loop(void* arg) {
 			}
 		}
 		
+		platform_pump_messages(&e->platform_state);
 		e->delta_time = platform_get_absolute_time() - e->last_time;
 
 		// Throttle FPS if configured (no sleep if 0 = uncapped)
@@ -101,7 +102,7 @@ box_engine* box_create_engine(box_config* app_config) {
 	}
 
 	// TODO: Make backend type configurable
-	if (!renderer_backend_create(RENDERER_BACKEND_TYPE_VULKAN, &e->render_state)) {
+	if (!renderer_backend_create(RENDERER_BACKEND_TYPE_VULKAN, &e->platform_state, &e->render_state)) {
 		// Something went wrong with renderer backend, exiting...
 		box_destroy_engine(e);
 		return NULL;

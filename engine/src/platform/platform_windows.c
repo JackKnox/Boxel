@@ -6,7 +6,8 @@
 #include "engine.h"
 #include "utils/darray.h"
 
-#include <windows.h>
+#define GLFW_INCLUDE_VULKAN
+#define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3.h>
 
 #include <stdlib.h>
@@ -100,6 +101,13 @@ void platform_sleep(u64 ms) {
 
 void platform_get_vulkan_extensions(const char*** names_darray) {
 	darray_push(*names_darray, &"VK_KHR_win32_surface");
+}
+
+b8 platform_create_vulkan_surface(VkInstance instance, box_platform* plat_state, const VkAllocationCallbacks* allocator, VkSurfaceKHR* out_surface) {
+	internal_state* state = (internal_state*)plat_state->internal_state;
+
+	VkResult result = glfwCreateWindowSurface(instance, state->window, allocator, out_surface);
+	return result == VK_SUCCESS;
 }
 
 #endif
