@@ -239,7 +239,6 @@ b8 select_physical_device(vulkan_context* context) {
             &context->device.swapchain_support);
 
         if (result) {
-            /* TODO: Fill capabilities with info
             BX_INFO("Selected device: '%s'.", capabilities.device_name);
 
             // GPU type, etc.
@@ -261,30 +260,6 @@ b8 select_physical_device(vulkan_context* context) {
                     BX_INFO("GPU type is CPU.");
                     break;
             }
-
-            BX_INFO(
-                "GPU Driver version: %d.%d.%d",
-                VK_VERSION_MAJOR(capabilities.driver_version),
-                VK_VERSION_MINOR(capabilities.driver_version),
-                VK_VERSION_PATCH(capabilities.driver_version));
-
-            // Vulkan API version.
-            BX_INFO(
-                "Vulkan API version: %d.%d.%d",
-                VK_VERSION_MAJOR(capabilities.api_version),
-                VK_VERSION_MINOR(capabilities.api_version),
-                VK_VERSION_PATCH(capabilities.api_version));
-
-            // Memory information
-            for (u32 j = 0; j < memory.memoryHeapCount; ++j) {
-                f32 memory_size_gib = (((f32)memory.memoryHeaps[j].size) / 1024.0f / 1024.0f / 1024.0f);
-                if (memory.memoryHeaps[j].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
-                    BX_INFO("Local GPU memory: %.2f GiB", memory_size_gib);
-                } else {
-                    BX_INFO("Shared System memory: %.2f GiB", memory_size_gib);
-                }
-            }
-            */
 
             context->device.physical_device = physical_devices[i];
             context->config->capabilities = capabilities;
@@ -323,6 +298,8 @@ b8 physical_device_meets_requirements(
 
     VkPhysicalDeviceMemoryProperties memory;
     vkGetPhysicalDeviceMemoryProperties(device, &memory);
+
+    // TODO: Fill renderer_capabilities with data
 
     // Discrete GPU?
     if (context->config->discrete_gpu) {

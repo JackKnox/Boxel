@@ -83,4 +83,10 @@ STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes.");
 #error "Unknown platform!"
 #endif
 
+#define BX_CLAMP(value, min, max) ((value <= min) ? min : (value >= max) ? max \
+                                                                         : value)
+
+#define BX_MIN(x, y) (x < y ? x : y)
+#define BX_MAX(x, y) (x > y ? x : y)
+
 #include "logger.h"

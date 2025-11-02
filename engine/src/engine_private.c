@@ -24,6 +24,8 @@ b8 engine_thread_init(box_engine* e) {
 	}
 
 	e->config.render_config.application_name = e->config.title;
+	e->config.render_config.framebuffer_width = e->config.start_width;
+	e->config.render_config.framebuffer_height = e->config.start_height;
 
 	if (!e->render_state.initialize(&e->render_state, &e->config.render_config)) {
 		BX_ERROR("Something went wrong with render backend, exiting...");

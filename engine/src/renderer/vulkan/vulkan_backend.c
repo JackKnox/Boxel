@@ -6,6 +6,7 @@
 
 #include "vulkan_types.inl"
 #include "vulkan_device.h"
+#include "vulkan_swapchain.h"
 
 b8 platform_create_vulkan_surface(VkInstance instance, box_platform* plat_state, const struct VkAllocationCallbacks* allocator, VkSurfaceKHR* out_surface);
 
@@ -39,6 +40,7 @@ b8 vulkan_renderer_backend_initialize(renderer_backend* backend, renderer_backen
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 	context->config = config;
 	context->allocator = 0;
+	context->current_frame = 0;
 	
 	VkApplicationInfo app_info = { VK_STRUCTURE_TYPE_APPLICATION_INFO };
 	app_info.apiVersion = VK_API_VERSION_1_2;
@@ -72,10 +74,17 @@ b8 vulkan_renderer_backend_initialize(renderer_backend* backend, renderer_backen
 	create_info.enabledLayerCount = darray_length(required_validation_layer_names);
 	create_info.ppEnabledLayerNames = required_validation_layer_names;
 
+	BX_TRACE("Required extensions:");
+	for (u32 i = 0; i < darray_length(required_extensions); ++i) {
+		BX_TRACE("    %s", required_extensions[i]);
+	}
+
 	if (vkCreateInstance(&create_info, context->allocator, &context->instance) != VK_SUCCESS) {
 		BX_ERROR("Failed to create Vulkan instance!");
 		return FALSE;
 	}
+
+	BX_INFO("Vulkan Instance created.");
 
 	// Clean up temp arrays
 	darray_destroy(required_extensions);
@@ -98,6 +107,7 @@ b8 vulkan_renderer_backend_initialize(renderer_backend* backend, renderer_backen
 			(PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(context->instance, "vkCreateDebugUtilsMessengerEXT");
 
 		VK_CHECK(func(context->instance, &debug_create_info, context->allocator, &context->debug_messenger));
+		BX_INFO("Vulkan debugger created.");
 	}
 
 	// Create the Vulkan surface
@@ -105,12 +115,24 @@ b8 vulkan_renderer_backend_initialize(renderer_backend* backend, renderer_backen
 		BX_ERROR("Failed to create platform surface!");
 		return FALSE;
 	}
+	BX_INFO("Vulkan surface created.");
 
 	if (!vulkan_device_create(context)) {
 		BX_ERROR("Failed to create device!");
 		return FALSE;
 	}
 
+	if (!vulkan_device_detect_depth_format(&context->device)) {
+		context->device.depth_format = VK_FORMAT_UNDEFINED;
+		BX_ERROR("Failed to find a depth supported format!");
+	}
+
+	if (!vulkan_swapchain_create(context, context->config->framebuffer_width, context->config->framebuffer_height, &context->swapchain)) {
+		BX_ERROR("Failed to create swapchain!");
+		return FALSE;
+	}
+
+	BX_INFO("Vulkan renderer initialized successfully.");
 	return TRUE;
 }
 
@@ -119,6 +141,8 @@ void vulkan_renderer_backend_shutdown(renderer_backend* backend) {
 	vkDeviceWaitIdle(context->device.logical_device);
 
 	// Destroy in the opposite order of creation.
+
+	vulkan_swapchain_destroy(context, &context->swapchain);
 
 	vulkan_device_destroy(context);
 
@@ -133,7 +157,7 @@ void vulkan_renderer_backend_shutdown(renderer_backend* backend) {
 	}
 }
 
-void vulkan_renderer_backend_on_resized(renderer_backend* backend, u16 width, u16 height) {
+void vulkan_renderer_backend_on_resized(renderer_backend* backend, u32 width, u32 height) {
 }
 
 b8 vulkan_renderer_backend_begin_frame(renderer_backend* backend, f32 delta_time) {

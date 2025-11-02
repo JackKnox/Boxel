@@ -112,12 +112,6 @@ typedef struct vulkan_context {
     // Configuration for render backend
     renderer_backend_config* config;
 
-    // The framebuffer's current width.
-    u32 framebuffer_width;
-
-    // The framebuffer's current height.
-    u32 framebuffer_height;
-
     // Current generation of framebuffer size. If it does not match framebuffer_size_last_generation,
     // a new one should be generated.
     u64 framebuffer_size_generation;
@@ -156,7 +150,5 @@ typedef struct vulkan_context {
     u32 current_frame;
 
     b8 recreating_swapchain;
-
-    i32 (*find_memory_index)(u32 type_filter, u32 property_flags);
 
 } vulkan_context;
