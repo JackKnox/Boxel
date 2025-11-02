@@ -6,7 +6,7 @@
 
 struct box_engine;
 
-b8 vulkan_renderer_backend_initialize(renderer_backend* backend, struct box_engine* config);
+b8 vulkan_renderer_backend_initialize(renderer_backend* backend, renderer_backend_config* config);
 void vulkan_renderer_backend_shutdown(renderer_backend* backend);
 
 void vulkan_renderer_backend_on_resized(renderer_backend* backend, u16 width, u16 height);

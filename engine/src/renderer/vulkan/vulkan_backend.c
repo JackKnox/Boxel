@@ -5,6 +5,7 @@
 #include "platform/platform.h"
 
 #include "vulkan_types.inl"
+#include "vulkan_device.h"
 
 b8 platform_create_vulkan_surface(VkInstance instance, box_platform* plat_state, const struct VkAllocationCallbacks* allocator, VkSurfaceKHR* out_surface);
 
@@ -31,17 +32,17 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
 	return VK_FALSE;
 }
 
-b8 vulkan_renderer_backend_initialize(renderer_backend* backend, box_engine* engine) {
+b8 vulkan_renderer_backend_initialize(renderer_backend* backend, renderer_backend_config* config) {
 	backend->internal_context = platform_allocate(sizeof(vulkan_context), FALSE);
 	platform_zero_memory(backend->internal_context, sizeof(vulkan_context));
 
-	box_config* config = box_engine_get_config(engine);
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
+	context->config = config;
 	context->allocator = 0;
 	
 	VkApplicationInfo app_info = { VK_STRUCTURE_TYPE_APPLICATION_INFO };
 	app_info.apiVersion = VK_API_VERSION_1_2;
-	app_info.pApplicationName = config->title;
+	app_info.pApplicationName = context->config->application_name;
 	app_info.applicationVersion = VK_MAKE_API_VERSION(0, 1, 0, 0);
 	app_info.engineVersion = VK_MAKE_API_VERSION(0, 0, 1, 0);
 	app_info.pEngineName = "Boxel";
@@ -60,7 +61,7 @@ b8 vulkan_renderer_backend_initialize(renderer_backend* backend, box_engine* eng
 	platform_get_vulkan_extensions(&required_extensions);
 
 	// Add debug extensions/layers if enabled
-	if (config->enable_validation) {
+	if (context->config->enable_validation) {
 		darray_push(required_extensions, VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 		darray_push(required_validation_layer_names, "VK_LAYER_KHRONOS_validation");
 	}
@@ -71,13 +72,19 @@ b8 vulkan_renderer_backend_initialize(renderer_backend* backend, box_engine* eng
 	create_info.enabledLayerCount = darray_length(required_validation_layer_names);
 	create_info.ppEnabledLayerNames = required_validation_layer_names;
 
-	VK_CHECK(vkCreateInstance(&create_info, context->allocator, &context->instance));
+	if (vkCreateInstance(&create_info, context->allocator, &context->instance) != VK_SUCCESS) {
+		BX_ERROR("Failed to create Vulkan instance!");
+		return FALSE;
+	}
+
+	// Clean up temp arrays
+	darray_destroy(required_extensions);
+	darray_destroy(required_validation_layer_names);
 
 	// Setup debug messenger if validation enabled
-	if (config->enable_validation) {
+	if (context->config->enable_validation) {
 		u32 log_severity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
-			VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-			VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT;
+			VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
 
 		VkDebugUtilsMessengerCreateInfoEXT debug_create_info = { VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT };
 		debug_create_info.messageSeverity = log_severity;
@@ -94,19 +101,36 @@ b8 vulkan_renderer_backend_initialize(renderer_backend* backend, box_engine* eng
 	}
 
 	// Create the Vulkan surface
-	platform_create_vulkan_surface(context->instance, backend->plat_state, context->allocator, &context->surface);
+	if (!platform_create_vulkan_surface(context->instance, backend->plat_state, context->allocator, &context->surface)) {
+		BX_ERROR("Failed to create platform surface!");
+		return FALSE;
+	}
 
-	// Clean up temp arrays
-	darray_destroy(required_extensions);
-	darray_destroy(required_validation_layer_names);
+	if (!vulkan_device_create(context)) {
+		BX_ERROR("Failed to create device!");
+		return FALSE;
+	}
 
 	return TRUE;
 }
 
 void vulkan_renderer_backend_shutdown(renderer_backend* backend) {
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
+	vkDeviceWaitIdle(context->device.logical_device);
 
-	vkDestroyInstance(context->instance, context->allocator);
+	// Destroy in the opposite order of creation.
+
+	vulkan_device_destroy(context);
+
+	if (context->surface) vkDestroySurfaceKHR(context->instance, context->surface, context->allocator);
+
+	if (context->instance) {
+		PFN_vkDestroyDebugUtilsMessengerEXT func =
+			(PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(context->instance, "vkDestroyDebugUtilsMessengerEXT");
+		func(context->instance, context->debug_messenger, context->allocator);
+
+		vkDestroyInstance(context->instance, context->allocator);
+	}
 }
 
 void vulkan_renderer_backend_on_resized(renderer_backend* backend, u16 width, u16 height) {
