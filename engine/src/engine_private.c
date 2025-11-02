@@ -44,7 +44,10 @@ b8 engine_thread_init(box_engine* e) {
 		f64 delta_ms = frame_start - e->last_time;
 		e->last_time = frame_start;
 
-		if (backend->begin_frame(backend, e->delta_time)) {
+		box_rendercmd command = {0};
+		box_rendercmd_set_clear_colour(&command, 0.1f, 0.1f, 0.1f);
+
+		if (backend->begin_frame(backend, &command, e->delta_time)) {
 			b8 result = backend->end_frame(backend);
 			if (!result) {
 				BX_ERROR("Could not finish render frame, exiting...");

@@ -11,7 +11,8 @@ void* _darray_create(u64 length, u64 stride) {
     new_array[DARRAY_CAPACITY] = length;
     new_array[DARRAY_LENGTH] = 0;
     new_array[DARRAY_STRIDE] = stride;
-    return (void*)(new_array + DARRAY_FIELD_LENGTH);
+
+    return platform_zero_memory((void*)(new_array + DARRAY_FIELD_LENGTH), array_size);
 }
 
 void _darray_destroy(void* array) {
