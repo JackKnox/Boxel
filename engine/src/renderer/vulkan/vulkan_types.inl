@@ -58,7 +58,6 @@ typedef enum vulkan_render_pass_state {
 typedef struct vulkan_renderpass {
     VkRenderPass handle;
     f32 x, y, w, h;
-    f32 r, g, b, a;
 
     f32 depth;
     u32 stencil;

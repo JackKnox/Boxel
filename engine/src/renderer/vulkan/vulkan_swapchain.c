@@ -87,9 +87,6 @@ void vulkan_swapchain_present(
     } else if (result != VK_SUCCESS) {
         BX_ERROR("Failed to present swap chain image!");
     }
-
-    // Increment (and loop) the index.
-    context->current_frame = (context->current_frame + 1) % swapchain->max_frames_in_flight;
 }
 
 VkSurfaceFormatKHR find_swapchain_format(vulkan_swapchain_support_info* swapchain_info) {

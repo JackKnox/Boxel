@@ -2,6 +2,8 @@
 
 #include "defines.h"
 
+#include "renderer_cmd.h"
+
 // Type for Graphics API/Method.
 typedef enum renderer_backend_type {
     RENDERER_BACKEND_TYPE_VULKAN,
@@ -78,7 +80,7 @@ typedef struct renderer_backend {
 
     void (*resized)(struct renderer_backend* backend, u32 width, u32 height);
 
-    b8 (*begin_frame)(struct renderer_backend* backend, f32 delta_time);
+    b8 (*begin_frame)(struct renderer_backend* backend, box_rendercmd* frame_cmd, f32 delta_time);
     b8 (*end_frame)(struct renderer_backend* backend);
 } renderer_backend;
 

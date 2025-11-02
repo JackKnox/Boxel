@@ -242,7 +242,7 @@ b8 select_physical_device(vulkan_context* context) {
             BX_INFO("Selected device: '%s'.", capabilities.device_name);
 
             // GPU type, etc.
-            switch (capabilities.device_type) {
+            switch ((VkPhysicalDeviceType)capabilities.device_type) {
                 default:
                 case VK_PHYSICAL_DEVICE_TYPE_OTHER:
                     BX_INFO("GPU type is Unknown.");
