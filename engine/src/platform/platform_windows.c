@@ -17,21 +17,32 @@ typedef struct internal_state {
 	GLFWwindow* window;
 } internal_state;
 
+static void GLFWErrorCallback(int error, const char* description)
+{
+	BX_ERROR("%s", description);
+}
+
 b8 platform_start(box_platform* plat_state, box_config* app_config) {
 	plat_state->internal_state = platform_allocate(sizeof(internal_state), FALSE);
 	internal_state* state = (internal_state*)plat_state->internal_state;
 
 	int success = glfwInit();
+	glfwSetErrorCallback(GLFWErrorCallback);
+
 	if (success == 0)
 	{
-		//printf("GLFW initialization failed");
+		BX_ERROR("GLFW initialization failed");
 		return FALSE;
 	}
 
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 	state->window = glfwCreateWindow(app_config->start_width, app_config->start_height, app_config->title, NULL, NULL);
+	if (!state->window)
+	{
+		BX_ERROR("Could not create GLFW window");
+		return FALSE;
+	}
 
-	glfwMakeContextCurrent(state->window);
 	return TRUE;
 }
 
@@ -45,6 +56,7 @@ void platform_shutdown(box_platform* plat_state) {
 }
 
 b8 platform_pump_messages(box_platform* plat_state) {
+	internal_state* state = (internal_state*)plat_state->internal_state;
 	glfwPollEvents();
 	return TRUE;
 }
@@ -71,8 +83,8 @@ void* platform_set_memory(void* dest, i32 value, u64 size) {
 
 void platform_console_write(const char* message, u8 colour) {
 	HANDLE console_handle = GetStdHandle(STD_OUTPUT_HANDLE);
-	// FATAL,ERROR,WARN,INFO,DEBUG,TRACE
-	static u8 levels[6] = { 64, 4, 6, 2, 1, 8 };
+	// ERROR,WARN,INFO,TRACE
+	static u8 levels[6] = { 4, 6, 2, 8 };
 	SetConsoleTextAttribute(console_handle, levels[colour]);
 	OutputDebugStringA(message);
 	u64 length = strlen(message);
@@ -82,8 +94,8 @@ void platform_console_write(const char* message, u8 colour) {
 
 void platform_console_write_error(const char* message, u8 colour) {
 	HANDLE console_handle = GetStdHandle(STD_ERROR_HANDLE);
-	// FATAL,ERROR,WARN,INFO,DEBUG,TRACE
-	static u8 levels[6] = { 64, 4, 6, 2, 1, 8 };
+	// ERROR,WARN,INFO,TRACE
+	static u8 levels[6] = { 4, 6, 2, 1 };
 	SetConsoleTextAttribute(console_handle, levels[colour]);
 	OutputDebugStringA(message);
 	u64 length = strlen(message);

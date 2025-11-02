@@ -2,6 +2,8 @@
 
 #include "defines.h"
 
+#include "renderer/renderer_backend.h"
+
 // Application configuration
 typedef struct box_config {
 	// Window starting position x axis.
@@ -22,8 +24,8 @@ typedef struct box_config {
 	// FPS to lock render thread too.
 	u32 target_fps;
 
-	// Print and validate error messages.
-	b8 enable_validation;
+	// Configuration for render backend.
+	renderer_backend_config render_config;
 } box_config;
 
 // Opaque handle to true box_engine.
