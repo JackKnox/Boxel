@@ -13,6 +13,7 @@ typedef struct box_engine {
 	box_platform platform_state;
 
 	renderer_backend render_state;
+	box_rendercmd command;
 	thrd_t render_thread;
 
 	f64 last_time;

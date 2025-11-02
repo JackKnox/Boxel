@@ -90,3 +90,4 @@ STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes.");
 #define BX_MAX(x, y) (x > y ? x : y)
 
 #include "logger.h"
+#include "utils/event.h"

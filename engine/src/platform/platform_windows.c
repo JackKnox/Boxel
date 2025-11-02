@@ -22,6 +22,11 @@ static void GLFWErrorCallback(int error, const char* description)
 	BX_ERROR("%s", description);
 }
 
+b8 on_window_close(GLFWwindow* window) {
+	event_context data = {};
+	event_fire(EVENT_CODE_APPLICATION_QUIT, 0, data);
+}
+
 b8 platform_start(box_platform* plat_state, box_config* app_config) {
 	plat_state->internal_state = platform_allocate(sizeof(internal_state), FALSE);
 	internal_state* state = (internal_state*)plat_state->internal_state;
@@ -43,6 +48,8 @@ b8 platform_start(box_platform* plat_state, box_config* app_config) {
 		return FALSE;
 	}
 
+	glfwSetWindowCloseCallback(state->window, on_window_close);
+
 	return TRUE;
 }
 
@@ -56,7 +63,6 @@ void platform_shutdown(box_platform* plat_state) {
 }
 
 b8 platform_pump_messages(box_platform* plat_state) {
-	internal_state* state = (internal_state*)plat_state->internal_state;
 	glfwPollEvents();
 	return TRUE;
 }

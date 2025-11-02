@@ -42,6 +42,17 @@ int render_thread_loop(void* arg) {
 	return thrd_success; // Success
 }
 
+b8 engine_on_application_quit(u16 code, void* sender, void* listener_inst, event_context data) {
+	if (code == EVENT_CODE_APPLICATION_QUIT) {
+		box_engine* e = (box_engine*)listener_inst;
+		e->should_quit = TRUE;
+
+		return TRUE;
+	}
+
+	return FALSE;
+}
+
 box_engine* box_create_engine(box_config* app_config) {
 	box_engine* e = (box_engine*)platform_allocate(sizeof(box_engine), FALSE);    
 	platform_zero_memory(e, sizeof(box_engine));
@@ -49,6 +60,13 @@ box_engine* box_create_engine(box_config* app_config) {
 	e->is_running = FALSE;
 	e->should_quit = FALSE;
 	e->config = *app_config;
+
+	if (!event_initialize()) {
+		BX_ERROR("Event system failed initialization. Engine cannot continue.");
+		return FALSE;
+	}
+
+	event_register(EVENT_CODE_APPLICATION_QUIT, e, engine_on_application_quit);
 
 	if (thrd_create(&e->render_thread, render_thread_loop, e) != thrd_success) {
 		// Couldn't start render thread, exiting...
@@ -68,6 +86,10 @@ const box_config* box_engine_get_config(box_engine* engine) {
 	return &engine->config;
 }
 
+void box_engine_render_frame(box_engine* engine, box_rendercmd* command) {
+	engine->command = *command;
+}
+
 void box_destroy_engine(box_engine* engine) {
 	if (!engine) return;
 
@@ -76,5 +98,6 @@ void box_destroy_engine(box_engine* engine) {
 		thrd_join(engine->render_thread, NULL);
 	}
 
+	event_shutdown();
 	platform_free(engine, FALSE);
 }

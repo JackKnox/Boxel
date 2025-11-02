@@ -43,6 +43,9 @@ b8 box_engine_is_running(box_engine* engine);
 // Gets current config for specified engine.
 const box_config* box_engine_get_config(box_engine* engine);
 
+// Renders next frame based on specified command
+void box_engine_render_frame(box_engine* engine, box_rendercmd* command);
+
 // Destroys the boxel engine and it's subsystem.
 void box_destroy_engine(box_engine* engine);
 
