@@ -72,6 +72,11 @@ typedef struct vulkan_framebuffer {
     vulkan_renderpass* renderpass;
 } vulkan_framebuffer;
 
+typedef struct vulkan_graphics_pipeline {
+    VkPipeline handle;
+    VkPipelineLayout layout;
+} vulkan_graphics_pipeline;
+
 typedef struct vulkan_swapchain {
     VkSurfaceFormatKHR image_format;
     u8 max_frames_in_flight;

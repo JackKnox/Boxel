@@ -11,12 +11,14 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	BX_INFO("Boxel initializated successully");
-
 	while (box_engine_is_running(engine))
 	{
-		box_rendercmd command = {0};
+		box_rendercmd command = { 0 };
 		box_rendercmd_set_clear_colour(&command, 0.1f, 0.1f, 0.1f);
+
+		/*
+		box_rendercmd_begin_renderpass(&command
+		*/
 
 		box_engine_render_frame(engine, &command);
 	}

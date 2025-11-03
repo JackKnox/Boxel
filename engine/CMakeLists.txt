@@ -1,5 +1,5 @@
-file(GLOB_RECURSE BOXEL_SOURCES "src/*/**.c" "src/**.c")
-add_executable(Boxel ${BOXEL_SOURCES})
+file(GLOB_RECURSE BOXEL_SOURCES "src/**.c")
+add_library(Boxel STATIC ${BOXEL_SOURCES})
 
 find_package(Vulkan REQUIRED)
 

@@ -180,7 +180,7 @@ void vulkan_renderer_backend_shutdown(renderer_backend* backend) {
 
 	// Sync objects
 	for (u8 i = 0; i < context->swapchain.max_frames_in_flight; ++i) {
-		vulkan_fence_destroy(&context, &context->in_flight_fences[i]);
+		vulkan_fence_destroy(context, &context->in_flight_fences[i]);
 
 		vkDestroySemaphore(
 			context->device.logical_device,
@@ -198,13 +198,13 @@ void vulkan_renderer_backend_shutdown(renderer_backend* backend) {
 	for (u32 i = 0; i < context->swapchain.image_count; ++i) {
 		if (context->graphics_command_buffers[i].handle) {
 			vulkan_command_buffer_free(
-				&context,
+				context,
 				context->device.graphics_command_pool,
 				&context->graphics_command_buffers[i]);
 			context->graphics_command_buffers[i].handle = 0;
 		}
 
-		vulkan_framebuffer_destroy(&context, &context->swapchain.framebuffers[i]);
+		vulkan_framebuffer_destroy(context, &context->swapchain.framebuffers[i]);
 	}
 
 	darray_destroy(context->image_available_semaphores);
