@@ -2,7 +2,6 @@
 
 #include "defines.h"
 
-#include "platform/platform.h"
 #include "utils/darray.h"
 
 #include "renderer/renderer_backend.h"
@@ -131,6 +130,7 @@ typedef struct vulkan_context {
     VkDebugUtilsMessengerEXT debug_messenger;
 
     vulkan_device device;
+    vulkan_graphics_pipeline graphics_pipeline;
 
     vulkan_swapchain swapchain;
     vulkan_renderpass main_renderpass;

@@ -1,5 +1,7 @@
 #include "engine.h"
 
+#include "voxel/octree_gen.h"
+
 int main(int argc, char** argv)
 {
 	box_config app_config = box_default_config();
@@ -7,7 +9,13 @@ int main(int argc, char** argv)
 
 	if (!engine)
 	{
-		BX_INFO("Boxel initialisation failed");
+		BX_ERROR("Boxel initialization failed");
+		return 1;
+	}
+
+	box_octree octree;
+	if (!box_load_voxel_model("assets/cars.vox", &octree)) {
+		BX_ERROR("Could not load voxel model!");
 		return 1;
 	}
 
@@ -23,6 +31,7 @@ int main(int argc, char** argv)
 		box_engine_render_frame(engine, &command);
 	}
 
+	box_destroy_voxel_model(&octree);
 	box_destroy_engine(engine);
 	return 0;
 }

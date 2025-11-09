@@ -1,7 +1,6 @@
 #include "defines.h"
 #include "engine.h"
 
-#include "platform/platform.h"
 #include "renderer/renderer_backend.h"
 
 #include "engine_private.h"
@@ -87,6 +86,7 @@ const box_config* box_engine_get_config(box_engine* engine) {
 }
 
 void box_engine_render_frame(box_engine* engine, box_rendercmd* command) {
+	// TODO: Should be some kind of queue.
 	engine->command = *command;
 }
 

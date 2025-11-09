@@ -20,6 +20,12 @@ typedef enum file_modes {
     FILE_MODE_WRITE = 0x2
 } file_modes;
 
+typedef enum file_seek_origin {
+    FILE_SEEK_START,
+    FILE_SEEK_CURRENT,
+    FILE_SEEK_END,
+} file_seek_origin;
+
 // Checks if a file with the given path exists.
 b8 filesystem_exists(const char* path);
 
@@ -31,6 +37,10 @@ void filesystem_close(file_handle* handle);
 
 // Attempts to read the size of the file to which handle is attached.
 b8 filesystem_size(file_handle* handle, u64* out_size);
+
+b8 filesystem_seek(file_handle* handle, i64 offset, file_seek_origin origin);
+
+u64 filesystem_tell(file_handle* handle);
 
 // Reads up to a newline or EOF.
 b8 filesystem_read_line(file_handle* handle, u64 max_length, char** line_buf, u64* out_line_length);

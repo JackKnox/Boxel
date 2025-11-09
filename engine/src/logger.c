@@ -1,7 +1,5 @@
 #include "defines.h"
 
-#include "platform/platform.h"
-
 // TODO: temporary
 #include <stdio.h>
 #include <string.h>

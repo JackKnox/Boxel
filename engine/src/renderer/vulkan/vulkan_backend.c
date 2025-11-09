@@ -2,12 +2,13 @@
 #include "vulkan_backend.h"
 
 #include "engine.h"
-#include "platform/platform.h"
+#include "platform/filesystem.h"
 
 #include "vulkan_types.inl"
 #include "vulkan_device.h"
 #include "vulkan_swapchain.h"
 #include "vulkan_renderpass.h"
+#include "vulkan_pipeline.h"
 #include "vulkan_framebuffer.h"
 #include "vulkan_command_buffer.h"
 #include "vulkan_fence.h"
@@ -136,10 +137,18 @@ b8 vulkan_renderer_backend_initialize(renderer_backend* backend, renderer_backen
 		return FALSE;
 	}
 
-	if (!vulkan_renderpass_create(context, &context->main_renderpass, 0, 0, 
-		context->config->framebuffer_width, context->config->framebuffer_height, 
+	if (!vulkan_renderpass_create(context, &context->main_renderpass, 0, 0,
+		context->config->framebuffer_width, context->config->framebuffer_height,
 		1.0f, 0)) {
 		BX_ERROR("Failed to create main renderpass!");
+		return FALSE;
+	}
+
+	const char* graphics_shaders[] = { "assets/shader_base.vert.spv", "assets/shader_base.frag.spv" };
+
+	if (!vulkan_graphics_pipeline_create(context, &context->graphics_pipeline, 
+		&context->main_renderpass, graphics_shaders, BX_ARRAYSIZE(graphics_shaders))) {
+		BX_ERROR("Failed to create graphics pipeline!");
 		return FALSE;
 	}
 
@@ -182,27 +191,27 @@ void vulkan_renderer_backend_shutdown(renderer_backend* backend) {
 	for (u8 i = 0; i < context->swapchain.max_frames_in_flight; ++i) {
 		vulkan_fence_destroy(context, &context->in_flight_fences[i]);
 
-		vkDestroySemaphore(
-			context->device.logical_device,
-			context->image_available_semaphores[i],
-			context->allocator);
+		if (context->image_available_semaphores[i]) {
+			vkDestroySemaphore(
+				context->device.logical_device,
+				context->image_available_semaphores[i],
+				context->allocator);
+		}
 
-		vkDestroySemaphore(
-			context->device.logical_device,
-			context->queue_complete_semaphores[i],
-			context->allocator);
+		if (context->queue_complete_semaphores[i]) {
+			vkDestroySemaphore(
+				context->device.logical_device,
+				context->queue_complete_semaphores[i],
+				context->allocator);
+		}
 	}
-
 
 	// Command buffers
 	for (u32 i = 0; i < context->swapchain.image_count; ++i) {
-		if (context->graphics_command_buffers[i].handle) {
-			vulkan_command_buffer_free(
-				context,
-				context->device.graphics_command_pool,
-				&context->graphics_command_buffers[i]);
-			context->graphics_command_buffers[i].handle = 0;
-		}
+		vulkan_command_buffer_free(
+			context,
+			context->device.graphics_command_pool,
+			&context->graphics_command_buffers[i]);
 
 		vulkan_framebuffer_destroy(context, &context->swapchain.framebuffers[i]);
 	}
@@ -288,12 +297,16 @@ b8 vulkan_renderer_backend_begin_frame(renderer_backend* backend, box_rendercmd*
 		frame_cmd->clear_r, frame_cmd->clear_g, frame_cmd->clear_g, 1.0f,
 		context->swapchain.framebuffers[context->image_index].handle);
 
+	vulkan_graphics_pipeline_bind(cmd, &context->graphics_pipeline);
+
 	return TRUE;
 }
 
 b8 vulkan_renderer_backend_end_frame(renderer_backend* backend) {
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 	vulkan_command_buffer* cmd = &context->graphics_command_buffers[context->current_frame];
+
+
 
 	vulkan_renderpass_end(cmd, &context->main_renderpass);
 	vulkan_command_buffer_end(cmd);

@@ -299,7 +299,8 @@ b8 physical_device_meets_requirements(
     VkPhysicalDeviceMemoryProperties memory;
     vkGetPhysicalDeviceMemoryProperties(device, &memory);
 
-    // TODO: Fill renderer_capabilities with data
+    out_capabilities->device_type = properties.deviceType;
+    strncpy(out_capabilities->device_name, properties.deviceName, sizeof(out_capabilities->device_name));
 
     // Discrete GPU?
     if (context->config->discrete_gpu) {

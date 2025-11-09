@@ -89,5 +89,8 @@ STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes.");
 #define BX_MIN(x, y) (x < y ? x : y)
 #define BX_MAX(x, y) (x > y ? x : y)
 
+#define BX_ARRAYSIZE(arr) (sizeof(arr) / sizeof(*arr))
+
+#include "platform/platform.h"
 #include "logger.h"
 #include "utils/event.h"

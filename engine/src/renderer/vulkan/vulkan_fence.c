@@ -21,14 +21,15 @@ void vulkan_fence_create(
 }
 
 void vulkan_fence_destroy(vulkan_context* context, vulkan_fence* fence) {
-    if (fence->handle) {
+    if (fence && fence->handle) {
         vkDestroyFence(
             context->device.logical_device,
             fence->handle,
             context->allocator);
+
         fence->handle = 0;
+        fence->is_signaled = FALSE;
     }
-    fence->is_signaled = FALSE;
 }
 
 b8 vulkan_fence_wait(vulkan_context* context, vulkan_fence* fence, u64 timeout_ns) {

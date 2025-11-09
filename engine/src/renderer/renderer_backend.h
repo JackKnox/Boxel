@@ -25,7 +25,7 @@ typedef struct renderer_capabilities {
     i32 transfer_queue_index;
     i32 compute_queue_index;
 
-    const char* device_name;
+    char device_name[256];
     renderer_device_type device_type;
 } renderer_capabilities;
 

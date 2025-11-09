@@ -1,7 +1,6 @@
 #include "defines.h" 
 
 #include "utils/darray.h"
-#include "platform/platform.h"
 
 typedef struct registered_event {
     void* listener;

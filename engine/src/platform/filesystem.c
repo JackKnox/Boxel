@@ -1,8 +1,6 @@
 #include "defines.h"
 #include "filesystem.h"
 
-#include "platform/platform.h"
-
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -39,7 +37,6 @@ b8 filesystem_open(const char* path, file_modes mode, b8 binary, file_handle* ou
     // Attempt to open the file.
     FILE* file = fopen(path, mode_str);
     if (!file) {
-        BX_ERROR("Error opening file: '%s'", path);
         return FALSE;
     }
 
@@ -64,6 +61,23 @@ b8 filesystem_size(file_handle* handle, u64* out_size) {
         return TRUE;
     }
     return FALSE;
+}
+
+b8 filesystem_seek(file_handle* handle, i64 offset, file_seek_origin origin) {
+    if (handle->handle && handle->is_valid) {
+        fseek((FILE*)handle->handle, offset, origin);
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+u64 filesystem_tell(file_handle* handle) {
+    if (handle->handle && handle->is_valid) {
+        return ftell((FILE*)handle->handle);
+    }
+
+    return 0;
 }
 
 b8 filesystem_read_line(file_handle* handle, u64 max_length, char** line_buf, u64* out_line_length) {
@@ -94,6 +108,9 @@ b8 filesystem_write_line(file_handle* handle, const char* text) {
 
 b8 filesystem_read(file_handle* handle, u64 data_size, void* out_data, u64* out_bytes_read) {
     if (handle->handle && out_data) {
+        u64 temp_bytes_read = 0;
+        if (!out_bytes_read) out_bytes_read = &temp_bytes_read;
+
         *out_bytes_read = fread(out_data, 1, data_size, (FILE*)handle->handle);
         if (*out_bytes_read != data_size) {
             return FALSE;
