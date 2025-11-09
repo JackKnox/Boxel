@@ -187,6 +187,8 @@ void vulkan_renderer_backend_shutdown(renderer_backend* backend) {
 
 	// Destroy in the opposite order of creation.
 
+	vulkan_graphics_pipeline_destroy(context, &context->graphics_pipeline);
+
 	// Sync objects
 	for (u8 i = 0; i < context->swapchain.max_frames_in_flight; ++i) {
 		vulkan_fence_destroy(context, &context->in_flight_fences[i]);
@@ -238,6 +240,9 @@ void vulkan_renderer_backend_shutdown(renderer_backend* backend) {
 
 		vkDestroyInstance(context->instance, context->allocator);
 	}
+
+	platform_free(context, FALSE);
+	backend->internal_context = NULL;
 }
 
 void vulkan_renderer_backend_on_resized(renderer_backend* backend, u32 width, u32 height) {
@@ -294,7 +299,7 @@ b8 vulkan_renderer_backend_begin_frame(renderer_backend* backend, box_rendercmd*
 	vulkan_renderpass_begin(
 		cmd,
 		&context->main_renderpass,
-		frame_cmd->clear_r, frame_cmd->clear_g, frame_cmd->clear_g, 1.0f,
+		frame_cmd->clear_r, frame_cmd->clear_g, frame_cmd->clear_b, 1.0f,
 		context->swapchain.framebuffers[context->image_index].handle);
 
 	vulkan_graphics_pipeline_bind(cmd, &context->graphics_pipeline);
@@ -306,7 +311,7 @@ b8 vulkan_renderer_backend_end_frame(renderer_backend* backend) {
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 	vulkan_command_buffer* cmd = &context->graphics_command_buffers[context->current_frame];
 
-
+	vkCmdDraw(cmd->handle, 3, 1, 0, 0);
 
 	vulkan_renderpass_end(cmd, &context->main_renderpass);
 	vulkan_command_buffer_end(cmd);

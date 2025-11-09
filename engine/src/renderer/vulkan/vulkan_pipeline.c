@@ -89,7 +89,7 @@ b8 vulkan_graphics_pipeline_create(
 	rasterizer.rasterizerDiscardEnable = VK_FALSE;
 	rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
 	rasterizer.lineWidth = 1.0f;
-	rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+	rasterizer.cullMode = VK_CULL_MODE_NONE;
 	rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
 	rasterizer.depthBiasEnable = VK_FALSE;
 
@@ -195,4 +195,64 @@ void vulkan_graphics_pipeline_destroy(vulkan_context* context, vulkan_graphics_p
 
 void vulkan_graphics_pipeline_bind(vulkan_command_buffer* command_buffer, vulkan_graphics_pipeline* pipeline) {
 	vkCmdBindPipeline(command_buffer->handle, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->handle);
+}
+
+b8 vulkan_compute_pipeline_create(
+	vulkan_context* context, 
+	vulkan_compute_pipeline* out_pipeline, 
+	const char* shader_path) {
+	// Loading compute shader...
+	u64 size = 0;
+	const void* file_buffer = filesystem_read_entire_binary_file(shader_path, &size);
+	if (!file_buffer) {
+		BX_ERROR("Unable to read binary: %s.", shader_path);
+		return FALSE;
+	}
+
+	VkShaderModuleCreateInfo create_info = { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
+	create_info.codeSize = size;
+	create_info.pCode = (uint32_t*)file_buffer;
+
+	VkShaderModule module;
+	if (vkCreateShaderModule(context->device.logical_device, &create_info,
+		context->allocator, &module) != VK_SUCCESS) {
+		BX_ERROR("Unable to create shader module: %s.", shader_path);
+		platform_free(file_buffer, FALSE);
+		return FALSE;
+	}
+
+	VkPipelineShaderStageCreateInfo compute_stage = { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
+	compute_stage.stage = get_stage_type_from_filepath(shader_path);
+	compute_stage.module = module;
+	compute_stage.pName = "main";
+
+	if (!(compute_stage.stage &= VK_SHADER_STAGE_COMPUTE_BIT)) {
+		BX_ERROR("Must create compute pipeline with a compute shader: %s.", shader_path);
+		vkDestroyShaderModule(context->device.logical_device, module, context->allocator);
+		return FALSE;
+	}
+
+	// Pipeline layout
+	VkPipelineLayoutCreateInfo pipelineLayoutInfo = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
+	pipelineLayoutInfo.setLayoutCount = 0;
+	pipelineLayoutInfo.pushConstantRangeCount = 0;
+
+	if (vkCreatePipelineLayout(context->device.logical_device,
+		&pipelineLayoutInfo, context->allocator, &out_pipeline->layout) != VK_SUCCESS) {
+		BX_ERROR("Failed to create pipeline layout!");
+		return FALSE;
+	}
+
+	VkComputePipelineCreateInfo pipelineInfo = { VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO };
+	pipelineInfo.layout = out_pipeline->layout;
+	pipelineInfo.stage = compute_stage;
+
+	vkDestroyShaderModule(context->device.logical_device, module, context->allocator);
+	platform_free(file_buffer, FALSE);
+	return TRUE;
+}
+
+void vulkan_compute_pipeline_destroy(vulkan_context* context, vulkan_compute_pipeline* pipeline) {
+	vkDestroyPipeline(context->device.logical_device, pipeline->handle, context->allocator);
+	vkDestroyPipelineLayout(context->device.logical_device, pipeline->layout, context->allocator);
 }

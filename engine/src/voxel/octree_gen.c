@@ -33,6 +33,9 @@ b8 box_load_voxel_model(const char* filepath, box_octree* out_octree) {
 		return FALSE;
 	}
 
+	
+
+	platform_free(model.file_data, FALSE);
 	return TRUE;
 }
 

@@ -76,6 +76,11 @@ typedef struct vulkan_graphics_pipeline {
     VkPipelineLayout layout;
 } vulkan_graphics_pipeline;
 
+typedef struct vulkan_compute_pipeline {
+    VkPipeline handle;
+    VkPipelineLayout layout;
+} vulkan_compute_pipeline;
+
 typedef struct vulkan_swapchain {
     VkSurfaceFormatKHR image_format;
     u8 max_frames_in_flight;
