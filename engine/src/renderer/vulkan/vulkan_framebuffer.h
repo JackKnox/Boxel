@@ -2,7 +2,7 @@
 
 #include "defines.h"
 
-#include "vulkan_types.inl"
+#include "vulkan_types.h"
 
 void vulkan_framebuffer_create(
     vulkan_context* context,

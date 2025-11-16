@@ -2,7 +2,7 @@
 
 #include "defines.h"
 
-#include "vulkan_types.inl"
+#include "vulkan_types.h"
 
 b8 vulkan_renderpass_create(
     vulkan_context* context,
@@ -15,7 +15,6 @@ void vulkan_renderpass_destroy(vulkan_context* context, vulkan_renderpass* rende
 void vulkan_renderpass_begin(
     vulkan_command_buffer* command_buffer,
     vulkan_renderpass* renderpass,
-    f32 r, f32 g, f32 b, f32 a,
     VkFramebuffer frame_buffer);
 
 void vulkan_renderpass_end(vulkan_command_buffer* command_buffer, vulkan_renderpass* renderpass);

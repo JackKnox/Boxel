@@ -12,6 +12,7 @@ b8 vulkan_renderpass_create(
     out_renderpass->w = w;
     out_renderpass->h = h;
 
+    out_renderpass->clear_colour = 0x191919FF;
     out_renderpass->depth = depth;
     out_renderpass->stencil = stencil;
 
@@ -118,7 +119,6 @@ void vulkan_renderpass_destroy(vulkan_context* context, vulkan_renderpass* rende
 void vulkan_renderpass_begin(
     vulkan_command_buffer* command_buffer,
     vulkan_renderpass* renderpass,
-    f32 r, f32 g, f32 b, f32 a,
     VkFramebuffer frame_buffer) {
     VkRenderPassBeginInfo begin_info = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
     begin_info.renderPass = renderpass->handle;
@@ -130,10 +130,10 @@ void vulkan_renderpass_begin(
 
     VkClearValue clear_values[2];
     platform_zero_memory(clear_values, sizeof(VkClearValue) * 2);
-    clear_values[0].color.float32[0] = r;
-    clear_values[0].color.float32[1] = g;
-    clear_values[0].color.float32[2] = b;
-    clear_values[0].color.float32[3] = a;
+    clear_values[0].color.float32[0] = ((renderpass->clear_colour >> 24) & 0xFF) / 255.0f;
+    clear_values[0].color.float32[1] = ((renderpass->clear_colour >> 16) & 0xFF) / 255.0f;
+    clear_values[0].color.float32[2] = ((renderpass->clear_colour >> 8)  & 0xFF) / 255.0f;
+    clear_values[0].color.float32[3] = ((renderpass->clear_colour)       & 0xFF) / 255.0f;
     clear_values[1].depthStencil.depth = renderpass->depth;
     clear_values[1].depthStencil.stencil = renderpass->stencil;
 

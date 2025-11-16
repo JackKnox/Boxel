@@ -3,8 +3,9 @@
 
 #include "engine.h"
 #include "platform/filesystem.h"
+#include "renderer/renderer_cmd.h"
 
-#include "vulkan_types.inl"
+#include "vulkan_types.h"
 #include "vulkan_device.h"
 #include "vulkan_swapchain.h"
 #include "vulkan_renderpass.h"
@@ -38,7 +39,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
 	return VK_FALSE;
 }
 
-b8 vulkan_renderer_backend_initialize(renderer_backend* backend, renderer_backend_config* config) {
+b8 vulkan_renderer_backend_initialize(renderer_backend* backend, const char* application_name, renderer_backend_config* config) {
 	backend->internal_context = platform_allocate(sizeof(vulkan_context), FALSE);
 	platform_zero_memory(backend->internal_context, sizeof(vulkan_context));
 
@@ -49,7 +50,7 @@ b8 vulkan_renderer_backend_initialize(renderer_backend* backend, renderer_backen
 	
 	VkApplicationInfo app_info = { VK_STRUCTURE_TYPE_APPLICATION_INFO };
 	app_info.apiVersion = VK_API_VERSION_1_2;
-	app_info.pApplicationName = context->config->application_name;
+	app_info.pApplicationName = application_name;
 	app_info.applicationVersion = VK_MAKE_API_VERSION(0, 1, 0, 0);
 	app_info.engineVersion = VK_MAKE_API_VERSION(0, 0, 1, 0);
 	app_info.pEngineName = "Boxel";
@@ -291,19 +292,9 @@ b8 vulkan_renderer_backend_begin_frame(renderer_backend* backend, box_rendercmd*
 
 	vkCmdSetViewport(cmd->handle, 0, 1, &viewport);
 	vkCmdSetScissor(cmd->handle, 0, 1, &scissor);
-
+	
 	context->main_renderpass.w = context->config->framebuffer_width;
 	context->main_renderpass.h = context->config->framebuffer_height;
-
-	// Begin the render pass.
-	vulkan_renderpass_begin(
-		cmd,
-		&context->main_renderpass,
-		frame_cmd->clear_r, frame_cmd->clear_g, frame_cmd->clear_b, 1.0f,
-		context->swapchain.framebuffers[context->image_index].handle);
-
-	vulkan_graphics_pipeline_bind(cmd, &context->graphics_pipeline);
-
 	return TRUE;
 }
 
@@ -311,9 +302,6 @@ b8 vulkan_renderer_backend_end_frame(renderer_backend* backend) {
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 	vulkan_command_buffer* cmd = &context->graphics_command_buffers[context->current_frame];
 
-	vkCmdDraw(cmd->handle, 3, 1, 0, 0);
-
-	vulkan_renderpass_end(cmd, &context->main_renderpass);
 	vulkan_command_buffer_end(cmd);
 
 	// Submit into queues
@@ -322,12 +310,12 @@ b8 vulkan_renderer_backend_end_frame(renderer_backend* backend) {
 	VkSemaphore signal_semaphores[] = { context->queue_complete_semaphores[context->current_frame] };
 
 	VkSubmitInfo submit_info = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
-	submit_info.waitSemaphoreCount = 1;
+	submit_info.waitSemaphoreCount = BX_ARRAYSIZE(wait_semaphores);
 	submit_info.pWaitSemaphores = wait_semaphores;
 	submit_info.pWaitDstStageMask = wait_stages;
 	submit_info.commandBufferCount = 1;
 	submit_info.pCommandBuffers = &cmd->handle;
-	submit_info.signalSemaphoreCount = 1;
+	submit_info.signalSemaphoreCount = BX_ARRAYSIZE(signal_semaphores);
 	submit_info.pSignalSemaphores = signal_semaphores;
 
 	VK_CHECK(vkQueueSubmit(context->device.graphics_queue, 1, &submit_info,

@@ -2,7 +2,7 @@
 
 #include "defines.h"
 
-#include "vulkan_types.inl"
+#include "vulkan_types.h"
 #include "platform/filesystem.h"
 
 b8 vulkan_graphics_pipeline_create(

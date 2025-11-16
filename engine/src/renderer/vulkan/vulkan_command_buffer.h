@@ -2,7 +2,7 @@
 
 #include "defines.h"
 
-#include "vulkan_types.inl"
+#include "vulkan_types.h"
 
 void vulkan_command_buffer_allocate(
     vulkan_context* context,
