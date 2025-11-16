@@ -89,6 +89,11 @@ void box_engine_render_frame(box_engine* engine, box_rendercmd* command) {
 	engine->command = *command;
 }
 
+box_rendercmd* box_engine_next_rendercmd(box_engine* engine) {
+	// TODO: Should be some kind of queue + thread safety pls.
+	return &engine->command;
+}
+
 void box_destroy_engine(box_engine* engine) {
 	if (!engine) return;
 
