@@ -2,8 +2,6 @@
 
 #include "defines.h"
 
-#include "renderer_cmd.h"
-
 // Type for Graphics API/Method.
 typedef enum renderer_backend_type {
     RENDERER_BACKEND_TYPE_VULKAN,
@@ -31,8 +29,6 @@ typedef struct renderer_capabilities {
 
 // Configuration for render backend.
 typedef struct renderer_backend_config {
-    const char* application_name;
-
     // Chosen type of API.
     renderer_backend_type api_type;
 
@@ -67,20 +63,17 @@ typedef struct renderer_backend_config {
     u32 framebuffer_height;
 } renderer_backend_config;
 
-struct box_engine;
-struct box_platform;
-
 typedef struct renderer_backend {
     void* internal_context;
     struct box_platform* plat_state;
 
-    b8 (*initialize)(struct renderer_backend* backend, renderer_backend_config* config);
+    b8 (*initialize)(struct renderer_backend* backend, const char* application_name, renderer_backend_config* config);
 
     void (*shutdown)(struct renderer_backend* backend);
 
     void (*resized)(struct renderer_backend* backend, u32 width, u32 height);
 
-    b8 (*begin_frame)(struct renderer_backend* backend, box_rendercmd* frame_cmd, f32 delta_time);
+    b8 (*begin_frame)(struct renderer_backend* backend, struct box_rendercmd* frame_cmd, f32 delta_time);
     b8 (*end_frame)(struct renderer_backend* backend);
 } renderer_backend;
 

@@ -2,7 +2,7 @@
 #include "engine_private.h"
 
 // Sleep helper
-static void sleep_for_ms(long ms) {
+void sleep_for_ms(long ms) {
 	if (ms <= 0) return;
 	struct timespec ts;
 	ts.tv_sec = ms / 1000;
@@ -23,11 +23,10 @@ b8 engine_thread_init(box_engine* e) {
 		return FALSE;
 	}
 
-	e->config.render_config.application_name = e->config.title;
-	e->config.render_config.framebuffer_width = e->config.start_width;
-	e->config.render_config.framebuffer_height = e->config.start_height;
+	e->config.render_config.framebuffer_width = e->config.window_size.x;
+	e->config.render_config.framebuffer_height = e->config.window_size.y;
 
-	if (!e->render_state.initialize(&e->render_state, &e->config.render_config)) {
+	if (!e->render_state.initialize(&e->render_state, e->config.title, &e->config.render_config)) {
 		BX_ERROR("Something went wrong with render backend, exiting...");
 		return FALSE;
 	}

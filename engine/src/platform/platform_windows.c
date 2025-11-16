@@ -17,14 +17,15 @@ typedef struct internal_state {
 	GLFWwindow* window;
 } internal_state;
 
-static void GLFWErrorCallback(int error, const char* description)
-{
+void GLFWErrorCallback(int error, const char* description) {
 	BX_ERROR("%s", description);
 }
 
 b8 on_window_close(GLFWwindow* window) {
-	event_context data = {};
+	event_context data = {0};
 	event_fire(EVENT_CODE_APPLICATION_QUIT, 0, data);
+
+	return FALSE;
 }
 
 b8 platform_start(box_platform* plat_state, box_config* app_config) {
@@ -41,7 +42,9 @@ b8 platform_start(box_platform* plat_state, box_config* app_config) {
 	}
 
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	state->window = glfwCreateWindow(app_config->start_width, app_config->start_height, app_config->title, NULL, NULL);
+	glfwWindowHint(GLFW_POSITION_X, app_config->window_position.x);
+	glfwWindowHint(GLFW_POSITION_Y, app_config->window_position.y);
+	state->window = glfwCreateWindow(app_config->window_size.x, app_config->window_size.y, app_config->title, NULL, NULL);
 	if (!state->window)
 	{
 		BX_ERROR("Could not create GLFW window");

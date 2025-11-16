@@ -3,7 +3,9 @@
 #include "defines.h"
 
 #include "engine.h"
-#include "renderer/renderer_backend.h"
+
+#include "platform/platform.h"
+#include "renderer/renderer_cmd.h"
 
 typedef struct box_engine {
 	b8 is_running;

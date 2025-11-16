@@ -77,6 +77,25 @@ typedef union vec4 {
     };
 } vec4;
 
+// A unsigned integer 2-element vector.
+typedef union uvec2 {
+    u32 elements[2];
+    struct {
+        union {
+            u32 x,
+                r,
+                s,
+                u;
+        };
+        union {
+            u32 y,
+                g,
+                t,
+                v;
+        };
+    };
+} uvec2;
+
 // A unsigned interger 3-element vector.
 typedef union uvec3 {
     u32 elements[3];

@@ -3,9 +3,8 @@
 
 #include <string.h>
 
-b8 check_vox_header(file_handle* handle) {
+b8 check_vox_header(file_handle* handle, u32* out_version) {
 	char header[4];
-	u32 version = 0;
 	
 	if (!filesystem_read(handle, sizeof(header), header, NULL) && 
 		memcmp(header, "VOX", sizeof(header)) != 0) {
@@ -13,16 +12,16 @@ b8 check_vox_header(file_handle* handle) {
 		return FALSE;
 	}
 
-	if (!filesystem_read(handle, sizeof(version), &version, NULL)) {
+	if (!filesystem_read(handle, sizeof(*out_version), out_version, NULL)) {
 		BX_ERROR("Cannot read VOX format version.");
 		return FALSE;
 	}
-
+    
 	return TRUE;
 }
 
 b8 load_vox_format(file_handle* handle, voxel_model* out_model) {
-    if (!check_vox_header(handle)) {
+    if (!check_vox_header(handle, &out_model->file_version)) {
         BX_ERROR("Cannot open file using the VOX format.");
         return FALSE;
     }
@@ -77,7 +76,7 @@ b8 load_vox_format(file_handle* handle, voxel_model* out_model) {
                 u8 v[4];
                 filesystem_read(handle, 4, v, NULL);
                 u32 index = (v[2] * out_model->model_size.y * out_model->model_size.x) + (v[1] * out_model->model_size.x) + v[0];
-                out_model->file_data[index].packed_colour = out_model->palette[v[3] - 1]; // palette index is 1-based
+                out_model->file_data[index].packed_colour = v[3] - 1; // palette index is 1-based
             }
         }
         else if (memcmp(chunk_id, "RGBA", 4) == 0) {

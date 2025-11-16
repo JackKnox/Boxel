@@ -6,23 +6,20 @@
 
 // Application configuration
 typedef struct box_config {
-	// Window starting position x axis.
-	u32 start_pos_x;
+	// Window starting position.
+	uvec2 window_position;
 
-	// Window starting position y axis.
-	u32 start_pos_y;
-
-	// Window starting width.
-	u32 start_width;
-
-	// Window starting height.
-	u32 start_height;
+	// Window starting size.
+	uvec2 window_size;
 
 	// The application name used in windowing.
 	const char* title;
 
-	// FPS to lock render thread too.
+	// FPS to lock render thread to.
 	u32 target_fps;
+
+	// Hides main window until first frame is submitted.
+	b8 hide_until_frame;
 
 	// Configuration for render backend.
 	renderer_backend_config render_config;
@@ -34,7 +31,7 @@ typedef struct box_engine box_engine;
 // Sets default configurtion for Boxel.
 box_config box_default_config();
 
-// Creates and initializes the boxel engine.
+// Creates and initializes the boxel engine, Consumes specified box_config.
 box_engine* box_create_engine(box_config* app_config);
 
 // Checks if specified engine is currently running.

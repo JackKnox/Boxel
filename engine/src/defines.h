@@ -83,6 +83,8 @@ STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes.");
 #error "Unknown platform!"
 #endif
 
+#define BX_OFFSETOF(s, m) (&(((s*)0)->m))
+
 #define BX_CLAMP(value, min, max) ((value <= min) ? min : (value >= max) ? max \
                                                                          : value)
 
@@ -91,6 +93,8 @@ STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes.");
 
 #define BX_ARRAYSIZE(arr) (sizeof(arr) / sizeof(*arr))
 
-#include "platform/platform.h"
 #include "logger.h"
+
+#include "platform/platform.h"
 #include "utils/event.h"
+#include "utils/math_types.h"

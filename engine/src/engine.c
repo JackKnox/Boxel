@@ -8,12 +8,11 @@
 
 box_config box_default_config() {
 	box_config configuration = {0}; // fill with zeros
-	configuration.start_pos_x = 0;
-	configuration.start_pos_y = 0;
-	configuration.start_width = 640;
-	configuration.start_height = 360;
+	configuration.window_size.x = 640;
+	configuration.window_size.y = 360;
 	configuration.title = "Boxel Sandbox";
 	configuration.target_fps = 60;
+	configuration.hide_until_frame = FALSE;
 
 	configuration.render_config.api_type = RENDERER_BACKEND_TYPE_VULKAN;
 	configuration.render_config.enable_validation = TRUE;
@@ -99,5 +98,7 @@ void box_destroy_engine(box_engine* engine) {
 	}
 
 	event_shutdown();
+
+	darray_destroy(engine->config.render_config.required_extensions);
 	platform_free(engine, FALSE);
 }

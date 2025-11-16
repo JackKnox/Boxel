@@ -20,9 +20,7 @@ typedef struct event_system_state {
     event_code_entry registered[MAX_MESSAGE_CODES];
 } event_system_state;
 
-/**
- * Event system internal state.
- */
+// Event system internal state.
 static b8 is_initialized = FALSE;
 static event_system_state state;
 
@@ -30,11 +28,9 @@ b8 event_initialize() {
     if (is_initialized == TRUE) {
         return FALSE;
     }
-    is_initialized = FALSE;
+
     platform_zero_memory(&state, sizeof(state));
-
     is_initialized = TRUE;
-
     return TRUE;
 }
 
