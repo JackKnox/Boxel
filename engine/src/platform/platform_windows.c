@@ -95,10 +95,10 @@ void platform_console_write(const char* message, u8 colour) {
 	// ERROR,WARN,INFO,TRACE
 	static u8 levels[6] = { 4, 6, 2, 8 };
 	SetConsoleTextAttribute(console_handle, levels[colour]);
-	OutputDebugStringA(message);
+	OutputDebugString(message);
 	u64 length = strlen(message);
 	LPDWORD number_written = 0;
-	WriteConsoleA(GetStdHandle(STD_OUTPUT_HANDLE), message, (DWORD)length, number_written, 0);
+	WriteConsole(console_handle, message, (DWORD)length, number_written, 0);
 }
 
 void platform_console_write_error(const char* message, u8 colour) {

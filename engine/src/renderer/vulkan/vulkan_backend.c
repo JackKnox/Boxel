@@ -16,6 +16,9 @@
 
 b8 platform_create_vulkan_surface(VkInstance instance, box_platform* plat_state, const struct VkAllocationCallbacks* allocator, VkSurfaceKHR* out_surface);
 
+b8 vulkan_regenerate_framebuffer(vulkan_context* context);
+b8 vulkan_create_command_buffers(vulkan_context* context);
+
 VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
 	VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
 	VkDebugUtilsMessageTypeFlagsEXT message_types,
@@ -154,8 +157,8 @@ b8 vulkan_renderer_backend_initialize(renderer_backend* backend, const char* app
 	}
 
 	context->swapchain.framebuffers = darray_reserve(vulkan_framebuffer, context->swapchain.image_count);
-	vulkan_regenerate_framebuffer(backend);
-	vulkan_create_command_buffers(backend);
+	vulkan_regenerate_framebuffer(context);
+	vulkan_create_command_buffers(context);
 
 	// Create sync objects.
 	context->image_available_semaphores = darray_reserve(VkSemaphore, context->swapchain.max_frames_in_flight);
@@ -249,7 +252,7 @@ void vulkan_renderer_backend_shutdown(renderer_backend* backend) {
 void vulkan_renderer_backend_on_resized(renderer_backend* backend, u32 width, u32 height) {
 }
 
-b8 vulkan_renderer_backend_begin_frame(renderer_backend* backend, box_rendercmd* frame_cmd, f32 delta_time) {
+b8 vulkan_renderer_backend_begin_frame(renderer_backend* backend, f32 delta_time) {
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 
 	// Wait for this frame's fence (NOT image index)
@@ -302,6 +305,9 @@ b8 vulkan_renderer_backend_end_frame(renderer_backend* backend) {
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 	vulkan_command_buffer* cmd = &context->graphics_command_buffers[context->current_frame];
 
+	vulkan_renderpass_begin(cmd, &context->main_renderpass, &context->swapchain.framebuffers[context->image_index]);
+	vulkan_renderpass_end(cmd, &context->main_renderpass);
+
 	vulkan_command_buffer_end(cmd);
 
 	// Submit into queues
@@ -333,9 +339,7 @@ b8 vulkan_renderer_backend_end_frame(renderer_backend* backend) {
 	return TRUE;
 }
 
-b8 vulkan_regenerate_framebuffer(renderer_backend* backend) {
-	vulkan_context* context = (vulkan_context*)backend->internal_context;
-
+b8 vulkan_regenerate_framebuffer(vulkan_context* context) {
 	for (u32 i = 0; i < context->swapchain.image_count; ++i) {
 		// TODO: make this dynamic based on the currently configured attachments
 		u32 attachment_count = 2;
@@ -356,9 +360,7 @@ b8 vulkan_regenerate_framebuffer(renderer_backend* backend) {
 	return TRUE;
 }
 
-b8 vulkan_create_command_buffers(renderer_backend* backend) {
-	vulkan_context* context = (vulkan_context*)backend->internal_context;
-
+b8 vulkan_create_command_buffers(vulkan_context* context) {
 	if (!context->graphics_command_buffers) {
 		context->graphics_command_buffers = darray_reserve(vulkan_command_buffer, context->swapchain.image_count);
 	}
@@ -381,5 +383,38 @@ b8 vulkan_create_command_buffers(renderer_backend* backend) {
 	}
 
 	BX_TRACE("Vulkan command buffers created.");
+	return TRUE;
+}
+
+b8 vulkan_renderer_backend_playback_rendercmd(renderer_backend* backend, box_rendercmd* command) {
+	vulkan_context* context = (vulkan_context*)backend->internal_context;
+	vulkan_command_buffer* cmd = &context->graphics_command_buffers[context->current_frame];
+
+	vulkan_renderpass* current_renderpass = &context->main_renderpass;
+	vulkan_framebuffer* current_framebuffer = &context->swapchain.framebuffers[context->image_index];
+
+	u64 pos = 0;
+	const u64 end = command->size;
+
+	while (pos + sizeof(rendercmd_header) <= end) {
+		// Get header for render command
+		rendercmd_header* header = (rendercmd_header*)((u8*)command->buffer + pos);
+		pos += align_up_u64(sizeof(header), 8u);
+
+		// basic validation
+		if (pos + header->payload_size > end) {
+			// corrupted or partial buffer — either drop or handle error for safety, break out.
+			// In debug, you might assert or log.
+			break;
+		}
+
+		const u8* payload = (u8*)command->buffer + pos;
+		switch (header->type) {
+			case RENDERCMD_SET_CLEAR_COLOUR:
+				current_renderpass->clear_colour = *(u32*)payload;
+				break;
+		}
+	}
+
 	return TRUE;
 }

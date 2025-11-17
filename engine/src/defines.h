@@ -18,7 +18,7 @@ typedef double f64;
 
 // Boolean types
 typedef int b32;
-typedef char b8;
+typedef _Bool b8;
 
 // Properly define static assertions.
 #if defined(__clang__) || defined(__gcc__)
@@ -92,6 +92,10 @@ STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes.");
 #define BX_MAX(x, y) (x > y ? x : y)
 
 #define BX_ARRAYSIZE(arr) (sizeof(arr) / sizeof(*arr))
+
+static u64 align_up_u64(u64 v, u64 align) {
+    return (v + (align - 1)) & ~(align - 1);
+}
 
 #include "logger.h"
 

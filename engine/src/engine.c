@@ -23,12 +23,12 @@ box_config box_default_config() {
 	return configuration;
 }
 
-int render_thread_loop(void* arg) {
+int engine_thread_loop(void* arg) {
 	if (!arg) return thrd_error;
 	box_engine* e = (box_engine*)arg; 
 
 	if (!engine_thread_init(e)) {
-		BX_ERROR("Could not init engine thread, exiting...");
+		BX_ERROR("Engine thread failed, exiting...");
 		e->should_quit = TRUE;
 	}
 
@@ -59,6 +59,9 @@ box_engine* box_create_engine(box_config* app_config) {
 	e->should_quit = FALSE;
 	e->config = *app_config;
 
+	e->command_queue = darray_reserve(box_rendercmd, engine_frame_count(e));
+	e->frame_ready = FALSE;
+
 	if (!event_initialize()) {
 		BX_ERROR("Event system failed initialization. Engine cannot continue.");
 		return FALSE;
@@ -66,7 +69,19 @@ box_engine* box_create_engine(box_config* app_config) {
 
 	event_register(EVENT_CODE_APPLICATION_QUIT, e, engine_on_application_quit);
 
-	if (thrd_create(&e->render_thread, render_thread_loop, e) != thrd_success) {
+	if (mtx_init(&e->rendercmd_mutex, mtx_plain) != thrd_success) {
+		BX_ERROR("Could not create mutex required for rendercmd's");
+		box_destroy_engine(e);
+		return NULL;
+	}
+
+	if (cnd_init(&e->rendercmd_cv) != thrd_success) {
+		BX_ERROR("Could not create condition var required for rendercmd's");
+		box_destroy_engine(e);
+		return NULL;
+	}
+
+	if (thrd_create(&e->render_thread, engine_thread_loop, e) != thrd_success) {
 		// Couldn't start render thread, exiting...
 		box_destroy_engine(e);
 		return NULL;
@@ -85,13 +100,16 @@ const box_config* box_engine_get_config(box_engine* engine) {
 }
 
 void box_engine_render_frame(box_engine* engine, box_rendercmd* command) {
-	// TODO: Should be some kind of queue.
-	engine->command = *command;
+	mtx_lock(&engine->rendercmd_mutex);
+
+	engine->frame_ready = TRUE;
+	engine->game_write_idx = (engine->game_write_idx + 1) % engine_frame_count(engine);
+	cnd_signal(&engine->rendercmd_cv);
+	mtx_unlock(&engine->rendercmd_mutex);
 }
 
 box_rendercmd* box_engine_next_rendercmd(box_engine* engine) {
-	// TODO: Should be some kind of queue + thread safety pls.
-	return &engine->command;
+	return &engine->command_queue[engine->game_write_idx];
 }
 
 void box_destroy_engine(box_engine* engine) {
@@ -104,6 +122,10 @@ void box_destroy_engine(box_engine* engine) {
 
 	event_shutdown();
 
+	mtx_destroy(&engine->rendercmd_mutex);
+	cnd_destroy(&engine->rendercmd_cv);
+
 	darray_destroy(engine->config.render_config.required_extensions);
+	darray_destroy(engine->command_queue);
 	platform_free(engine, FALSE);
 }

@@ -4,16 +4,6 @@
 #include "engine.h"
 #include "renderer/renderer_types.h"
 
-typedef struct {
-    rendercmd_type type;
-    u64 payload_size;
-} rendercmd_header;
-
-// alignment helper (power-of-two friendly)
-u64 align_up_u64(u64 v, u64 align) {
-    return (v + (align - 1)) & ~(align - 1);
-}
-
 void verify_size(box_rendercmd* cmd, u64 required_size) {
     if (cmd->capacity >= required_size) return;
 
@@ -23,7 +13,7 @@ void verify_size(box_rendercmd* cmd, u64 required_size) {
     u8* new_buffer = platform_allocate(new_size, FALSE);
 
     if (cmd->buffer && cmd->size > 0) {
-        memcpy(new_buffer, cmd->buffer, cmd->size);
+        platform_copy_memory(new_buffer, cmd->buffer, cmd->size);
         platform_free(cmd->buffer, FALSE);
     }
 
@@ -34,29 +24,34 @@ void verify_size(box_rendercmd* cmd, u64 required_size) {
 void add_commmand(box_rendercmd* cmd, rendercmd_type type, const void* payload, u64 size) {
     if (!cmd) return;
 
-    const u64 align = 8; // align commands to 8 bytes
     const u64 header_size = sizeof(rendercmd_header);
 
-    u64 start = align_up_u64(cmd->size, align);
-
+    u64 start = cmd->size;
     u64 total = header_size + size;
-    verify_size(cmd, start + total);
 
+    verify_size(cmd, start + total);
     u8* base = (u8*)cmd->buffer;
 
     // write header
     rendercmd_header hdr;
     hdr.type = type;
     hdr.payload_size = size;
-    memcpy(base + start, &hdr, header_size);
+    platform_copy_memory(base + start, &hdr, header_size);
 
     // write payload if present
     if (size > 0 && payload != NULL) {
-        memcpy(base + start + header_size, payload, size);
+        platform_copy_memory(base + start + header_size, payload, size);
     }
 
     // advance size to the end of the written command
     cmd->size = start + total;
+}
+
+void box_rendercmd_reset(box_rendercmd* cmd) {
+    cmd->size = 0;
+
+    if (cmd->buffer)
+        platform_zero_memory(cmd->buffer, cmd->capacity);
 }
 
 void box_rendercmd_set_clear_colour(box_rendercmd* cmd, f32 clear_r, f32 clear_g, f32 clear_b) {
@@ -74,6 +69,7 @@ void box_rendercmd_begin_renderstage(box_rendercmd* cmd, const char* vertex_shad
     if (!cmd) return;
 
     // TOOD: Duplicate shader paths into buffer
+    add_commmand(cmd, RENDERCMD_BEGIN_RENDERSTAGE, NULL, 0);
 }
 
 void box_rendercmd_set_vertex_buffer(box_rendercmd* cmd, box_vertexbuffer* vertex_buf) {

@@ -119,10 +119,10 @@ void vulkan_renderpass_destroy(vulkan_context* context, vulkan_renderpass* rende
 void vulkan_renderpass_begin(
     vulkan_command_buffer* command_buffer,
     vulkan_renderpass* renderpass,
-    VkFramebuffer frame_buffer) {
+    vulkan_framebuffer* frame_buffer) {
     VkRenderPassBeginInfo begin_info = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
     begin_info.renderPass = renderpass->handle;
-    begin_info.framebuffer = frame_buffer;
+    begin_info.framebuffer = frame_buffer->handle;
     begin_info.renderArea.offset.x = renderpass->x;
     begin_info.renderArea.offset.y = renderpass->y;
     begin_info.renderArea.extent.width = renderpass->w;
