@@ -90,6 +90,7 @@ const box_config* box_engine_get_config(box_engine* engine) {
 }
 
 box_rendercmd* box_engine_next_rendercmd(box_engine* engine) {
+	box_rendercmd_reset(&engine->command_queue[engine->game_write_idx]);
 	return &engine->command_queue[engine->game_write_idx];
 }
 

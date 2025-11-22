@@ -41,9 +41,10 @@ b8 platform_start(box_platform* plat_state, box_config* app_config) {
 		return FALSE;
 	}
 
-	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	glfwWindowHint(GLFW_POSITION_X, app_config->window_position.x);
-	glfwWindowHint(GLFW_POSITION_Y, app_config->window_position.y);
+	glfwWindowHint(GLFW_CLIENT_API, app_config->render_config.api_type == RENDERER_BACKEND_TYPE_OPENGL ? GLFW_OPENGL_API : GLFW_NO_API);
+	if (app_config->window_position.x != 0) glfwWindowHint(GLFW_POSITION_X, app_config->window_position.x);
+	if (app_config->window_position.y != 0) glfwWindowHint(GLFW_POSITION_Y, app_config->window_position.y);
+
 	state->window = glfwCreateWindow(app_config->window_size.x, app_config->window_size.y, app_config->title, NULL, NULL);
 	if (!state->window)
 	{

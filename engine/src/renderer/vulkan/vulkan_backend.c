@@ -1,4 +1,4 @@
-#include "defines.h"
+﻿#include "defines.h"
 #include "vulkan_backend.h"
 
 #include "engine.h"
@@ -305,7 +305,30 @@ b8 vulkan_renderer_playback_rendercmd(renderer_backend* backend, box_rendercmd* 
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 	vulkan_command_buffer* cmd = &context->graphics_command_buffers[context->current_frame];
 
-	context->main_renderpass.clear_colour = rendercmd->clear_colour;
+	u64 cursor = 0;
+	u64 end = rendercmd->size;
+
+	while (cursor + sizeof(rendercmd_header) <= end) {
+		// Get header for render command
+		rendercmd_header* header = (rendercmd_header*)((u8*)rendercmd->buffer + cursor);
+		cursor += sizeof(rendercmd_header);
+
+		// basic validation
+		if (cursor + header->payload_size > end) {
+			// Corrupted or partial buffer either drop or handle error for safety, break out.
+			// In debug, you might assert or log.
+			break;
+		}
+
+		const u8* payload = (u8*)rendercmd->buffer + cursor;
+		switch (header->type) {
+			case RENDERCMD_SET_CLEAR_COLOUR:
+				context->main_renderpass.clear_colour = *(u32*)payload;
+				break;
+		}
+
+		cursor += header->payload_size;
+	}
 
 	vulkan_renderpass_begin(cmd, &context->main_renderpass, &context->swapchain.framebuffers[context->image_index]);
 	vulkan_renderpass_end(cmd, &context->main_renderpass);

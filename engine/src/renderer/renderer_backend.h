@@ -35,7 +35,7 @@ typedef struct renderer_backend_config {
     /// Enabled queues for backend to use.
     b8 graphics, compute, transfer, present;
 
-    // Enable three buffers on swapchain.
+    // Frame count for swapchain, must be greater than 1.
     u32 swapchain_frame_count;
 
     // Send validation messages through out engine.

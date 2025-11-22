@@ -242,21 +242,21 @@ b8 select_physical_device(vulkan_context* context) {
             BX_INFO("Selected device: '%s'.", capabilities.device_name);
 
             // GPU type, etc.
-            switch ((VkPhysicalDeviceType)capabilities.device_type) {
+            switch (capabilities.device_type) {
                 default:
-                case VK_PHYSICAL_DEVICE_TYPE_OTHER:
+                case RENDERER_DEVICE_TYPE_OTHER:
                     BX_INFO("GPU type is Unknown.");
                     break;
-                case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
+                case RENDERER_DEVICE_TYPE_INTEGRATED_GPU:
                     BX_INFO("GPU type is Integrated.");
                     break;
-                case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
+                case RENDERER_DEVICE_TYPE_DISCRETE_GPU:
                     BX_INFO("GPU type is Descrete.");
                     break;
-                case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
+                case RENDERER_DEVICE_TYPE_VIRTUAL_GPU:
                     BX_INFO("GPU type is Virtual.");
                     break;
-                case VK_PHYSICAL_DEVICE_TYPE_CPU:
+                case RENDERER_DEVICE_TYPE_CPU:
                     BX_INFO("GPU type is CPU.");
                     break;
             }
@@ -299,7 +299,7 @@ b8 physical_device_meets_requirements(
     VkPhysicalDeviceMemoryProperties memory;
     vkGetPhysicalDeviceMemoryProperties(device, &memory);
 
-    out_capabilities->device_type = properties.deviceType;
+    out_capabilities->device_type = (renderer_device_type)properties.deviceType;
     strncpy(out_capabilities->device_name, properties.deviceName, sizeof(out_capabilities->device_name));
 
     // Discrete GPU?
