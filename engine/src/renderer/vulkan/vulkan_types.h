@@ -46,12 +46,12 @@ typedef struct vulkan_image {
 } vulkan_image;
 
 typedef enum vulkan_render_pass_state {
-    READY,
-    RECORDING,
-    IN_RENDER_PASS,
-    RECORDING_ENDED,
-    SUBMITTED,
-    NOT_ALLOCATED
+    RENDER_PASS_STATE_READY,
+    RENDER_PASS_STATE_RECORDING,
+    RENDER_PASS_STATE_IN_RENDER_PASS,
+    RENDER_PASS_STATE_RECORDING_ENDED,
+    RENDER_PASS_STATE_SUBMITTED,
+    RENDER_PASS_STATE_NOT_ALLOCATED
 } vulkan_render_pass_state;
 
 typedef struct vulkan_renderpass {

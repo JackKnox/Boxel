@@ -1,6 +1,8 @@
 #include "defines.h"
 #include "engine_private.h"
 
+#include "utils/darray.h"
+
 // Sleep helper
 void sleep_for_ms(long ms) {
 	if (ms <= 0) return;
@@ -43,15 +45,16 @@ b8 engine_thread_init(box_engine* e) {
 		f64 delta_ms = frame_start - e->last_time;
 		e->last_time = frame_start;
 
-		mtx_lock(&e->rendercmd_mutex);
-		while (!e->frame_ready)
-			cnd_wait(&e->rendercmd_cv, &e->rendercmd_mutex);
-
-		e->frame_ready = FALSE;
-		e->render_read_idx = (e->render_read_idx + 1) % engine_frame_count(e);
-		mtx_unlock(&e->rendercmd_mutex);
-
 		if (backend->begin_frame(backend, e->delta_time)) {
+
+			mtx_lock(&e->rendercmd_mutex);
+			while (!e->frame_ready)
+				cnd_wait(&e->rendercmd_cv, &e->rendercmd_mutex);
+
+			e->frame_ready = FALSE;
+			e->render_read_idx = (e->render_read_idx + 1) % darray_capacity(e->command_queue);
+			mtx_unlock(&e->rendercmd_mutex);
+
 			box_rendercmd* command = &e->command_queue[e->render_read_idx];
 			if (!backend->playback_rendercmd(backend, command)) {
 				BX_ERROR("Could not playback render command, exiting...");
@@ -59,9 +62,8 @@ b8 engine_thread_init(box_engine* e) {
 				return FALSE;
 			}
 
-			box_rendercmd_reset(command);
-
-			if (!backend->end_frame(backend)) {
+			b8 result = backend->end_frame(backend);
+			if (!result) {
 				BX_ERROR("Could not finish render frame, exiting...");
 				e->should_quit = TRUE;
 				return FALSE;
@@ -91,9 +93,4 @@ void engine_thread_shutdown(box_engine* e) {
 	renderer_backend_destroy(&e->render_state);
 
 	platform_shutdown(&e->platform_state);
-}
-
-u8 engine_frame_count(box_engine* engine) {
-	if (!engine) return 0;
-	return engine->config.render_config.use_triple_buffering + 2;
 }

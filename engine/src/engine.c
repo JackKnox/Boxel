@@ -15,6 +15,7 @@ box_config box_default_config() {
 	configuration.hide_until_frame = FALSE;
 
 	configuration.render_config.api_type = RENDERER_BACKEND_TYPE_VULKAN;
+	configuration.render_config.swapchain_frame_count = 2;
 	configuration.render_config.enable_validation = TRUE;
 	configuration.render_config.graphics = TRUE;
 	configuration.render_config.present = TRUE;
@@ -23,12 +24,12 @@ box_config box_default_config() {
 	return configuration;
 }
 
-int engine_thread_loop(void* arg) {
+int render_thread_loop(void* arg) {
 	if (!arg) return thrd_error;
 	box_engine* e = (box_engine*)arg; 
 
 	if (!engine_thread_init(e)) {
-		BX_ERROR("Engine thread failed, exiting...");
+		BX_ERROR("Could not init engine thread, exiting...");
 		e->should_quit = TRUE;
 	}
 
@@ -52,43 +53,32 @@ b8 engine_on_application_quit(u16 code, void* sender, void* listener_inst, event
 }
 
 box_engine* box_create_engine(box_config* app_config) {
-	box_engine* e = (box_engine*)platform_allocate(sizeof(box_engine), FALSE);    
-	platform_zero_memory(e, sizeof(box_engine));
+	box_engine* engine = (box_engine*)platform_allocate(sizeof(box_engine), FALSE);    
+	platform_zero_memory(engine, sizeof(box_engine));
 
-	e->is_running = FALSE;
-	e->should_quit = FALSE;
-	e->config = *app_config;
-
-	e->command_queue = darray_reserve(box_rendercmd, engine_frame_count(e));
-	e->frame_ready = FALSE;
+	engine->is_running = FALSE;
+	engine->should_quit = FALSE;
+	engine->config = *app_config;
 
 	if (!event_initialize()) {
 		BX_ERROR("Event system failed initialization. Engine cannot continue.");
 		return FALSE;
 	}
 
-	event_register(EVENT_CODE_APPLICATION_QUIT, e, engine_on_application_quit);
+	event_register(EVENT_CODE_APPLICATION_QUIT, engine, engine_on_application_quit);
 
-	if (mtx_init(&e->rendercmd_mutex, mtx_plain) != thrd_success) {
-		BX_ERROR("Could not create mutex required for rendercmd's");
-		box_destroy_engine(e);
-		return NULL;
-	}
+	engine->command_queue = darray_reserve(box_rendercmd, engine->config.render_config.swapchain_frame_count);
+	mtx_init(&engine->rendercmd_mutex, mtx_plain);
+	cnd_init(&engine->rendercmd_cv);
 
-	if (cnd_init(&e->rendercmd_cv) != thrd_success) {
-		BX_ERROR("Could not create condition var required for rendercmd's");
-		box_destroy_engine(e);
-		return NULL;
-	}
-
-	if (thrd_create(&e->render_thread, engine_thread_loop, e) != thrd_success) {
+	if (thrd_create(&engine->render_thread, render_thread_loop, engine) != thrd_success) {
 		// Couldn't start render thread, exiting...
-		box_destroy_engine(e);
+		box_destroy_engine(engine);
 		return NULL;
 	}
 
-	while (!e->is_running && !e->should_quit) {  }
-	return e->should_quit ? NULL : e;
+	while (!engine->is_running && !engine->should_quit) {  }
+	return engine->should_quit ? NULL : engine;
 }
 
 b8 box_engine_is_running(box_engine* engine) {
@@ -99,17 +89,22 @@ const box_config* box_engine_get_config(box_engine* engine) {
 	return &engine->config;
 }
 
+box_rendercmd* box_engine_next_rendercmd(box_engine* engine) {
+	return &engine->command_queue[engine->game_write_idx];
+}
+
 void box_engine_render_frame(box_engine* engine, box_rendercmd* command) {
+	if (&engine->command_queue[engine->game_write_idx] != command) {
+		BX_ERROR("Engine cannot take user-generated rendercmd (Use box_engine_next_rendercmd).");
+		return;
+	}
+
 	mtx_lock(&engine->rendercmd_mutex);
 
 	engine->frame_ready = TRUE;
-	engine->game_write_idx = (engine->game_write_idx + 1) % engine_frame_count(engine);
+	engine->game_write_idx = (engine->game_write_idx + 1) % darray_capacity(engine->command_queue);
 	cnd_signal(&engine->rendercmd_cv);
 	mtx_unlock(&engine->rendercmd_mutex);
-}
-
-box_rendercmd* box_engine_next_rendercmd(box_engine* engine) {
-	return &engine->command_queue[engine->game_write_idx];
 }
 
 void box_destroy_engine(box_engine* engine) {
@@ -122,10 +117,10 @@ void box_destroy_engine(box_engine* engine) {
 
 	event_shutdown();
 
+	darray_destroy(engine->command_queue);
 	mtx_destroy(&engine->rendercmd_mutex);
 	cnd_destroy(&engine->rendercmd_cv);
 
 	darray_destroy(engine->config.render_config.required_extensions);
-	darray_destroy(engine->command_queue);
 	platform_free(engine, FALSE);
 }

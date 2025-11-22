@@ -11,8 +11,9 @@ b8 renderer_backend_create(renderer_backend_type type, struct box_platform* plat
         out_renderer_backend->shutdown = vulkan_renderer_backend_shutdown;
         out_renderer_backend->resized = vulkan_renderer_backend_on_resized;
         out_renderer_backend->begin_frame = vulkan_renderer_backend_begin_frame;
-        out_renderer_backend->playback_rendercmd = vulkan_renderer_backend_playback_rendercmd;
+        out_renderer_backend->playback_rendercmd = vulkan_renderer_playback_rendercmd;
         out_renderer_backend->end_frame = vulkan_renderer_backend_end_frame;
+
         return TRUE;
     }
 
@@ -23,6 +24,7 @@ void renderer_backend_destroy(renderer_backend* renderer_backend) {
     renderer_backend->initialize = 0;
     renderer_backend->shutdown = 0;
     renderer_backend->begin_frame = 0;
+    renderer_backend->playback_rendercmd = 0;
     renderer_backend->end_frame = 0;
     renderer_backend->resized = 0;
 }

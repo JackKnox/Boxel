@@ -301,6 +301,18 @@ b8 vulkan_renderer_backend_begin_frame(renderer_backend* backend, f32 delta_time
 	return TRUE;
 }
 
+b8 vulkan_renderer_playback_rendercmd(renderer_backend* backend, box_rendercmd* rendercmd) {
+	vulkan_context* context = (vulkan_context*)backend->internal_context;
+	vulkan_command_buffer* cmd = &context->graphics_command_buffers[context->current_frame];
+
+	context->main_renderpass.clear_colour = rendercmd->clear_colour;
+
+	vulkan_renderpass_begin(cmd, &context->main_renderpass, &context->swapchain.framebuffers[context->image_index]);
+	vulkan_renderpass_end(cmd, &context->main_renderpass);
+
+	return TRUE;
+}
+
 b8 vulkan_renderer_backend_end_frame(renderer_backend* backend) {
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 	vulkan_command_buffer* cmd = &context->graphics_command_buffers[context->current_frame];

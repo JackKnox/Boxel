@@ -108,12 +108,9 @@ b8 create(vulkan_context* context, VkExtent2D size, vulkan_swapchain* swapchain)
         return FALSE;
     }
 
-    // TODO: Make configurable
-    VkPresentModeKHR present_mode = VK_PRESENT_MODE_FIFO_KHR;
-    swapchain->max_frames_in_flight = 2;
-
     // Choose a swap surface format.
     swapchain->image_format = find_swapchain_format(&context->device.swapchain_support);
+    swapchain->max_frames_in_flight = context->config->swapchain_frame_count;
     
     // Requery swapchain support.
     vulkan_device_query_swapchain_support(
@@ -164,7 +161,7 @@ b8 create(vulkan_context* context, VkExtent2D size, vulkan_swapchain* swapchain)
 
     swapchain_create_info.preTransform = context->device.swapchain_support.capabilities.currentTransform;
     swapchain_create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-    swapchain_create_info.presentMode = present_mode;
+    swapchain_create_info.presentMode = VK_PRESENT_MODE_FIFO_KHR;
     swapchain_create_info.clipped = VK_TRUE;
     swapchain_create_info.oldSwapchain = 0;
 
@@ -223,6 +220,9 @@ b8 create(vulkan_context* context, VkExtent2D size, vulkan_swapchain* swapchain)
 void destroy(vulkan_context* context, vulkan_swapchain* swapchain) {
     vkDeviceWaitIdle(context->device.logical_device);
     vulkan_image_destroy(context, &swapchain->depth_attachment);
+
+    platform_free(swapchain->images, FALSE);
+    platform_free(swapchain->views, FALSE);
 
     // Only destroy the views, not the images, since those are owned by the swapchain and are thus
     // destroyed when it is.

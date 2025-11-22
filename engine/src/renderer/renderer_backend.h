@@ -36,7 +36,7 @@ typedef struct renderer_backend_config {
     b8 graphics, compute, transfer, present;
 
     // Enable three buffers on swapchain.
-    b8 use_triple_buffering;
+    u32 swapchain_frame_count;
 
     // Send validation messages through out engine.
     b8 enable_validation;
@@ -74,7 +74,7 @@ typedef struct renderer_backend {
     void (*resized)(struct renderer_backend* backend, u32 width, u32 height);
 
     b8 (*begin_frame)(struct renderer_backend* backend, f32 delta_time);
-    b8 (*playback_rendercmd)(struct renderer_backend* backend, struct box_rendercmd* command);
+    b8 (*playback_rendercmd)(struct renderer_backend* backend, struct box_rendercmd* rendercmd);
     b8 (*end_frame)(struct renderer_backend* backend);
 } renderer_backend;
 

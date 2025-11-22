@@ -14,14 +14,14 @@ typedef struct box_engine {
 	box_platform platform_state;
 
 	renderer_backend render_state;
+	box_rendercmd* command_queue;
 	thrd_t render_thread;
+
+	// -------- Synchronization stuff --------
+	u64 game_write_idx, render_read_idx;
+	b8 frame_ready;
 	mtx_t rendercmd_mutex;
 	cnd_t rendercmd_cv;
-
-	box_rendercmd* command_queue; // circler queue
-	u32 game_write_idx;
-	u32 render_read_idx;
-	b8 frame_ready;
 
 	f64 last_time;
 	f64 delta_time;
@@ -30,5 +30,3 @@ typedef struct box_engine {
 b8 engine_thread_init(box_engine* engine);
 
 void engine_thread_shutdown(box_engine* engine);
-
-u8 engine_frame_count(box_engine* engine);
