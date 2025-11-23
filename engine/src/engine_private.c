@@ -37,30 +37,61 @@ b8 engine_thread_init(box_engine* e) {
 		? (1000.0 / (double)e->config.target_fps)
 		: 0.0; // ms per frame
 
+	// Send message to main thread to unlock user access to engine
+	// since everthing is initialized
 	e->is_running = TRUE;
+	mtx_lock(&e->rendercmd_mutex);
+	cnd_broadcast(&e->rendercmd_cv);
+	mtx_unlock(&e->rendercmd_mutex);
+
+	// Now that main thread is unlocked, wait until first box_rendercmd
+	// to avoid UB when sending to renderer backend (Vulkan doesn't accept empty command buffers).
+	mtx_lock(&e->rendercmd_mutex);
+	while (!e->first_cmd_sent && !e->should_quit) {
+		cnd_wait(&e->rendercmd_cv, &e->rendercmd_mutex);
+	}
+	mtx_unlock(&e->rendercmd_mutex);
+
+	if (e->should_quit) return FALSE;
+
 	e->last_time = platform_get_absolute_time();
 
 	while (e->is_running && !e->should_quit) {
 		f64 frame_start = platform_get_absolute_time();
 		f64 delta_ms = frame_start - e->last_time;
 		e->last_time = frame_start;
+		e->delta_time = delta_ms;
 
 		if (backend->begin_frame(backend, e->delta_time)) {
-
+			// Get next read index reliably
 			mtx_lock(&e->rendercmd_mutex);
-			while (!e->frame_ready)
-				cnd_wait(&e->rendercmd_cv, &e->rendercmd_mutex);
 
-			e->frame_ready = FALSE;
-			e->render_read_idx = (e->render_read_idx + 1) % darray_capacity(e->command_queue);
+			e->render_read_idx = (e->render_read_idx + 1) % FRAME_COUNT;
+
+			// Wait until the writer has written to that slot (i.e., not equal to write index).
+			while (e->render_read_idx == e->game_write_idx && e->is_running && !e->should_quit) {
+				cnd_wait(&e->rendercmd_cv, &e->rendercmd_mutex);
+			}
+
+			// Grab a snapshot of the command->finished under the lock and then unlock
+			box_rendercmd* command = &e->command_queue[e->render_read_idx];
+			b8 has_finished = command->finished;
 			mtx_unlock(&e->rendercmd_mutex);
 
-			box_rendercmd* command = &e->command_queue[e->render_read_idx];
-			if (!backend->playback_rendercmd(backend, command)) {
-				BX_ERROR("Could not playback render command, exiting...");
-				e->should_quit = TRUE;
-				return FALSE;
+			if (has_finished) {
+				if (!backend->playback_rendercmd(backend, command)) {
+					BX_ERROR("Could not playback render command, exiting...");
+					e->should_quit = TRUE;
+					return FALSE;
+				}
 			}
+
+			// After successful playback:
+			mtx_lock(&e->rendercmd_mutex);
+			command->finished = FALSE; // Mark slot free for reuse
+			// Signal any waiting writer that a slot became available
+			cnd_signal(&e->rendercmd_cv);
+			mtx_unlock(&e->rendercmd_mutex);
 
 			b8 result = backend->end_frame(backend);
 			if (!result) {
@@ -71,7 +102,6 @@ b8 engine_thread_init(box_engine* e) {
 		}
 
 		platform_pump_messages(&e->platform_state);
-		e->delta_time = platform_get_absolute_time() - e->last_time;
 
 		// Throttle FPS if configured (no sleep if 0 = uncapped)
 		if (target_frame_time > 0.0) {

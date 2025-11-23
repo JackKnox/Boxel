@@ -38,8 +38,9 @@ b8 vulkan_graphics_pipeline_create(
 		create_info.pCode = (uint32_t*)file_buffer;
 
 		VkShaderModule module;
-		if (vkCreateShaderModule(context->device.logical_device, &create_info, 
-			context->allocator, &module) != VK_SUCCESS) {
+		if (!vulkan_result_is_success(
+			vkCreateShaderModule(context->device.logical_device, &create_info,
+			context->allocator, &module))) {
 			BX_ERROR("Unable to create shader module: %s.", filepath);
 			platform_free(file_buffer, FALSE);
 			return FALSE;
@@ -145,8 +146,9 @@ b8 vulkan_graphics_pipeline_create(
 	pipelineLayoutInfo.setLayoutCount = 0;
 	pipelineLayoutInfo.pushConstantRangeCount = 0;
 
-	if (vkCreatePipelineLayout(context->device.logical_device,
-		&pipelineLayoutInfo, context->allocator, &out_pipeline->layout) != VK_SUCCESS) {
+	if (!vulkan_result_is_success(
+		vkCreatePipelineLayout(context->device.logical_device,
+		&pipelineLayoutInfo, context->allocator, &out_pipeline->layout))) {
 		BX_ERROR("Failed to create pipeline layout!");
 		return FALSE;
 	}
@@ -173,9 +175,10 @@ b8 vulkan_graphics_pipeline_create(
 	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 	pipelineInfo.basePipelineIndex = -1;
 
-	if (vkCreateGraphicsPipelines(context->device.logical_device,
+	if (!vulkan_result_is_success(
+		vkCreateGraphicsPipelines(context->device.logical_device,
 		VK_NULL_HANDLE, 1, &pipelineInfo, context->allocator,
-		&out_pipeline->handle) != VK_SUCCESS) {
+		&out_pipeline->handle))) {
 		BX_ERROR("Failed to create graphics pipeline!");
 		return FALSE;
 	}
@@ -214,8 +217,9 @@ b8 vulkan_compute_pipeline_create(
 	create_info.pCode = (uint32_t*)file_buffer;
 
 	VkShaderModule module;
-	if (vkCreateShaderModule(context->device.logical_device, &create_info,
-		context->allocator, &module) != VK_SUCCESS) {
+	if (!vulkan_result_is_success(
+		vkCreateShaderModule(context->device.logical_device, &create_info,
+		context->allocator, &module))) {
 		BX_ERROR("Unable to create shader module: %s.", shader_path);
 		platform_free(file_buffer, FALSE);
 		return FALSE;
@@ -237,8 +241,9 @@ b8 vulkan_compute_pipeline_create(
 	pipelineLayoutInfo.setLayoutCount = 0;
 	pipelineLayoutInfo.pushConstantRangeCount = 0;
 
-	if (vkCreatePipelineLayout(context->device.logical_device,
-		&pipelineLayoutInfo, context->allocator, &out_pipeline->layout) != VK_SUCCESS) {
+	if (!vulkan_result_is_success(
+		vkCreatePipelineLayout(context->device.logical_device,
+		&pipelineLayoutInfo, context->allocator, &out_pipeline->layout))) {
 		BX_ERROR("Failed to create pipeline layout!");
 		return FALSE;
 	}

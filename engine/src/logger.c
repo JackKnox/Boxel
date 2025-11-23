@@ -8,7 +8,7 @@
 #define MSG_LENGTH 32000
 
 void log_output(log_level level, const char* message, ...) {
-    const char* level_strings[4] = { "[ERROR]: ", "[WARN]:  ", "[INFO]:  ", "[TRACE]: " };
+    const char* level_strings[] = { "[ERROR]: ", "[WARN]:  ", "[INFO]:  ", "[TRACE]: " };
 
     // Technically imposes a 32k character limit on a single log entry, but...
     // DON'T DO THAT!

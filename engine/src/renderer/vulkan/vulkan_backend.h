@@ -12,6 +12,3 @@ void vulkan_renderer_backend_on_resized(renderer_backend* backend, u32 width, u3
 b8 vulkan_renderer_backend_begin_frame(renderer_backend* backend, f32 delta_time);
 b8 vulkan_renderer_playback_rendercmd(renderer_backend* backend, struct box_rendercmd* rendercmd);
 b8 vulkan_renderer_backend_end_frame(renderer_backend* backend);
-
-b8 vulkan_regenerate_framebuffer(renderer_backend* backend);
-b8 vulkan_create_command_buffers(renderer_backend* backend);

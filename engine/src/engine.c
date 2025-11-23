@@ -58,6 +58,7 @@ box_engine* box_create_engine(box_config* app_config) {
 
 	engine->is_running = FALSE;
 	engine->should_quit = FALSE;
+	engine->first_cmd_sent = FALSE;
 	engine->config = *app_config;
 
 	if (!event_initialize()) {
@@ -67,7 +68,6 @@ box_engine* box_create_engine(box_config* app_config) {
 
 	event_register(EVENT_CODE_APPLICATION_QUIT, engine, engine_on_application_quit);
 
-	engine->command_queue = darray_reserve(box_rendercmd, engine->config.render_config.swapchain_frame_count);
 	mtx_init(&engine->rendercmd_mutex, mtx_plain);
 	cnd_init(&engine->rendercmd_cv);
 
@@ -77,7 +77,12 @@ box_engine* box_create_engine(box_config* app_config) {
 		return NULL;
 	}
 
-	while (!engine->is_running && !engine->should_quit) {  }
+	mtx_lock(&engine->rendercmd_mutex);
+	while (!engine->is_running && !engine->should_quit) {
+		cnd_wait(&engine->rendercmd_cv, &engine->rendercmd_mutex);
+	}
+	mtx_unlock(&engine->rendercmd_mutex);
+
 	return engine->should_quit ? NULL : engine;
 }
 
@@ -102,8 +107,23 @@ void box_engine_render_frame(box_engine* engine, box_rendercmd* command) {
 
 	mtx_lock(&engine->rendercmd_mutex);
 
-	engine->frame_ready = TRUE;
-	engine->game_write_idx = (engine->game_write_idx + 1) % darray_capacity(engine->command_queue);
+	// Signal first rendercmd ever sent
+	if (!engine->first_cmd_sent) {
+		engine->first_cmd_sent = TRUE;
+		cnd_broadcast(&engine->rendercmd_cv);
+	}
+
+	engine->game_write_idx = (engine->game_write_idx + 1) % FRAME_COUNT;
+
+	// If advancing write_idx would equal read_idx, wait until reader consumes
+	while (engine->render_read_idx == engine->game_write_idx && engine->is_running && !engine->should_quit) {
+		cnd_wait(&engine->rendercmd_cv, &engine->rendercmd_mutex);
+	}
+
+	// Mark this command as finished (writer done). Set under lock to guarantee ordering.
+	command->finished = TRUE;
+
+	// Notify the render thread there is something to play back
 	cnd_signal(&engine->rendercmd_cv);
 	mtx_unlock(&engine->rendercmd_mutex);
 }
@@ -111,14 +131,18 @@ void box_engine_render_frame(box_engine* engine, box_rendercmd* command) {
 void box_destroy_engine(box_engine* engine) {
 	if (!engine) return;
 
+	mtx_lock(&engine->rendercmd_mutex);
+
 	engine->should_quit = TRUE;
+	cnd_broadcast(&engine->rendercmd_cv);
+
+	mtx_unlock(&engine->rendercmd_mutex);
 	if (engine->is_running) {
 		thrd_join(engine->render_thread, NULL);
 	}
 
 	event_shutdown();
 
-	darray_destroy(engine->command_queue);
 	mtx_destroy(&engine->rendercmd_mutex);
 	cnd_destroy(&engine->rendercmd_cv);
 

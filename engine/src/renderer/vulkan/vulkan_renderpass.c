@@ -100,8 +100,9 @@ b8 vulkan_renderpass_create(
     render_pass_create_info.pNext = 0;
     render_pass_create_info.flags = 0;
 
-    if (vkCreateRenderPass(context->device.logical_device, &render_pass_create_info,
-        context->allocator, &out_renderpass->handle) != VK_SUCCESS) {
+    if (!vulkan_result_is_success(
+        vkCreateRenderPass(context->device.logical_device, &render_pass_create_info,
+        context->allocator, &out_renderpass->handle))) {
         BX_ERROR("Failed to create Vulkan renderpass");
         return FALSE;
     }

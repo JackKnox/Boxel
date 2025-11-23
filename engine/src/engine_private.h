@@ -7,14 +7,17 @@
 #include "platform/platform.h"
 #include "renderer/renderer_cmd.h"
 
+#define FRAME_COUNT 3
+
 typedef struct box_engine {
 	b8 is_running;
+	b8 first_cmd_sent;
 	b8 should_quit; // TODO: atomic_flag quit_signal
 	box_config config; // Will change to affect the current state
 	box_platform platform_state;
 
 	renderer_backend render_state;
-	box_rendercmd* command_queue;
+	box_rendercmd command_queue[FRAME_COUNT];
 	thrd_t render_thread;
 
 	// -------- Synchronization stuff --------

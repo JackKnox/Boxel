@@ -9,11 +9,15 @@
 #include <vulkan/vulkan.h>
 
 // Checks the given expression's return value against VK_SUCCESS.
-#define VK_CHECK(expr)                       \
-    {                                        \
-        VkResult r = expr;                   \
-        if (r != VK_SUCCESS) __debugbreak(); \
+#define VK_CHECK(expr)                                    \
+    {                                                     \
+        VkResult r = expr;                                \
+        if (!vulkan_result_is_success(r)) __debugbreak(); \
     }
+
+const char* vulkan_result_string(VkResult result, b8 get_extended);
+
+b8 vulkan_result_is_success(VkResult result);
 
 typedef struct vulkan_swapchain_support_info {
     VkSurfaceCapabilitiesKHR capabilities;

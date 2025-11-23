@@ -88,7 +88,7 @@ b8 vulkan_renderer_backend_initialize(renderer_backend* backend, const char* app
 		BX_TRACE("    %s", required_extensions[i]);
 	}
 
-	if (vkCreateInstance(&create_info, context->allocator, &context->instance) != VK_SUCCESS) {
+	if (!vulkan_result_is_success(vkCreateInstance(&create_info, context->allocator, &context->instance))) {
 		BX_ERROR("Failed to create Vulkan instance!");
 		return FALSE;
 	}
@@ -305,33 +305,45 @@ b8 vulkan_renderer_playback_rendercmd(renderer_backend* backend, box_rendercmd* 
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 	vulkan_command_buffer* cmd = &context->graphics_command_buffers[context->current_frame];
 
+	vulkan_renderpass* current_renderpass = &context->main_renderpass;
+	vulkan_framebuffer* current_framebuffer = &context->swapchain.framebuffers[context->image_index];
+
 	u64 cursor = 0;
-	u64 end = rendercmd->size;
+	while (cursor + sizeof(rendercmd_header) <= rendercmd->size) {
+		rendercmd_header* hdr = (rendercmd_header*)((u8*)rendercmd->buffer + cursor);
+		cursor += sizeof(rendercmd_header) + hdr->payload_size;
 
-	while (cursor + sizeof(rendercmd_header) <= end) {
-		// Get header for render command
-		rendercmd_header* header = (rendercmd_header*)((u8*)rendercmd->buffer + cursor);
-		cursor += sizeof(rendercmd_header);
-
-		// basic validation
-		if (cursor + header->payload_size > end) {
-			// Corrupted or partial buffer either drop or handle error for safety, break out.
-			// In debug, you might assert or log.
+		if (cursor > rendercmd->size) {
+			BX_WARN("Buffer overread detected!");
 			break;
 		}
 
 		const u8* payload = (u8*)rendercmd->buffer + cursor;
-		switch (header->type) {
+		switch (hdr->type) {
 			case RENDERCMD_SET_CLEAR_COLOUR:
-				context->main_renderpass.clear_colour = *(u32*)payload;
+				current_renderpass->clear_colour = *(u32*)payload;
+				vulkan_renderpass_begin(cmd, current_renderpass, current_framebuffer);
 				break;
-		}
 
-		cursor += header->payload_size;
+			case RENDERCMD_BEGIN_RENDERSTAGE:
+				vulkan_graphics_pipeline_bind(cmd, &context->graphics_pipeline);
+				break;
+
+			case RENDERCMD_END_RENDERSTAGE:
+				break;
+
+			case RENDERCMD_DRAW:
+				typedef struct { u32 vertex_count; u32 instance_count; } draw_payload;
+				draw_payload* dp = (draw_payload*)payload;
+
+				vkCmdDraw(cmd->handle, dp->vertex_count, dp->instance_count, 0, 0);
+		}
 	}
 
-	vulkan_renderpass_begin(cmd, &context->main_renderpass, &context->swapchain.framebuffers[context->image_index]);
-	vulkan_renderpass_end(cmd, &context->main_renderpass);
+	if (current_renderpass != NULL &&
+		current_renderpass == &context->main_renderpass) {
+		vulkan_renderpass_end(cmd, current_renderpass);
+	}
 
 	return TRUE;
 }
@@ -339,9 +351,6 @@ b8 vulkan_renderer_playback_rendercmd(renderer_backend* backend, box_rendercmd* 
 b8 vulkan_renderer_backend_end_frame(renderer_backend* backend) {
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 	vulkan_command_buffer* cmd = &context->graphics_command_buffers[context->current_frame];
-
-	vulkan_renderpass_begin(cmd, &context->main_renderpass, &context->swapchain.framebuffers[context->image_index]);
-	vulkan_renderpass_end(cmd, &context->main_renderpass);
 
 	vulkan_command_buffer_end(cmd);
 
@@ -438,7 +447,7 @@ b8 vulkan_renderer_backend_playback_rendercmd(renderer_backend* backend, box_ren
 
 		// basic validation
 		if (pos + header->payload_size > end) {
-			// corrupted or partial buffer — either drop or handle error for safety, break out.
+			// Corrupted or partial buffer either drop or handle error for safety, break out.
 			// In debug, you might assert or log.
 			break;
 		}

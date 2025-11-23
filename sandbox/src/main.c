@@ -22,15 +22,23 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
+	//box_vertexbuffer* vertex_buf = box_engine_create_vertexbuffer(engine, vertices, sizeof(vertices), &layout);
+
 	while (box_engine_is_running(engine))
 	{
 		box_rendercmd* command = box_engine_next_rendercmd(engine);
 		box_rendercmd_set_clear_colour(command, 0.1f, 0.1f, 0.1f);
 
-		/*
-		box_rendercmd_begin_renderpass(&command
-		*/
+		{
+			box_rendercmd_begin_renderstage(command, "assets/shader_base.vert.spv", "assets/shader_base.frag.spv");
+			//box_rendercmd_set_vertex_buffer(command, vertex_buf);
 
+			box_rendercmd_draw(command, 3, 1);
+
+			box_rendercmd_end_renderstage(command);
+		}
+
+		box_rendercmd_verify_resources(command, engine);
 		box_engine_render_frame(engine, command);
 	}
 

@@ -165,8 +165,9 @@ b8 create(vulkan_context* context, VkExtent2D size, vulkan_swapchain* swapchain)
     swapchain_create_info.clipped = VK_TRUE;
     swapchain_create_info.oldSwapchain = 0;
 
-    if (vkCreateSwapchainKHR(context->device.logical_device, &swapchain_create_info, 
-        context->allocator, &swapchain->handle) != VK_SUCCESS) {
+    if (!vulkan_result_is_success(
+        vkCreateSwapchainKHR(context->device.logical_device, &swapchain_create_info,
+        context->allocator, &swapchain->handle))) {
         return FALSE;
     }
 
@@ -193,8 +194,9 @@ b8 create(vulkan_context* context, VkExtent2D size, vulkan_swapchain* swapchain)
         view_info.subresourceRange.baseArrayLayer = 0;
         view_info.subresourceRange.layerCount = 1;
 
-        if (vkCreateImageView(context->device.logical_device, &view_info, 
-            context->allocator, &swapchain->views[i]) != VK_SUCCESS) {
+        if (!vulkan_result_is_success(
+            vkCreateImageView(context->device.logical_device, &view_info,
+            context->allocator, &swapchain->views[i]))) {
             return FALSE;
         }
     }

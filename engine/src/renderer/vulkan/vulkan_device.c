@@ -59,9 +59,10 @@ b8 vulkan_device_create(vulkan_context* context) {
     device_create_info.ppEnabledExtensionNames = context->config->required_extensions;
 
     // Create the device.
-    if (vkCreateDevice(context->device.physical_device,
+    if (!vulkan_result_is_success(
+        vkCreateDevice(context->device.physical_device,
         &device_create_info, context->allocator,
-        &context->device.logical_device) != VK_SUCCESS) {
+        &context->device.logical_device) != VK_SUCCESS)) {
         BX_ERROR("Failed to create Vulkan logical device");
         return FALSE;
     }
@@ -93,9 +94,10 @@ b8 vulkan_device_create(vulkan_context* context) {
     VkCommandPoolCreateInfo pool_create_info = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
     pool_create_info.queueFamilyIndex = context->config->capabilities.graphics_queue_index;
     pool_create_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    if (vkCreateCommandPool(context->device.logical_device,
+    if (!vulkan_result_is_success(
+        vkCreateCommandPool(context->device.logical_device,
         &pool_create_info, context->allocator,
-        &context->device.graphics_command_pool) != VK_SUCCESS) {
+        &context->device.graphics_command_pool))) {
         BX_ERROR("Failed to create Vulkan commmand pool");
         return FALSE;
     }
