@@ -29,11 +29,14 @@ typedef struct renderer_capabilities {
 
 // Configuration for render backend.
 typedef struct renderer_backend_config {
-    // Chosen type of API.
+    // Chosen type of API. Keep this in renderer_backend_config so backend knows what type is it.
     renderer_backend_type api_type;
 
-    /// Enabled queues for backend to use.
-    b8 graphics, compute, transfer, present;
+    /// Enabled pipelines / modes for backend to prepare for.
+    b8 graphics_pipeline, compute_pipeline;
+
+    // Enable transfering data between app and GPU.
+    b8 enable_transfer;
 
     // Frame count for swapchain, must be greater than 1.
     u32 swapchain_frame_count;
@@ -47,7 +50,7 @@ typedef struct renderer_backend_config {
     // Force renderer backend to use a discrete GPU.
     b8 discrete_gpu;
 
-    // darray - Extensions enabled on graphics API.
+    // darray - Extensions enabled on graphics API. Consumed by renderer backend.
     const char** required_extensions;
 
     // NOTE: All variables below are exported from renderer backend.

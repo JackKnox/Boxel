@@ -35,6 +35,8 @@ b8 event_initialize() {
 }
 
 void event_shutdown() {
+    if (!is_initialized) return;
+
     // Free the events arrays. And objects pointed to should be destroyed on their own.
     for (u16 i = 0; i < MAX_MESSAGE_CODES; ++i) {
         if (state.registered[i].events != 0) {

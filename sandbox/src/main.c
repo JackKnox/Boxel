@@ -22,8 +22,6 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	//box_vertexbuffer* vertex_buf = box_engine_create_vertexbuffer(engine, vertices, sizeof(vertices), &layout);
-
 	while (box_engine_is_running(engine))
 	{
 		box_rendercmd* command = box_engine_next_rendercmd(engine);
@@ -31,7 +29,6 @@ int main(int argc, char** argv)
 
 		{
 			box_rendercmd_begin_renderstage(command, "assets/shader_base.vert.spv", "assets/shader_base.frag.spv");
-			//box_rendercmd_set_vertex_buffer(command, vertex_buf);
 
 			box_rendercmd_draw(command, 3, 1);
 

@@ -37,6 +37,22 @@ typedef struct rendercmd_header {
 } rendercmd_header;
 #pragma pack(pop)
 
+
+#pragma pack(push, 1)
+typedef union rendercmd_payload {
+
+    struct {
+        u32 clear_colour;
+    } set_clear_colour;
+
+    struct {
+        u32 vertex_count;
+        u32 instance_count;
+    } draw;
+
+} rendercmd_payload;
+#pragma pack(pop)
+
 // Clears data with buffer without reallocating memory.
 void box_rendercmd_reset(box_rendercmd* cmd);
 

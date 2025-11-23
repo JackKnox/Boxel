@@ -363,11 +363,13 @@ b8 physical_device_meets_requirements(
           out_capabilities->transfer_queue_index != -1,
           properties.deviceName);
 
+    b8 need_present_queue = (context->config->graphics_pipeline);
+
     if (
-        (!context->config->graphics || (context->config->graphics && out_capabilities->graphics_queue_index != -1)) &&
-        (!context->config->present || (context->config->present && out_capabilities->present_queue_index != -1)) &&
-        (!context->config->compute || (context->config->compute && out_capabilities->compute_queue_index != -1)) &&
-        (!context->config->transfer || (context->config->transfer && out_capabilities->transfer_queue_index != -1))) {
+        (!context->config->graphics_pipeline || (context->config->graphics_pipeline && out_capabilities->graphics_queue_index != -1)) &&
+        (!need_present_queue                 || (need_present_queue && out_capabilities->present_queue_index != -1)) &&
+        (!context->config->compute_pipeline  || (context->config->compute_pipeline && out_capabilities->compute_queue_index != -1)) &&
+        (!context->config->enable_transfer   || (context->config->enable_transfer && out_capabilities->transfer_queue_index != -1))) {
         BX_INFO("Device meets queue requirements.");
         BX_TRACE("Graphics Family Index: %i", out_capabilities->graphics_queue_index);
         BX_TRACE("Present Family Index:  %i", out_capabilities->present_queue_index);

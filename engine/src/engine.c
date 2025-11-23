@@ -17,8 +17,7 @@ box_config box_default_config() {
 	configuration.render_config.api_type = RENDERER_BACKEND_TYPE_VULKAN;
 	configuration.render_config.swapchain_frame_count = 2;
 	configuration.render_config.enable_validation = TRUE;
-	configuration.render_config.graphics = TRUE;
-	configuration.render_config.present = TRUE;
+	configuration.render_config.graphics_pipeline = TRUE;
 	configuration.render_config.discrete_gpu = TRUE;
 	configuration.render_config.required_extensions = darray_create(const char*);
 	return configuration;
@@ -26,126 +25,145 @@ box_config box_default_config() {
 
 int render_thread_loop(void* arg) {
 	if (!arg) return thrd_error;
-	box_engine* e = (box_engine*)arg; 
+	box_engine* engine = (box_engine*)arg; 
 
-	if (!engine_thread_init(e)) {
-		BX_ERROR("Could not init engine thread, exiting...");
-		e->should_quit = TRUE;
+	if (!engine_thread_init(engine)) {
+		// Error message already printed
+		engine->should_quit = TRUE;
 	}
 
 	// NOTE: loop runs in init (see engine_private.c)
 
-	e->is_running = FALSE;
-	engine_thread_shutdown(e);
+	engine_thread_shutdown(engine);
+	engine->is_running = FALSE;
 
 	return thrd_success; // Success
 }
 
 b8 engine_on_application_quit(u16 code, void* sender, void* listener_inst, event_context data) {
-	if (code == EVENT_CODE_APPLICATION_QUIT) {
-		box_engine* e = (box_engine*)listener_inst;
-		e->should_quit = TRUE;
+	((box_engine*)listener_inst)->should_quit = TRUE;
+	return TRUE;
+}
 
-		return TRUE;
+// Combines creating sunc objects into one boolean
+b8 create_sync_objects(box_engine* engine) {
+	if (!mtx_init(&engine->rendercmd_mutex, mtx_plain)) {
+		return FALSE;
 	}
 
-	return FALSE;
+	if (!cnd_init(&engine->rendercmd_cnd)) {
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+// Allocates render command ring next to engine memory for speediness
+box_engine* allocate_engine_and_ring(u8 ring_size) {
+	u64 total_size = sizeof(box_engine) + sizeof(box_rendercmd) * ring_size;
+
+	box_engine* engine = platform_allocate(total_size, FALSE);
+	return (box_engine*)platform_zero_memory(engine, total_size);
 }
 
 box_engine* box_create_engine(box_config* app_config) {
-	box_engine* engine = (box_engine*)platform_allocate(sizeof(box_engine), FALSE);    
-	platform_zero_memory(engine, sizeof(box_engine));
+	u8 ring_length = app_config->render_config.swapchain_frame_count + 1;
+	box_engine* engine = allocate_engine_and_ring(ring_length);
 
-	engine->is_running = FALSE;
-	engine->should_quit = FALSE;
-	engine->first_cmd_sent = FALSE;
+	engine->command_ring = (box_rendercmd*)((u8*)engine + sizeof(box_engine));
+	engine->command_ring_length = ring_length;
 	engine->config = *app_config;
+	//engine->is_running // Automatically do when zeroing memory...
+	//	= engine->is_suspended 
+	//	= engine->should_quit 
+	//	= FALSE;
 
 	if (!event_initialize()) {
-		BX_ERROR("Event system failed initialization. Engine cannot continue.");
-		return FALSE;
+		BX_ERROR("Failed to initialize event system.");
+		goto failed_init;
 	}
 
 	event_register(EVENT_CODE_APPLICATION_QUIT, engine, engine_on_application_quit);
 
-	mtx_init(&engine->rendercmd_mutex, mtx_plain);
-	cnd_init(&engine->rendercmd_cv);
-
-	if (thrd_create(&engine->render_thread, render_thread_loop, engine) != thrd_success) {
-		// Couldn't start render thread, exiting...
-		box_destroy_engine(engine);
-		return NULL;
+	if (!create_sync_objects(engine)) {
+		BX_ERROR("Failed to create synchronization objects.");
+		goto failed_init;
 	}
 
-	mtx_lock(&engine->rendercmd_mutex);
-	while (!engine->is_running && !engine->should_quit) {
-		cnd_wait(&engine->rendercmd_cv, &engine->rendercmd_mutex);
+	if (!thrd_create(&engine->render_thread, render_thread_loop, (void*)engine)) {
+		BX_ERROR("Failed to start render thread.");
+		goto failed_init;
 	}
-	mtx_unlock(&engine->rendercmd_mutex);
 
+	WAIT_ON_CND(!engine->is_running && !engine->should_quit)
 	return engine->should_quit ? NULL : engine;
-}
 
-b8 box_engine_is_running(box_engine* engine) {
-	return engine->is_running;
-}
-
-const box_config* box_engine_get_config(box_engine* engine) {
-	return &engine->config;
+failed_init:
+	BX_ERROR("box_create_engine failed initialization, engine cannot continue. Exiting...");
+	box_destroy_engine(engine);
+	return NULL;
 }
 
 box_rendercmd* box_engine_next_rendercmd(box_engine* engine) {
-	box_rendercmd_reset(&engine->command_queue[engine->game_write_idx]);
-	return &engine->command_queue[engine->game_write_idx];
+	box_rendercmd_reset(&engine->command_ring[engine->game_write_idx]);
+	return &engine->command_ring[engine->game_write_idx];
 }
 
 void box_engine_render_frame(box_engine* engine, box_rendercmd* command) {
-	if (&engine->command_queue[engine->game_write_idx] != command) {
-		BX_ERROR("Engine cannot take user-generated rendercmd (Use box_engine_next_rendercmd).");
+	if (&engine->command_ring[engine->game_write_idx] != command) {
+		BX_ERROR("Engine cannot take user-generated render commands (Use box_engine_next_rendercmd instead).");
 		return;
 	}
 
 	mtx_lock(&engine->rendercmd_mutex);
 
-	// Signal first rendercmd ever sent
+	// Signal first render command ever sent
 	if (!engine->first_cmd_sent) {
 		engine->first_cmd_sent = TRUE;
-		cnd_broadcast(&engine->rendercmd_cv);
+		cnd_broadcast(&engine->rendercmd_cnd);
 	}
 
-	engine->game_write_idx = (engine->game_write_idx + 1) % FRAME_COUNT;
+	engine->game_write_idx = (engine->game_write_idx + 1) % engine->command_ring_length;
 
 	// If advancing write_idx would equal read_idx, wait until reader consumes
-	while (engine->render_read_idx == engine->game_write_idx && engine->is_running && !engine->should_quit) {
-		cnd_wait(&engine->rendercmd_cv, &engine->rendercmd_mutex);
-	}
+	while (engine->render_read_idx == engine->game_write_idx && engine->is_running && !engine->should_quit)
+		cnd_wait(&engine->rendercmd_cnd, &engine->rendercmd_mutex);
 
-	// Mark this command as finished (writer done). Set under lock to guarantee ordering.
 	command->finished = TRUE;
 
 	// Notify the render thread there is something to play back
-	cnd_signal(&engine->rendercmd_cv);
+	cnd_signal(&engine->rendercmd_cnd);
 	mtx_unlock(&engine->rendercmd_mutex);
+}
+
+const box_config* box_engine_get_config(box_engine* engine) {
+	if (!engine) return FALSE;
+	return &engine->config;
+}
+
+b8 box_engine_is_running(box_engine* engine) {
+	if (!engine) return FALSE;
+	return engine->is_running;
 }
 
 void box_destroy_engine(box_engine* engine) {
 	if (!engine) return;
+	// Destroy in the opposite order of creation.
 
-	mtx_lock(&engine->rendercmd_mutex);
-
-	engine->should_quit = TRUE;
-	cnd_broadcast(&engine->rendercmd_cv);
-
-	mtx_unlock(&engine->rendercmd_mutex);
-	if (engine->is_running) {
+	if (engine->is_running) { // Error if joining when thread has alreading exited...
+		int success_code = thrd_success;
 		thrd_join(engine->render_thread, NULL);
+
+		if (engine->is_running || success_code != thrd_success) {
+			BX_WARN("Render thread closed unexpectedly...");
+		}
 	}
+
+	// Destroy sync objects...
+	mtx_destroy(&engine->rendercmd_mutex);
+	cnd_destroy(&engine->rendercmd_cnd);
 
 	event_shutdown();
 
-	mtx_destroy(&engine->rendercmd_mutex);
-	cnd_destroy(&engine->rendercmd_cv);
-
-	darray_destroy(engine->config.render_config.required_extensions);
 	platform_free(engine, FALSE);
 }

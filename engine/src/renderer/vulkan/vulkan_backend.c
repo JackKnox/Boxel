@@ -181,6 +181,9 @@ b8 vulkan_renderer_backend_initialize(renderer_backend* backend, const char* app
 	// by this list.
 	context->images_in_flight = darray_reserve(vulkan_fence, context->swapchain.image_count);
 
+	// Renderer backend consumes this darray and owns it so it's allowed to do this.
+	darray_destroy(config->required_extensions);
+
 	BX_INFO("Vulkan renderer initialized successfully.");
 	return TRUE;
 }
@@ -310,34 +313,39 @@ b8 vulkan_renderer_playback_rendercmd(renderer_backend* backend, box_rendercmd* 
 
 	u64 cursor = 0;
 	while (cursor + sizeof(rendercmd_header) <= rendercmd->size) {
+		// Header is always at cursor
 		rendercmd_header* hdr = (rendercmd_header*)((u8*)rendercmd->buffer + cursor);
-		cursor += sizeof(rendercmd_header) + hdr->payload_size;
 
-		if (cursor > rendercmd->size) {
-			BX_WARN("Buffer overread detected!");
+		// Payload starts immediately after header
+		u64 payload_offset = cursor + sizeof(rendercmd_header);
+		if (payload_offset + hdr->payload_size > rendercmd->size) {
+			BX_WARN("Corrupted buffer: payload extends beyond buffer!");
 			break;
 		}
 
-		const u8* payload = (u8*)rendercmd->buffer + cursor;
+		const rendercmd_payload* payload = (const rendercmd_payload*)((u8*)rendercmd->buffer + payload_offset);
 		switch (hdr->type) {
-			case RENDERCMD_SET_CLEAR_COLOUR:
-				current_renderpass->clear_colour = *(u32*)payload;
-				vulkan_renderpass_begin(cmd, current_renderpass, current_framebuffer);
-				break;
 
-			case RENDERCMD_BEGIN_RENDERSTAGE:
-				vulkan_graphics_pipeline_bind(cmd, &context->graphics_pipeline);
-				break;
+		case RENDERCMD_SET_CLEAR_COLOUR:
+			current_renderpass->clear_colour = payload->set_clear_colour.clear_colour;
+			vulkan_renderpass_begin(cmd, current_renderpass, current_framebuffer);
+			break;
 
-			case RENDERCMD_END_RENDERSTAGE:
-				break;
+		case RENDERCMD_BEGIN_RENDERSTAGE:
+			vulkan_graphics_pipeline_bind(cmd, &context->graphics_pipeline);
+			break;
 
-			case RENDERCMD_DRAW:
-				typedef struct { u32 vertex_count; u32 instance_count; } draw_payload;
-				draw_payload* dp = (draw_payload*)payload;
+		case RENDERCMD_END_RENDERSTAGE:
+			break;
 
-				vkCmdDraw(cmd->handle, dp->vertex_count, dp->instance_count, 0, 0);
+		case RENDERCMD_DRAW:
+			vkCmdDraw(cmd->handle, payload->draw.vertex_count, payload->draw.instance_count, 0, 0);
+			break;
 		}
+
+		// Advance cursor to start of next command (with alignment)
+		u64 unaligned_next = payload_offset + hdr->payload_size;
+		cursor = align_up_u64(unaligned_next, 8);
 	}
 
 	if (current_renderpass != NULL &&
