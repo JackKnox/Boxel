@@ -1,13 +1,19 @@
 #pragma once
 
 typedef enum log_level {
-    LOG_LEVEL_ERROR = 0,
-    LOG_LEVEL_WARN = 1,
-    LOG_LEVEL_INFO = 2,
-    LOG_LEVEL_TRACE = 3
+    LOG_LEVEL_FATAL = 0,
+    LOG_LEVEL_ERROR = 1,
+    LOG_LEVEL_WARN = 2,
+    LOG_LEVEL_INFO = 3,
+    LOG_LEVEL_TRACE = 4
 } log_level;
 
 void log_output(log_level level, const char* message, ...);
+
+#ifndef BX_FATAL
+// Logs an fatal-level message.
+#define BX_FATAL(message, ...) log_output(LOG_LEVEL_FATAL, message, ##__VA_ARGS__)
+#endif
 
 #ifndef BX_ERROR
 // Logs an error-level message.

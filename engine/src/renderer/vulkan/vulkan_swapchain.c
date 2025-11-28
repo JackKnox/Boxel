@@ -220,17 +220,19 @@ b8 create(vulkan_context* context, VkExtent2D size, vulkan_swapchain* swapchain)
 }
 
 void destroy(vulkan_context* context, vulkan_swapchain* swapchain) {
-    vkDeviceWaitIdle(context->device.logical_device);
-    vulkan_image_destroy(context, &swapchain->depth_attachment);
+    if (swapchain && swapchain->handle) {
+        vkDeviceWaitIdle(context->device.logical_device);
+        vulkan_image_destroy(context, &swapchain->depth_attachment);
 
-    platform_free(swapchain->images, FALSE);
-    platform_free(swapchain->views, FALSE);
+        // Only destroy the views, not the images, since those are owned by the swapchain and are thus
+        // destroyed when it is.
+        for (u32 i = 0; i < swapchain->image_count; ++i) {
+            vkDestroyImageView(context->device.logical_device, swapchain->views[i], context->allocator);
+        }
 
-    // Only destroy the views, not the images, since those are owned by the swapchain and are thus
-    // destroyed when it is.
-    for (u32 i = 0; i < swapchain->image_count; ++i) {
-        vkDestroyImageView(context->device.logical_device, swapchain->views[i], context->allocator);
+        platform_free(swapchain->images, FALSE);
+        platform_free(swapchain->views, FALSE);
+
+        vkDestroySwapchainKHR(context->device.logical_device, swapchain->handle, context->allocator);
     }
-
-    vkDestroySwapchainKHR(context->device.logical_device, swapchain->handle, context->allocator);
 }

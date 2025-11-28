@@ -1,8 +1,6 @@
 #include "defines.h"
 #include "voxel_loader.h"
 
-#include <string.h>
-
 b8 check_vox_header(file_handle* handle, u32* out_version) {
 	char header[4];
 	

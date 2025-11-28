@@ -20,6 +20,15 @@ typedef double f64;
 typedef int b32;
 typedef _Bool b8;
 
+#define INT8_MAX         127i8
+#define INT16_MAX        32767i16
+#define INT32_MAX        2147483647i32
+#define INT64_MAX        9223372036854775807i64
+#define UINT8_MAX        0xffui8
+#define UINT16_MAX       0xffffui16
+#define UINT32_MAX       0xffffffffui32
+#define UINT64_MAX       0xffffffffffffffffui64
+
 // Properly define static assertions.
 #if defined(__clang__) || defined(__gcc__)
 #define STATIC_ASSERT _Static_assert
@@ -44,6 +53,31 @@ STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes.");
 #define TRUE 1
 #define FALSE 0
 #define NULL ((void *)0)
+
+// Always define bxdebug_break in case it is ever needed outside assertions (i.e fatal log errors)
+// Try via __has_builtin first.
+#if defined(__has_builtin) && !defined(__ibmxl__)
+#    if __has_builtin(__builtin_debugtrap)
+#        define bxdebug_break() __builtin_debugtrap()
+#    elif __has_builtin(__debugbreak)
+#        define bxdebug_break() __debugbreak()
+#    endif
+#endif
+
+// If not setup, try the old way.
+#if !defined(bxdebug_break)
+#    if defined(__clang__) || defined(__gcc__)
+/** @brief Causes a debug breakpoint to be hit. */
+#        define bxdebug_break() __builtin_trap()
+#    elif defined(_MSC_VER)
+#        include <intrin.h>
+/** @brief Causes a debug breakpoint to be hit. */
+#        define bxdebug_break() __debugbreak()
+#    else
+// Fall back to x86/x86_64
+#        define bxdebug_break() asm { int 3 }
+#    endif
+#endif
 
 // Platform detection
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) 

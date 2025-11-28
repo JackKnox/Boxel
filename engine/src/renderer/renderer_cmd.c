@@ -3,8 +3,6 @@
 
 #include "engine.h"
 
-// TODO: Memory leaks!!
-
 void grow_rendercmd(box_rendercmd* cmd, u64 additional_size) {
     u64 required = cmd->size + additional_size;
 
@@ -24,6 +22,7 @@ void grow_rendercmd(box_rendercmd* cmd, u64 additional_size) {
 }
 
 void add_command(box_rendercmd* cmd, rendercmd_payload_type type, const void* payload, u64 payload_size) {
+    if (!cmd) return;
     rendercmd_header header;
     header.type = type;
     header.payload_size = payload_size;
@@ -60,6 +59,11 @@ void box_rendercmd_reset(box_rendercmd* cmd) {
     cmd->finished = FALSE;
 }
 
+void box_rendercmd_destroy(box_rendercmd* cmd) {
+    platform_free(cmd->buffer, FALSE);
+    platform_zero_memory(cmd, sizeof(box_rendercmd));
+}
+
 void box_rendercmd_set_clear_colour(box_rendercmd* cmd, f32 clear_r, f32 clear_g, f32 clear_b) {
 
     rendercmd_payload payload;
@@ -67,7 +71,7 @@ void box_rendercmd_set_clear_colour(box_rendercmd* cmd, f32 clear_r, f32 clear_g
         ((u32)(clear_r * 255.0f + 0.5f) << 24) |
         ((u32)(clear_g * 255.0f + 0.5f) << 16) |
         ((u32)(clear_b * 255.0f + 0.5f) << 8) |
-        (u32)(1.0f * 255.0f + 0.5f);  // TODO: Specify alpha channel as well
+        (u32)(1.0f * 255.0f + 0.5f);
     add_command(cmd, RENDERCMD_SET_CLEAR_COLOUR, &payload, sizeof(payload.set_clear_colour));
 }
 

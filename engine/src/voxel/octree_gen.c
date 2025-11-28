@@ -65,6 +65,7 @@ b8 box_load_voxel_model(const char* filepath, box_octree* out_octree) {
 }
 
 void box_destroy_voxel_model(box_octree* octree) {
+	if (!octree) return;
 	darray_destroy(octree->nodes);
 }
 

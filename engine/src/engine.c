@@ -8,18 +8,16 @@
 
 box_config box_default_config() {
 	box_config configuration = {0}; // fill with zeros
+	configuration.window_mode = BOX_WINDOW_MODE_WINDOWED;
+	configuration.window_position.centered = TRUE;
 	configuration.window_size.x = 640;
-	configuration.window_size.y = 360;
+	configuration.window_size.y = 480;
 	configuration.title = "Boxel Sandbox";
 	configuration.target_fps = 60;
-	configuration.hide_until_frame = FALSE;
 
+	configuration.render_config = renderer_backend_default_config();
 	configuration.render_config.api_type = RENDERER_BACKEND_TYPE_VULKAN;
-	configuration.render_config.swapchain_frame_count = 2;
-	configuration.render_config.enable_validation = TRUE;
-	configuration.render_config.graphics_pipeline = TRUE;
 	configuration.render_config.discrete_gpu = TRUE;
-	configuration.render_config.required_extensions = darray_create(const char*);
 	return configuration;
 }
 
@@ -45,15 +43,13 @@ b8 engine_on_application_quit(u16 code, void* sender, void* listener_inst, event
 	return TRUE;
 }
 
-// Combines creating sunc objects into one boolean
+// Combines creating sunc objects into one boolean.
 b8 create_sync_objects(box_engine* engine) {
-	if (!mtx_init(&engine->rendercmd_mutex, mtx_plain)) {
+	if (mtx_init(&engine->rendercmd_mutex, mtx_plain) != thrd_success)
 		return FALSE;
-	}
 
-	if (!cnd_init(&engine->rendercmd_cnd)) {
+	if (cnd_init(&engine->rendercmd_cnd) != thrd_success)
 		return FALSE;
-	}
 
 	return TRUE;
 }
@@ -67,13 +63,14 @@ box_engine* allocate_engine_and_ring(u8 ring_size) {
 }
 
 box_engine* box_create_engine(box_config* app_config) {
+	if (!app_config) return NULL;
 	u8 ring_length = app_config->render_config.swapchain_frame_count + 1;
 	box_engine* engine = allocate_engine_and_ring(ring_length);
 
 	engine->command_ring = (box_rendercmd*)((u8*)engine + sizeof(box_engine));
 	engine->command_ring_length = ring_length;
 	engine->config = *app_config;
-	//engine->is_running // Automatically do when zeroing memory...
+	//engine->is_running // Automatically done when zeroing memory...
 	//	= engine->is_suspended 
 	//	= engine->should_quit 
 	//	= FALSE;
@@ -90,13 +87,25 @@ box_engine* box_create_engine(box_config* app_config) {
 		goto failed_init;
 	}
 
-	if (!thrd_create(&engine->render_thread, render_thread_loop, (void*)engine)) {
+	if (thrd_create(&engine->render_thread, render_thread_loop, (void*)engine) != thrd_success) {
 		BX_ERROR("Failed to start render thread.");
 		goto failed_init;
 	}
 
-	WAIT_ON_CND(!engine->is_running && !engine->should_quit)
-	return engine->should_quit ? NULL : engine;
+	// Wait for the render thread to signal startup
+	mtx_lock(&engine->rendercmd_mutex);
+	while (!(engine->is_running || engine->should_quit))
+		cnd_wait(&engine->rendercmd_cnd, &engine->rendercmd_mutex);
+
+	b8 failed = engine->should_quit;
+	mtx_unlock(&engine->rendercmd_mutex);
+
+	if (failed) {
+		BX_ERROR("Failed to initialize render thread.");
+		goto failed_init;
+	}
+
+	return engine;
 
 failed_init:
 	BX_ERROR("box_create_engine failed initialization, engine cannot continue. Exiting...");
@@ -105,7 +114,9 @@ failed_init:
 }
 
 box_rendercmd* box_engine_next_rendercmd(box_engine* engine) {
+	if (!engine) return NULL;
 	box_rendercmd_reset(&engine->command_ring[engine->game_write_idx]);
+
 	return &engine->command_ring[engine->game_write_idx];
 }
 
@@ -152,7 +163,7 @@ void box_destroy_engine(box_engine* engine) {
 
 	if (engine->is_running) { // Error if joining when thread has alreading exited...
 		int success_code = thrd_success;
-		thrd_join(engine->render_thread, NULL);
+		thrd_join(engine->render_thread, &success_code);
 
 		if (engine->is_running || success_code != thrd_success) {
 			BX_WARN("Render thread closed unexpectedly...");
@@ -164,6 +175,10 @@ void box_destroy_engine(box_engine* engine) {
 	cnd_destroy(&engine->rendercmd_cnd);
 
 	event_shutdown();
+
+	for (int i = 0; i < engine->command_ring_length; ++i) {
+		box_rendercmd_destroy(&engine->command_ring[i]);
+	}
 
 	platform_free(engine, FALSE);
 }

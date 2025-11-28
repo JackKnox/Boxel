@@ -34,14 +34,16 @@ void vulkan_framebuffer_create(
 }
 
 void vulkan_framebuffer_destroy(vulkan_context* context, vulkan_framebuffer* framebuffer) {
-    vkDestroyFramebuffer(context->device.logical_device, framebuffer->handle, context->allocator);
+    if (framebuffer && framebuffer->handle) {
+        vkDestroyFramebuffer(context->device.logical_device, framebuffer->handle, context->allocator);
 
-    if (framebuffer->attachments) {
-        platform_free(framebuffer->attachments, FALSE);
-        framebuffer->attachments = 0;
+        if (framebuffer->attachments) {
+            platform_free(framebuffer->attachments, FALSE);
+            framebuffer->attachments = 0;
+        }
+
+        framebuffer->handle = 0;
+        framebuffer->attachment_count = 0;
+        framebuffer->renderpass = 0;
     }
-
-    framebuffer->handle = 0;
-    framebuffer->attachment_count = 0;
-    framebuffer->renderpass = 0;
 }

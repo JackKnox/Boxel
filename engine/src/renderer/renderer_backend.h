@@ -66,6 +66,9 @@ typedef struct renderer_backend_config {
     u32 framebuffer_height;
 } renderer_backend_config;
 
+// Sets default configurtion for renderer backend.
+renderer_backend_config renderer_backend_default_config();
+
 typedef struct renderer_backend {
     void* internal_context;
     struct box_platform* plat_state;

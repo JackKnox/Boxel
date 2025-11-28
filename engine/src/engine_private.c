@@ -6,7 +6,7 @@
 // NOTE: Engine thread should never call functions like box_destroy_engine
 //       which deallocate memory that main thread uses. When finding a fatal error
 //       use "engine->should_quit = TRUE" and return to notify main thread to destroy
-//       at a time which is safe for the program (see tag "exit_and_destroy").
+//       at a time which is safe for the program (see tag "exit_and_cleanup").
 
 b8 get_next_rendercmd(box_engine* engine, box_rendercmd** out_rendercmd) {	
 	// Get next read index reliably
@@ -29,7 +29,7 @@ b8 get_next_rendercmd(box_engine* engine, box_rendercmd** out_rendercmd) {
 b8 engine_thread_init(box_engine* engine) {
 	if (!platform_start(&engine->platform_state, &engine->config)) {
 		BX_ERROR("Failed to start platform.");
-		goto exit_and_destroy;
+		goto exit_and_cleanup;
 	}
 
 	engine->config.render_config.framebuffer_width = engine->config.window_size.x;
@@ -38,7 +38,7 @@ b8 engine_thread_init(box_engine* engine) {
 	if (!(renderer_backend_create(engine->config.render_config.api_type, &engine->platform_state, &engine->renderer)
 		&& engine->renderer.initialize(&engine->renderer, engine->config.title, &engine->config.render_config))) { // Short circuiting
 		BX_ERROR("Failed to init renderer backend.");
-		goto exit_and_destroy;
+		goto exit_and_cleanup;
 	}
 
 	const double target_frame_time = (engine->config.target_fps > 0)
@@ -55,7 +55,7 @@ b8 engine_thread_init(box_engine* engine) {
 	// Now that main thread is unlocked, wait until first box_rendercmd
 	// to avoid UB when sending to renderer backend (Vulkan doesn't accept empty command buffers).
 	WAIT_ON_CND(!engine->first_cmd_sent)
-	if (engine->should_quit) goto exit_and_destroy;
+	if (engine->should_quit) goto exit_and_cleanup;
 	
 	engine->last_time = platform_get_absolute_time();
 
@@ -73,8 +73,7 @@ b8 engine_thread_init(box_engine* engine) {
 
 			if (has_finished) {
 				if (!backend->playback_rendercmd(backend, command)) {
-					BX_ERROR("Could not playback render command.");
-					goto exit_and_destroy;
+					BX_WARN("Could not playback render command.");
 				}
 			}
 
@@ -88,7 +87,7 @@ b8 engine_thread_init(box_engine* engine) {
 			// Finish frame after sending validated rendercmd
 			if (!backend->end_frame(backend)) {
 				BX_ERROR("Could not finish render frame.");
-				goto exit_and_destroy;
+				goto exit_and_cleanup;
 			}
 		}
 
@@ -108,11 +107,17 @@ b8 engine_thread_init(box_engine* engine) {
 		}
 	}
 
+	cnd_broadcast(&engine->rendercmd_cnd);
 	return TRUE;
 
-exit_and_destroy:
+exit_and_cleanup:
 	BX_ERROR("Fatal error in render thread. Exiting...");
+
+	// Broadcast to wake all waiters
+	mtx_lock(&engine->rendercmd_mutex);
 	engine->should_quit = TRUE;
+	cnd_broadcast(&engine->rendercmd_cnd); 
+	mtx_unlock(&engine->rendercmd_mutex);
 	return FALSE;
 }
 
@@ -120,8 +125,12 @@ void engine_thread_shutdown(box_engine* engine) {
 	if (!engine) return;
 	// Destroy in the opposite order of creation.
 
-	engine->renderer.shutdown(&engine->renderer);
-	renderer_backend_destroy(&engine->renderer);
-
-	platform_shutdown(&engine->platform_state);
+	if (engine->renderer.internal_context != NULL) {
+		engine->renderer.shutdown(&engine->renderer);
+		renderer_backend_destroy(&engine->renderer);
+	}
+	
+	if (engine->platform_state.internal_state != NULL) {
+		platform_shutdown(&engine->platform_state);
+	}
 }

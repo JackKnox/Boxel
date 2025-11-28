@@ -6,15 +6,10 @@
 int main(int argc, char** argv)
 {
 	box_config app_config = box_default_config();
-	app_config.window_position.x = 960;
-	app_config.window_position.y = 540;
 	box_engine* engine = box_create_engine(&app_config);
 
-	if (!engine)
-	{
-		BX_ERROR("Boxel initialization failed");
-		return 1;
-	}
+	if (engine == NULL)
+		BX_FATAL("Failed to init Boxel engine!");
 
 	box_octree octree;
 	if (!box_load_voxel_model("assets/cars.vox", &octree)) {

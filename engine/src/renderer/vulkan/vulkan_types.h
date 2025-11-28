@@ -12,7 +12,7 @@
 #define VK_CHECK(expr)                                    \
     {                                                     \
         VkResult r = expr;                                \
-        if (!vulkan_result_is_success(r)) __debugbreak(); \
+        if (!vulkan_result_is_success(r)) BX_FATAL("VK_CHECK failed: (Line = %i) "  __FILE__ "  (Error code: %s) ", __LINE__, vulkan_result_string(r, 1)); \
     }
 
 const char* vulkan_result_string(VkResult result, b8 get_extended);

@@ -190,7 +190,7 @@ b8 vulkan_renderer_backend_initialize(renderer_backend* backend, const char* app
 
 void vulkan_renderer_backend_shutdown(renderer_backend* backend) {
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
-	vkDeviceWaitIdle(context->device.logical_device);
+	if (context->device.logical_device) vkDeviceWaitIdle(context->device.logical_device);
 
 	// Destroy in the opposite order of creation.
 
@@ -435,38 +435,5 @@ b8 vulkan_create_command_buffers(vulkan_context* context) {
 	}
 
 	BX_TRACE("Vulkan command buffers created.");
-	return TRUE;
-}
-
-b8 vulkan_renderer_backend_playback_rendercmd(renderer_backend* backend, box_rendercmd* command) {
-	vulkan_context* context = (vulkan_context*)backend->internal_context;
-	vulkan_command_buffer* cmd = &context->graphics_command_buffers[context->current_frame];
-
-	vulkan_renderpass* current_renderpass = &context->main_renderpass;
-	vulkan_framebuffer* current_framebuffer = &context->swapchain.framebuffers[context->image_index];
-
-	u64 pos = 0;
-	const u64 end = command->size;
-
-	while (pos + sizeof(rendercmd_header) <= end) {
-		// Get header for render command
-		rendercmd_header* header = (rendercmd_header*)((u8*)command->buffer + pos);
-		pos += align_up_u64(sizeof(header), 8u);
-
-		// basic validation
-		if (pos + header->payload_size > end) {
-			// Corrupted or partial buffer either drop or handle error for safety, break out.
-			// In debug, you might assert or log.
-			break;
-		}
-
-		const u8* payload = (u8*)command->buffer + pos;
-		switch (header->type) {
-			case RENDERCMD_SET_CLEAR_COLOUR:
-				current_renderpass->clear_colour = *(u32*)payload;
-				break;
-		}
-	}
-
 	return TRUE;
 }

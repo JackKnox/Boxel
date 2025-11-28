@@ -31,7 +31,7 @@ void* platform_allocate(u64 size, b8 aligned)
 	return NULL;
 }
 
-void platform_free(void* block, b8 aligned)
+void platform_free(const void* block, b8 aligned)
 {
 }
 

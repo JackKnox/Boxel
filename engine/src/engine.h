@@ -7,7 +7,13 @@
 // Application configuration
 typedef struct box_config {
 	// Window starting position.
-	uvec2 window_position;
+	union box_windowpos {
+		uvec2 absolute;
+		b8 centered;
+	} window_position;
+
+	// Window starting mode.
+	box_window_mode window_mode;
 
 	// Window starting size.
 	uvec2 window_size;
@@ -17,9 +23,6 @@ typedef struct box_config {
 
 	// FPS to lock render thread to.
 	u32 target_fps;
-
-	// Hides main window until first frame is submitted.
-	b8 hide_until_frame;
 
 	// Configuration for render backend.
 	renderer_backend_config render_config;

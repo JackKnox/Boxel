@@ -2,7 +2,6 @@
 #include "filesystem.h"
 
 #include <stdio.h>
-#include <string.h>
 #include <sys/stat.h>
 
 b8 filesystem_exists(const char* path) {

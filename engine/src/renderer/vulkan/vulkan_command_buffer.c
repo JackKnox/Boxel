@@ -27,14 +27,12 @@ void vulkan_command_buffer_free(
     vulkan_context* context,
     VkCommandPool pool,
     vulkan_command_buffer* command_buffer) {
-    vkFreeCommandBuffers(
-        context->device.logical_device,
-        pool,
-        1,
-        &command_buffer->handle);
+    if (command_buffer && command_buffer->handle) {
+        vkFreeCommandBuffers(context->device.logical_device, pool, 1, &command_buffer->handle);
 
-    command_buffer->handle = 0;
-    command_buffer->state = COMMAND_BUFFER_STATE_NOT_ALLOCATED;
+        command_buffer->handle = 0;
+        command_buffer->state = COMMAND_BUFFER_STATE_NOT_ALLOCATED;
+    }
 }
 
 void vulkan_command_buffer_begin(

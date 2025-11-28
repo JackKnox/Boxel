@@ -56,6 +56,9 @@ typedef union rendercmd_payload {
 // Clears data with buffer without reallocating memory.
 void box_rendercmd_reset(box_rendercmd* cmd);
 
+// Destroys and resets memory in render command
+void box_rendercmd_destroy(box_rendercmd* cmd);
+
 // Set the clear color for the framebuffer. This color will be used when clearing the screen before rendering.
 void box_rendercmd_set_clear_colour(box_rendercmd* cmd, f32 clear_r, f32 clear_g, f32 clear_b);
 

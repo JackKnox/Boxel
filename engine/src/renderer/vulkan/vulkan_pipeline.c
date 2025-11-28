@@ -192,8 +192,11 @@ b8 vulkan_graphics_pipeline_create(
 }
 
 void vulkan_graphics_pipeline_destroy(vulkan_context* context, vulkan_graphics_pipeline* pipeline) {
-	vkDestroyPipeline(context->device.logical_device, pipeline->handle, context->allocator);
-	vkDestroyPipelineLayout(context->device.logical_device, pipeline->layout, context->allocator);
+	if (pipeline->handle) 
+		vkDestroyPipeline(context->device.logical_device, pipeline->handle, context->allocator);
+
+	if (pipeline->layout)
+		vkDestroyPipelineLayout(context->device.logical_device, pipeline->layout, context->allocator);
 }
 
 void vulkan_graphics_pipeline_bind(vulkan_command_buffer* command_buffer, vulkan_graphics_pipeline* pipeline) {
