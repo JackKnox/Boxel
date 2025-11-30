@@ -1,7 +1,7 @@
 #include "defines.h"
 #include "vulkan_pipeline.h"
 
-VkShaderStageFlagBits get_stage_type_from_filepath(const char* filepath) {
+VkShaderStageFlagBits get_vulkan_stage_type_from_filepath(const char* filepath) {
 	if (strstr(filepath, ".vert.spv"))
 		return VK_SHADER_STAGE_VERTEX_BIT;
 	else if (strstr(filepath, ".frag.spv"))
@@ -48,7 +48,7 @@ b8 vulkan_graphics_pipeline_create(
 
 		VkPipelineShaderStageCreateInfo* stage_info = &shader_stages[i];
 		stage_info->sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		stage_info->stage = get_stage_type_from_filepath(filepath);
+		stage_info->stage = get_vulkan_stage_type_from_filepath(filepath);
 		stage_info->module = module;
 		stage_info->pName = "main";
 

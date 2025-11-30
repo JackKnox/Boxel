@@ -1,7 +1,7 @@
 #include "defines.h"
 #include "vulkan_fence.h"
 
-void vulkan_fence_create(
+b8 vulkan_fence_create(
     vulkan_context* context,
     b8 create_signaled,
     vulkan_fence* out_fence) {
@@ -13,7 +13,8 @@ void vulkan_fence_create(
         fence_create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
     }
 
-    VK_CHECK(vkCreateFence(
+    return vulkan_result_is_success(
+        vkCreateFence(
         context->device.logical_device,
         &fence_create_info,
         context->allocator,

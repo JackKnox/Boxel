@@ -1,7 +1,7 @@
 #include "defines.h"
 #include "vulkan_framebuffer.h"
 
-void vulkan_framebuffer_create(
+b8 vulkan_framebuffer_create(
     vulkan_context* context,
     vulkan_renderpass* renderpass,
     u32 width, u32 height,
@@ -26,7 +26,8 @@ void vulkan_framebuffer_create(
     framebuffer_create_info.height = height;
     framebuffer_create_info.layers = 1;
 
-    VK_CHECK(vkCreateFramebuffer(
+    return vulkan_result_is_success(
+        vkCreateFramebuffer(
         context->device.logical_device,
         &framebuffer_create_info,
         context->allocator,

@@ -22,6 +22,7 @@ b8 vulkan_device_create(vulkan_context* context) {
     u32 present_index = context->config->capabilities.present_queue_index;
     u32 transfer_index = context->config->capabilities.transfer_queue_index;
 
+    // TODO: I don't this code, so fix it I guess.
     b8 present_shares_graphics = (graphics_index == present_index);
     b8 transfer_shares_graphics = (graphics_index == transfer_index);
 
@@ -62,7 +63,7 @@ b8 vulkan_device_create(vulkan_context* context) {
     if (!vulkan_result_is_success(
         vkCreateDevice(context->device.physical_device,
         &device_create_info, context->allocator,
-        &context->device.logical_device) != VK_SUCCESS)) {
+        &context->device.logical_device))) {
         BX_ERROR("Failed to create Vulkan logical device");
         return FALSE;
     }

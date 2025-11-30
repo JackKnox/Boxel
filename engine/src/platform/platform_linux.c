@@ -1,6 +1,8 @@
 #include "defines.h"
 #include "platform/platform.h"
 
+// TODO: Linux backend
+
 #if BX_PLATFORM_LINUX
 
 #include "engine.h"

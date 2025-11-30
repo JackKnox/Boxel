@@ -15,6 +15,8 @@ typedef enum box_window_mode {
 	BOX_WINDOW_MODE_FULLSCREEN
 } box_window_mode;
 
+// TODO: Seperate window from platform state.
+
 // Starts window and it's specific platform.
 b8 platform_start(box_platform* state, struct box_config* app_config);
 

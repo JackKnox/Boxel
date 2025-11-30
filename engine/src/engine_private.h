@@ -32,12 +32,4 @@ typedef struct box_engine {
 
 b8 engine_thread_init(box_engine* engine);
 
-void engine_thread_shutdown(box_engine* engine);
-
-#define WAIT_ON_CND(condition)                                          \
-	{                                                                   \
-		mtx_lock(&engine->rendercmd_mutex);                             \
-		while (condition)                                               \
-			cnd_wait(&engine->rendercmd_cnd, &engine->rendercmd_mutex); \
-		mtx_unlock(&engine->rendercmd_mutex);                           \
-	}                                                                  
+void engine_thread_shutdown(box_engine* engine);                                                          

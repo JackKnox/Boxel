@@ -32,12 +32,14 @@ b8 engine_thread_init(box_engine* engine) {
 		goto exit_and_cleanup;
 	}
 
-	engine->config.render_config.framebuffer_width = engine->config.window_size.x;
-	engine->config.render_config.framebuffer_height = engine->config.window_size.y;
-
 	if (!(renderer_backend_create(engine->config.render_config.api_type, &engine->platform_state, &engine->renderer)
-		&& engine->renderer.initialize(&engine->renderer, engine->config.title, &engine->config.render_config))) { // Short circuiting
+		&& engine->renderer.initialize(&engine->renderer, engine->config.window_size, engine->config.title, &engine->config.render_config))) { // Short circuiting
 		BX_ERROR("Failed to init renderer backend.");
+		goto exit_and_cleanup;
+	}
+
+	if (engine->config.target_fps == 0) {
+		BX_ERROR("Cannot set box_config->target_fps to zero.");
 		goto exit_and_cleanup;
 	}
 
@@ -54,7 +56,12 @@ b8 engine_thread_init(box_engine* engine) {
 
 	// Now that main thread is unlocked, wait until first box_rendercmd
 	// to avoid UB when sending to renderer backend (Vulkan doesn't accept empty command buffers).
-	WAIT_ON_CND(!engine->first_cmd_sent)
+	{ 
+		mtx_lock(&engine->rendercmd_mutex); 
+		while (!engine->first_cmd_sent) 
+			cnd_wait(&engine->rendercmd_cnd, &engine->rendercmd_mutex); 
+		mtx_unlock(&engine->rendercmd_mutex); 
+	}
 	if (engine->should_quit) goto exit_and_cleanup;
 	
 	engine->last_time = platform_get_absolute_time();
@@ -99,10 +106,7 @@ b8 engine_thread_init(box_engine* engine) {
 			f64 elapsed = frame_end - frame_start;
 			f64 remaining = target_frame_time - elapsed;
 			if (remaining > 0.0) {
-				struct timespec ts;
-				ts.tv_sec = remaining / 1000;
-				ts.tv_nsec = ((long)remaining % 1000) * 1000000L;
-				thrd_sleep(&ts, NULL);
+				platform_sleep(remaining);
 			}
 		}
 	}

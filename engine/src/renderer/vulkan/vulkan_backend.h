@@ -4,7 +4,7 @@
 
 #include "renderer/renderer_backend.h"
 
-b8 vulkan_renderer_backend_initialize(renderer_backend* backend, const char* application_name, renderer_backend_config* config);
+b8 vulkan_renderer_backend_initialize(renderer_backend* backend, uvec2 starting_size, const char* application_name, renderer_backend_config* config);
 void vulkan_renderer_backend_shutdown(renderer_backend* backend);
 
 void vulkan_renderer_backend_on_resized(renderer_backend* backend, u32 width, u32 height);

@@ -20,6 +20,12 @@ typedef enum box_vertex_attrib_type {
 	BOX_VERTEX_ATTRIB_BOOL,
 } box_vertex_attrib_type;
 
+typedef enum box_vertex_topology_type {
+	BOX_VERTEX_TOPOLOGY_POINTS,
+	BOX_VERTEX_TOPOLOGY_LINES,
+	BOX_VERTEX_TOPOLOGY_TRIANGLES,
+} box_vertex_topology_type;
+
 // Internal descriptor for each attribute to pass to renderer.
 typedef struct box_vertex_attrib_desc {
 	box_vertex_attrib_type type;
@@ -35,6 +41,8 @@ typedef struct box_vertex_layout {
 	box_vertex_attrib_desc attribs[BOX_MAX_VERTEX_ATTRIBS];
 	u32 attrib_count;
 	u64 stride;
+
+	box_vertex_topology_type topology_type;
 	b8 initialized;
 } box_vertex_layout;
 
@@ -43,6 +51,9 @@ u64 box_vertex_attrib_type_size(box_vertex_attrib_type type);
 
 // Adds a vertex attribute to the layout. This function does not allow specifying normalization.
 void box_vertex_layout_add(box_vertex_layout* layout, box_vertex_attrib_type attrib_type, u64 num_count);
+
+// Set the topology of the layout to be applied to connected buffers.
+void box_vertext_layout_set_topology(box_vertex_layout* layout, box_vertex_topology_type topology);
 
 // Finalizes the vertex layout after all attributes have been added. After calling this function, the layout becomes immutable.
 void box_vertex_layout_end(box_vertex_layout* layout);

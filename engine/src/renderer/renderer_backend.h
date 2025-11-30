@@ -73,7 +73,7 @@ typedef struct renderer_backend {
     void* internal_context;
     struct box_platform* plat_state;
 
-    b8 (*initialize)(struct renderer_backend* backend, const char* application_name, renderer_backend_config* config);
+    b8 (*initialize)(struct renderer_backend* backend, uvec2 starting_size, const char* application_name, renderer_backend_config* config);
 
     void (*shutdown)(struct renderer_backend* backend);
 

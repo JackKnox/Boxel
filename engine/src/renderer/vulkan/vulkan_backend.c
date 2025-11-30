@@ -14,7 +14,7 @@
 #include "vulkan_command_buffer.h"
 #include "vulkan_fence.h"
 
-b8 platform_create_vulkan_surface(VkInstance instance, box_platform* plat_state, const struct VkAllocationCallbacks* allocator, VkSurfaceKHR* out_surface);
+b8 platform_create_vulkan_surface(VkInstance instance, box_platform* plat_state, const VkAllocationCallbacks* allocator, VkSurfaceKHR* out_surface);
 
 b8 vulkan_regenerate_framebuffer(vulkan_context* context);
 b8 vulkan_create_command_buffers(vulkan_context* context);
@@ -25,7 +25,6 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
 	const VkDebugUtilsMessengerCallbackDataEXT* callback_data,
 	void* user_data) {
 	switch (message_severity) {
-	default:
 	case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
 		BX_ERROR(callback_data->pMessage);
 		break;
@@ -35,24 +34,31 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
 	case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
 		BX_INFO(callback_data->pMessage);
 		break;
+
+	default:
 	case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
 		BX_TRACE(callback_data->pMessage);
 		break;
 	}
+
 	return VK_FALSE;
 }
 
-b8 vulkan_renderer_backend_initialize(renderer_backend* backend, const char* application_name, renderer_backend_config* config) {
+b8 vulkan_renderer_backend_initialize(renderer_backend* backend, uvec2 starting_size, const char* application_name, renderer_backend_config* config) {
 	backend->internal_context = platform_allocate(sizeof(vulkan_context), FALSE);
 	platform_zero_memory(backend->internal_context, sizeof(vulkan_context));
 
+	platform_zero_memory(&config->capabilities, sizeof(renderer_capabilities));
+	config->framebuffer_width = starting_size.x; // TODO: Use vec2 for frambuffer size
+	config->framebuffer_height = starting_size.y;
+
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 	context->config = config;
-	context->allocator = 0;
+	context->allocator = 0; // TODO: Custom allocator
 	context->current_frame = 0;
 	
 	VkApplicationInfo app_info = { VK_STRUCTURE_TYPE_APPLICATION_INFO };
-	app_info.apiVersion = VK_API_VERSION_1_2;
+	app_info.apiVersion = VK_API_VERSION_1_2; // Does it need to be this low??
 	app_info.pApplicationName = application_name;
 	app_info.applicationVersion = VK_MAKE_API_VERSION(0, 1, 0, 0);
 	app_info.engineVersion = VK_MAKE_API_VERSION(0, 0, 1, 0);
@@ -78,8 +84,8 @@ b8 vulkan_renderer_backend_initialize(renderer_backend* backend, const char* app
 	}
 
 	// Fill create info
-	create_info.enabledExtensionCount = darray_length(required_extensions);
-	create_info.ppEnabledExtensionNames = required_extensions;
+	create_info.enabledExtensionCount = darray_length(required_extensions); // TODO: Verify existence of extensions.
+	create_info.ppEnabledExtensionNames = required_extensions;              // TODO: Verify existence of validation layers.
 	create_info.enabledLayerCount = darray_length(required_validation_layer_names);
 	create_info.ppEnabledLayerNames = required_validation_layer_names;
 
@@ -115,7 +121,11 @@ b8 vulkan_renderer_backend_initialize(renderer_backend* backend, const char* app
 		PFN_vkCreateDebugUtilsMessengerEXT func =
 			(PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(context->instance, "vkCreateDebugUtilsMessengerEXT");
 
-		VK_CHECK(func(context->instance, &debug_create_info, context->allocator, &context->debug_messenger));
+		if (!vulkan_result_is_success(func(context->instance, &debug_create_info, context->allocator, &context->debug_messenger))) {
+			BX_ERROR("Failed to create Vulkan debug messanger!");
+			return FALSE;
+		}
+
 		BX_INFO("Vulkan debugger created.");
 	}
 
@@ -148,6 +158,7 @@ b8 vulkan_renderer_backend_initialize(renderer_backend* backend, const char* app
 		return FALSE;
 	}
 
+	// TODO: Pipeline cache & resource management.
 	const char* graphics_shaders[] = { "assets/shader_base.vert.spv", "assets/shader_base.frag.spv" };
 
 	if (!vulkan_graphics_pipeline_create(context, &context->graphics_pipeline, 
@@ -253,12 +264,12 @@ void vulkan_renderer_backend_shutdown(renderer_backend* backend) {
 }
 
 void vulkan_renderer_backend_on_resized(renderer_backend* backend, u32 width, u32 height) {
+	// TODO: Swapchain recreation.
 }
 
 b8 vulkan_renderer_backend_begin_frame(renderer_backend* backend, f32 delta_time) {
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 
-	// Wait for this frame's fence (NOT image index)
 	vulkan_fence_wait(context, &context->in_flight_fences[context->current_frame], UINT64_MAX);
 	vulkan_fence_reset(context, &context->in_flight_fences[context->current_frame]);
 
@@ -276,7 +287,6 @@ b8 vulkan_renderer_backend_begin_frame(renderer_backend* backend, f32 delta_time
 	}
 	context->images_in_flight[context->image_index] = &context->in_flight_fences[context->current_frame];
 
-	// Reset the command buffer for this *frame* (NOT image index)
 	vulkan_command_buffer* cmd = &context->graphics_command_buffers[context->current_frame];
 	vulkan_command_buffer_reset(cmd);
 	vulkan_command_buffer_begin(cmd, FALSE, FALSE, FALSE);
@@ -304,48 +314,43 @@ b8 vulkan_renderer_backend_begin_frame(renderer_backend* backend, f32 delta_time
 	return TRUE;
 }
 
+// TODO: Validate command buffer (box_rendercmd) and put it 
+//       in render thread so Vulkan doesn't have too.
 b8 vulkan_renderer_playback_rendercmd(renderer_backend* backend, box_rendercmd* rendercmd) {
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 	vulkan_command_buffer* cmd = &context->graphics_command_buffers[context->current_frame];
 
 	vulkan_renderpass* current_renderpass = &context->main_renderpass;
 	vulkan_framebuffer* current_framebuffer = &context->swapchain.framebuffers[context->image_index];
+	vulkan_graphics_pipeline* current_pipeline = NULL;
 
-	u64 cursor = 0;
-	while (cursor + sizeof(rendercmd_header) <= rendercmd->size) {
-		// Header is always at cursor
-		rendercmd_header* hdr = (rendercmd_header*)((u8*)rendercmd->buffer + cursor);
+	u8* cursor = 0;
+	while (freelist_next_block(&rendercmd->buffer, &cursor)) {
+		rendercmd_header* hdr = (rendercmd_header*)cursor;
+		rendercmd_payload* payload = (rendercmd_payload*)(cursor + sizeof(rendercmd_header));
 
-		// Payload starts immediately after header
-		u64 payload_offset = cursor + sizeof(rendercmd_header);
-		if (payload_offset + hdr->payload_size > rendercmd->size) {
-			BX_WARN("Corrupted buffer: payload extends beyond buffer!");
-			break;
-		}
-
-		const rendercmd_payload* payload = (const rendercmd_payload*)((u8*)rendercmd->buffer + payload_offset);
 		switch (hdr->type) {
-
 		case RENDERCMD_SET_CLEAR_COLOUR:
 			current_renderpass->clear_colour = payload->set_clear_colour.clear_colour;
 			vulkan_renderpass_begin(cmd, current_renderpass, current_framebuffer);
 			break;
 
 		case RENDERCMD_BEGIN_RENDERSTAGE:
-			vulkan_graphics_pipeline_bind(cmd, &context->graphics_pipeline);
+			current_pipeline = &context->graphics_pipeline;
+			vulkan_graphics_pipeline_bind(cmd, current_pipeline);
 			break;
 
 		case RENDERCMD_END_RENDERSTAGE:
+			current_pipeline = NULL;
 			break;
 
 		case RENDERCMD_DRAW:
-			vkCmdDraw(cmd->handle, payload->draw.vertex_count, payload->draw.instance_count, 0, 0);
+			vkCmdDraw(cmd->handle,
+				payload->draw.vertex_count,
+				payload->draw.instance_count,
+				0, 0);
 			break;
 		}
-
-		// Advance cursor to start of next command (with alignment)
-		u64 unaligned_next = payload_offset + hdr->payload_size;
-		cursor = align_up_u64(unaligned_next, 8);
 	}
 
 	if (current_renderpass != NULL &&
@@ -353,7 +358,7 @@ b8 vulkan_renderer_playback_rendercmd(renderer_backend* backend, box_rendercmd* 
 		vulkan_renderpass_end(cmd, current_renderpass);
 	}
 
-	return TRUE;
+	return TRUE; // NOTE: Properaly doesn't need bool (vkCmdXXX doesn't has result either).
 }
 
 b8 vulkan_renderer_backend_end_frame(renderer_backend* backend) {
@@ -376,8 +381,12 @@ b8 vulkan_renderer_backend_end_frame(renderer_backend* backend) {
 	submit_info.signalSemaphoreCount = BX_ARRAYSIZE(signal_semaphores);
 	submit_info.pSignalSemaphores = signal_semaphores;
 
-	VK_CHECK(vkQueueSubmit(context->device.graphics_queue, 1, &submit_info,
-		context->in_flight_fences[context->current_frame].handle));
+	if (!vulkan_result_is_success(
+		vkQueueSubmit(context->device.graphics_queue, 1, &submit_info,
+		context->in_flight_fences[context->current_frame].handle))) {
+		BX_ERROR("vkQueueSubmit failed execution.");
+		return FALSE;
+	}
 
 	// Present
 	vulkan_swapchain_present(
@@ -399,14 +408,16 @@ b8 vulkan_regenerate_framebuffer(vulkan_context* context) {
 			context->swapchain.views[i],
 			context->swapchain.depth_attachment.view };
 
-		vulkan_framebuffer_create(
+		if (!vulkan_framebuffer_create(
 			context,
 			&context->main_renderpass,
 			context->config->framebuffer_width,
 			context->config->framebuffer_height,
 			attachment_count,
 			attachments,
-			&context->swapchain.framebuffers[i]);
+			&context->swapchain.framebuffers[i])) {
+			return FALSE;
+		}
 	}
 
 	return TRUE;

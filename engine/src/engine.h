@@ -40,6 +40,9 @@ box_engine* box_create_engine(box_config* app_config);
 // Checks if specified engine is currently running.
 b8 box_engine_is_running(box_engine* engine);
 
+// Checks if engine is temporarily paused.
+b8 box_engine_should_skip_frame(box_engine* engine);
+
 // Gets current config for specified engine.
 const box_config* box_engine_get_config(box_engine* engine);
 

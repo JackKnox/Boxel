@@ -157,6 +157,12 @@ b8 box_engine_is_running(box_engine* engine) {
 	return engine->is_running;
 }
 
+b8 box_engine_should_skip_frame(box_engine* engine)
+{
+	if (!engine) return TRUE;
+	return engine->is_suspended;
+}
+
 void box_destroy_engine(box_engine* engine) {
 	if (!engine) return;
 	// Destroy in the opposite order of creation.
