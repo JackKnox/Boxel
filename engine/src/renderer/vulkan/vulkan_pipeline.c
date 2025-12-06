@@ -1,15 +1,13 @@
 #include "defines.h"
 #include "vulkan_pipeline.h"
 
-VkShaderStageFlagBits get_vulkan_stage_type_from_filepath(const char* filepath) {
-	if (strstr(filepath, ".vert.spv"))
-		return VK_SHADER_STAGE_VERTEX_BIT;
-	else if (strstr(filepath, ".frag.spv"))
-		return VK_SHADER_STAGE_FRAGMENT_BIT;
-	else if (strstr(filepath, ".comp.spv"))
-		return VK_SHADER_STAGE_COMPUTE_BIT;
-	else if (strstr(filepath, ".geom.spv"))
-		return VK_SHADER_STAGE_GEOMETRY_BIT;
+VkShaderStageFlagBits box_shader_type_to_vulkan_type(box_shader_stage_type type) {
+	switch (type) {
+	case BOX_SHADER_STAGE_TYPE_VERTEX: return VK_SHADER_STAGE_VERTEX_BIT;
+	case BOX_SHADER_STAGE_TYPE_GEOMETRY: return VK_SHADER_STAGE_GEOMETRY_BIT;
+	case BOX_SHADER_STAGE_TYPE_FRAGMENT: return VK_SHADER_STAGE_FRAGMENT_BIT;
+	case BOX_SHADER_STAGE_TYPE_COMPUTE: return VK_SHADER_STAGE_COMPUTE_BIT;
+	}
 
 	return 0;
 }
@@ -18,41 +16,34 @@ b8 vulkan_graphics_pipeline_create(
 	vulkan_context* context, 
 	vulkan_graphics_pipeline* out_pipeline, 
 	vulkan_renderpass* renderpass, 
-	const char** shader_paths,
-	u32 shader_count) {
+	box_shader* shader) {
 	// Fill shader stages with data from shader array
-	VkPipelineShaderStageCreateInfo* shader_stages = darray_reserve(VkPipelineShaderStageCreateInfo, shader_count);
-
-	for (int i = 0; i < shader_count; ++i) {
-		const char* filepath = shader_paths[i];
-
-		u64 size = 0;
-		const void* file_buffer = filesystem_read_entire_binary_file(filepath, &size);
-		if (!file_buffer) {
-			BX_ERROR("Unable to read binary: %s.", filepath);
-			return FALSE;
+	VkPipelineShaderStageCreateInfo* shader_stages = darray_create(VkPipelineShaderStageCreateInfo);
+	for (int i = 0; i < BOX_SHADER_STAGE_TYPE_MAX; ++i) {
+		shader_stage* stage = &shader->stages[i];
+		if (stage->file_size == 0) {
+			if (stage->file_data != NULL) {
+				BX_WARN("Shader stage says file size is zero but contains data?");
+			}
+			continue;
 		}
 
+		VkShaderModule shader_module;
 		VkShaderModuleCreateInfo create_info = { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
-		create_info.codeSize = size;
-		create_info.pCode = (uint32_t*)file_buffer;
-
-		VkShaderModule module;
-		if (!vulkan_result_is_success(
-			vkCreateShaderModule(context->device.logical_device, &create_info,
-			context->allocator, &module))) {
-			BX_ERROR("Unable to create shader module: %s.", filepath);
-			platform_free(file_buffer, FALSE);
+		create_info.pCode = stage->file_data;
+		create_info.codeSize = stage->file_size;
+		if (!vulkan_result_is_success(vkCreateShaderModule(
+			context->device.logical_device, &create_info, 
+			context->allocator, &shader_module))) {
+			// ...
 			return FALSE;
 		}
 
-		VkPipelineShaderStageCreateInfo* stage_info = &shader_stages[i];
-		stage_info->sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		stage_info->stage = get_vulkan_stage_type_from_filepath(filepath);
-		stage_info->module = module;
-		stage_info->pName = "main";
-
-		platform_free(file_buffer, FALSE);
+		VkPipelineShaderStageCreateInfo stage_info = { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
+		stage_info.stage = box_shader_type_to_vulkan_type((box_shader_stage_type)i);
+		stage_info.module = shader_module;
+		stage_info.pName = "main";
+		shader_stages = _darray_push(shader_stages, &stage_info);
 	}
 
 	VkPipelineViewportStateCreateInfo viewport_state = { VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO };
@@ -182,10 +173,6 @@ b8 vulkan_graphics_pipeline_create(
 		BX_ERROR("Failed to create graphics pipeline!");
 		return FALSE;
 	}
-	
-	for (u32 i = 0; i < shader_count; ++i) {
-		vkDestroyShaderModule(context->device.logical_device, shader_stages[i].module, context->allocator);
-	}
 
 	darray_destroy(shader_stages);
 	return TRUE;
@@ -201,66 +188,4 @@ void vulkan_graphics_pipeline_destroy(vulkan_context* context, vulkan_graphics_p
 
 void vulkan_graphics_pipeline_bind(vulkan_command_buffer* command_buffer, vulkan_graphics_pipeline* pipeline) {
 	vkCmdBindPipeline(command_buffer->handle, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->handle);
-}
-
-b8 vulkan_compute_pipeline_create(
-	vulkan_context* context, 
-	vulkan_compute_pipeline* out_pipeline, 
-	const char* shader_path) {
-	// Loading compute shader...
-	u64 size = 0;
-	const void* file_buffer = filesystem_read_entire_binary_file(shader_path, &size);
-	if (!file_buffer) {
-		BX_ERROR("Unable to read binary: %s.", shader_path);
-		return FALSE;
-	}
-
-	VkShaderModuleCreateInfo create_info = { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
-	create_info.codeSize = size;
-	create_info.pCode = (uint32_t*)file_buffer;
-
-	VkShaderModule module;
-	if (!vulkan_result_is_success(
-		vkCreateShaderModule(context->device.logical_device, &create_info,
-		context->allocator, &module))) {
-		BX_ERROR("Unable to create shader module: %s.", shader_path);
-		platform_free(file_buffer, FALSE);
-		return FALSE;
-	}
-
-	VkPipelineShaderStageCreateInfo compute_stage = { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
-	compute_stage.stage = get_stage_type_from_filepath(shader_path);
-	compute_stage.module = module;
-	compute_stage.pName = "main";
-
-	if (!(compute_stage.stage &= VK_SHADER_STAGE_COMPUTE_BIT)) {
-		BX_ERROR("Must create compute pipeline with a compute shader: %s.", shader_path);
-		vkDestroyShaderModule(context->device.logical_device, module, context->allocator);
-		return FALSE;
-	}
-
-	// Pipeline layout
-	VkPipelineLayoutCreateInfo pipelineLayoutInfo = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
-	pipelineLayoutInfo.setLayoutCount = 0;
-	pipelineLayoutInfo.pushConstantRangeCount = 0;
-
-	if (!vulkan_result_is_success(
-		vkCreatePipelineLayout(context->device.logical_device,
-		&pipelineLayoutInfo, context->allocator, &out_pipeline->layout))) {
-		BX_ERROR("Failed to create pipeline layout!");
-		return FALSE;
-	}
-
-	VkComputePipelineCreateInfo pipelineInfo = { VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO };
-	pipelineInfo.layout = out_pipeline->layout;
-	pipelineInfo.stage = compute_stage;
-
-	vkDestroyShaderModule(context->device.logical_device, module, context->allocator);
-	platform_free(file_buffer, FALSE);
-	return TRUE;
-}
-
-void vulkan_compute_pipeline_destroy(vulkan_context* context, vulkan_compute_pipeline* pipeline) {
-	vkDestroyPipeline(context->device.logical_device, pipeline->handle, context->allocator);
-	vkDestroyPipelineLayout(context->device.logical_device, pipeline->layout, context->allocator);
 }

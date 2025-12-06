@@ -52,8 +52,7 @@ typedef union rendercmd_payload {
     struct {
         struct box_shader* shader;
         struct box_vertex_layout* layout;
-        struct box_renderbuffer* vertex_buffer;
-        struct box_renderbuffer* index_buffer;
+        struct box_renderbuffer* vertex_buffer, *index_buffer;
         b8 depth_test, blending;
     } begin_renderstage;
 

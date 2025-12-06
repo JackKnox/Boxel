@@ -2,6 +2,8 @@
 #include "renderer_cmd.h"
 
 #include "engine.h"
+#include "renderer_types.h"
+#include "vertex_layout.h"
 
 rendercmd_payload* add_command(box_rendercmd* cmd, rendercmd_payload_type type, u64 payload_size) {
     if (!cmd) return NULL;
@@ -49,7 +51,7 @@ void box_rendercmd_set_clear_colour(box_rendercmd* cmd, f32 clear_r, f32 clear_g
          (u32)(1.0f * 255.0f + 0.5f);
 }
 
-void box_rendercmd_begin_renderstage(box_rendercmd* cmd, struct box_shader* shader, struct box_vertex_layout* layout, struct box_renderbuffer* vertex_buffer, struct box_renderbuffer* index_buffer, b8 depth_test, b8 blending) {
+void box_rendercmd_begin_renderstage(box_rendercmd* cmd, box_shader* shader, box_vertex_layout* layout, box_renderbuffer* vertex_buffer, box_renderbuffer* index_buffer, b8 depth_test, b8 blending) {
     rendercmd_payload* payload;
     payload = add_command(cmd, RENDERCMD_BEGIN_RENDERSTAGE, sizeof(payload->begin_renderstage));
     payload->begin_renderstage.shader = shader;

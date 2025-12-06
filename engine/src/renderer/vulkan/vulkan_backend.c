@@ -44,7 +44,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
 	return VK_FALSE;
 }
 
-b8 vulkan_renderer_backend_initialize(renderer_backend* backend, uvec2 starting_size, const char* application_name, renderer_backend_config* config) {
+b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, uvec2 starting_size, const char* application_name, box_renderer_backend_config* config) {
 	backend->internal_context = platform_allocate(sizeof(vulkan_context), FALSE);
 	platform_zero_memory(backend->internal_context, sizeof(vulkan_context));
 
@@ -158,15 +158,6 @@ b8 vulkan_renderer_backend_initialize(renderer_backend* backend, uvec2 starting_
 		return FALSE;
 	}
 
-	// TODO: Pipeline cache & resource management.
-	const char* graphics_shaders[] = { "assets/shader_base.vert.spv", "assets/shader_base.frag.spv" };
-
-	if (!vulkan_graphics_pipeline_create(context, &context->graphics_pipeline, 
-		&context->main_renderpass, graphics_shaders, BX_ARRAYSIZE(graphics_shaders))) {
-		BX_ERROR("Failed to create graphics pipeline!");
-		return FALSE;
-	}
-
 	context->swapchain.framebuffers = darray_reserve(vulkan_framebuffer, context->swapchain.image_count);
 	vulkan_regenerate_framebuffer(context);
 	vulkan_create_command_buffers(context);
@@ -199,13 +190,11 @@ b8 vulkan_renderer_backend_initialize(renderer_backend* backend, uvec2 starting_
 	return TRUE;
 }
 
-void vulkan_renderer_backend_shutdown(renderer_backend* backend) {
+void vulkan_renderer_backend_shutdown(box_renderer_backend* backend) {
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 	if (context->device.logical_device) vkDeviceWaitIdle(context->device.logical_device);
 
 	// Destroy in the opposite order of creation.
-
-	vulkan_graphics_pipeline_destroy(context, &context->graphics_pipeline);
 
 	// Sync objects
 	for (u8 i = 0; i < context->swapchain.max_frames_in_flight; ++i) {
@@ -263,11 +252,11 @@ void vulkan_renderer_backend_shutdown(renderer_backend* backend) {
 	backend->internal_context = NULL;
 }
 
-void vulkan_renderer_backend_on_resized(renderer_backend* backend, u32 width, u32 height) {
+void vulkan_renderer_backend_on_resized(box_renderer_backend* backend, u32 width, u32 height) {
 	// TODO: Swapchain recreation.
 }
 
-b8 vulkan_renderer_backend_begin_frame(renderer_backend* backend, f32 delta_time) {
+b8 vulkan_renderer_backend_begin_frame(box_renderer_backend* backend, f32 delta_time) {
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 
 	vulkan_fence_wait(context, &context->in_flight_fences[context->current_frame], UINT64_MAX);
@@ -316,13 +305,13 @@ b8 vulkan_renderer_backend_begin_frame(renderer_backend* backend, f32 delta_time
 
 // TODO: Validate command buffer (box_rendercmd) and put it 
 //       in render thread so Vulkan doesn't have too.
-b8 vulkan_renderer_playback_rendercmd(renderer_backend* backend, box_rendercmd* rendercmd) {
+b8 vulkan_renderer_playback_rendercmd(box_renderer_backend* backend, box_rendercmd* rendercmd) {
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 	vulkan_command_buffer* cmd = &context->graphics_command_buffers[context->current_frame];
 
 	vulkan_renderpass* current_renderpass = &context->main_renderpass;
 	vulkan_framebuffer* current_framebuffer = &context->swapchain.framebuffers[context->image_index];
-	vulkan_graphics_pipeline* current_pipeline = NULL;
+	box_shader* current_shader = NULL;
 
 	u8* cursor = 0;
 	while (freelist_next_block(&rendercmd->buffer, &cursor)) {
@@ -336,12 +325,11 @@ b8 vulkan_renderer_playback_rendercmd(renderer_backend* backend, box_rendercmd* 
 			break;
 
 		case RENDERCMD_BEGIN_RENDERSTAGE:
-			current_pipeline = &context->graphics_pipeline;
-			vulkan_graphics_pipeline_bind(cmd, current_pipeline);
+			BX_ERROR("AHHHHHH!");
 			break;
 
 		case RENDERCMD_END_RENDERSTAGE:
-			current_pipeline = NULL;
+			current_shader = NULL;
 			break;
 
 		case RENDERCMD_DRAW:
@@ -361,7 +349,7 @@ b8 vulkan_renderer_playback_rendercmd(renderer_backend* backend, box_rendercmd* 
 	return TRUE; // NOTE: Properaly doesn't need bool (vkCmdXXX doesn't has result either).
 }
 
-b8 vulkan_renderer_backend_end_frame(renderer_backend* backend) {
+b8 vulkan_renderer_backend_end_frame(box_renderer_backend* backend) {
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 	vulkan_command_buffer* cmd = &context->graphics_command_buffers[context->current_frame];
 
@@ -400,10 +388,17 @@ b8 vulkan_renderer_backend_end_frame(renderer_backend* backend) {
 	return TRUE;
 }
 
+b8 vulkan_renderer_create_shader(box_renderer_backend* backend, box_shader* out_shader) {
+	return TRUE;
+}
+
+b8 vulkan_renderer_destroy_shader(box_renderer_backend* backend, box_shader* out_shader) {
+	return TRUE;
+}
+
 b8 vulkan_regenerate_framebuffer(vulkan_context* context) {
 	for (u32 i = 0; i < context->swapchain.image_count; ++i) {
 		// TODO: make this dynamic based on the currently configured attachments
-		u32 attachment_count = 2;
 		VkImageView attachments[] = {
 			context->swapchain.views[i],
 			context->swapchain.depth_attachment.view };
@@ -413,7 +408,7 @@ b8 vulkan_regenerate_framebuffer(vulkan_context* context) {
 			&context->main_renderpass,
 			context->config->framebuffer_width,
 			context->config->framebuffer_height,
-			attachment_count,
+			BX_ARRAYSIZE(attachments),
 			attachments,
 			&context->swapchain.framebuffers[i])) {
 			return FALSE;

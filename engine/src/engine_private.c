@@ -32,8 +32,8 @@ b8 engine_thread_init(box_engine* engine) {
 		goto exit_and_cleanup;
 	}
 
-	if (!(renderer_backend_create(engine->config.render_config.api_type, &engine->platform_state, &engine->renderer)
-		&& engine->renderer.initialize(&engine->renderer, engine->config.window_size, engine->config.title, &engine->config.render_config))) { // Short circuiting
+	if (!renderer_backend_create(engine->config.render_config.api_type, &engine->platform_state, &engine->renderer)
+		|| !engine->renderer.initialize(&engine->renderer, engine->config.window_size, engine->config.title, &engine->config.render_config)) {
 		BX_ERROR("Failed to init renderer backend.");
 		goto exit_and_cleanup;
 	}
@@ -49,20 +49,12 @@ b8 engine_thread_init(box_engine* engine) {
 
 	// Send message to main thread to unlock user access to engine
 	// since everthing is initialized
-	mtx_lock(&engine->rendercmd_mutex); // Using the same mutex as the thread waiting
-	engine->is_running = TRUE;
-	cnd_broadcast(&engine->rendercmd_cnd);
-	mtx_unlock(&engine->rendercmd_mutex);
-
-	// Now that main thread is unlocked, wait until first box_rendercmd
-	// to avoid UB when sending to renderer backend (Vulkan doesn't accept empty command buffers).
-	{ 
-		mtx_lock(&engine->rendercmd_mutex); 
-		while (!engine->first_cmd_sent) 
-			cnd_wait(&engine->rendercmd_cnd, &engine->rendercmd_mutex); 
-		mtx_unlock(&engine->rendercmd_mutex); 
+	{
+		mtx_lock(&engine->rendercmd_mutex); // Using the same mutex as the thread waiting
+		engine->is_running = TRUE;
+		cnd_broadcast(&engine->rendercmd_cnd);
+		mtx_unlock(&engine->rendercmd_mutex);
 	}
-	if (engine->should_quit) goto exit_and_cleanup;
 	
 	engine->last_time = platform_get_absolute_time();
 
@@ -72,16 +64,17 @@ b8 engine_thread_init(box_engine* engine) {
 		engine->last_time = frame_start;
 		engine->delta_time = delta_ms;
 
-		renderer_backend* backend = &engine->renderer;
-		if (backend->begin_frame(backend, engine->delta_time)) {
-			// Grab a snapshot of the command->finished under the lock and then unlock
-			box_rendercmd* command = NULL;
-			b8 has_finished = get_next_rendercmd(engine, &command);
+		resource_thread_func(&engine->resource_system);
 
-			if (has_finished) {
-				if (!backend->playback_rendercmd(backend, command)) {
-					BX_WARN("Could not playback render command.");
-				}
+		box_renderer_backend* backend = &engine->renderer;
+
+		box_rendercmd* command = NULL;
+		b8 has_finished = get_next_rendercmd(engine, &command);
+
+		if (has_finished && backend->begin_frame(backend, engine->delta_time)) {
+			// Grab a snapshot of the command->finished under the lock and then unlock
+			if (!backend->playback_rendercmd(backend, command)) {
+				BX_WARN("Could not playback render command.");
 			}
 
 			// After successful playback:
@@ -128,6 +121,9 @@ exit_and_cleanup:
 void engine_thread_shutdown(box_engine* engine) {
 	if (!engine) return;
 	// Destroy in the opposite order of creation.
+
+	BX_INFO("Destroying engine resources...");
+	resource_system_destroy_resources(&engine->resource_system);
 
 	if (engine->renderer.internal_context != NULL) {
 		engine->renderer.shutdown(&engine->renderer);

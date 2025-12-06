@@ -5,8 +5,8 @@
 
 #include "vulkan/vulkan_backend.h"
 
-renderer_backend_config renderer_backend_default_config() {
-    renderer_backend_config configuration = {0}; // fill with zeros
+box_renderer_backend_config renderer_backend_default_config() {
+    box_renderer_backend_config configuration = {0}; // fill with zeros
 	configuration.swapchain_frame_count = 3;
 	configuration.enable_validation = TRUE;
 	configuration.graphics_pipeline = TRUE;
@@ -14,7 +14,7 @@ renderer_backend_config renderer_backend_default_config() {
     return configuration;
 }
 
-b8 renderer_backend_create(renderer_backend_type type, struct box_platform* plat_state, renderer_backend* out_renderer_backend) {
+b8 renderer_backend_create(box_renderer_backend_type type, struct box_platform* plat_state, box_renderer_backend* out_renderer_backend) {
     if (!out_renderer_backend) return FALSE;
     out_renderer_backend->plat_state = plat_state;
 
@@ -25,6 +25,8 @@ b8 renderer_backend_create(renderer_backend_type type, struct box_platform* plat
         out_renderer_backend->begin_frame = vulkan_renderer_backend_begin_frame;
         out_renderer_backend->playback_rendercmd = vulkan_renderer_playback_rendercmd;
         out_renderer_backend->end_frame = vulkan_renderer_backend_end_frame;
+        out_renderer_backend->create_internal_shader = vulkan_renderer_create_shader;
+        out_renderer_backend->destroy_internal_shader = vulkan_renderer_destroy_shader;
 
         return TRUE;
     }
@@ -33,6 +35,6 @@ b8 renderer_backend_create(renderer_backend_type type, struct box_platform* plat
     return FALSE;
 }
 
-void renderer_backend_destroy(renderer_backend* renderer_backend) {
+void renderer_backend_destroy(box_renderer_backend* renderer_backend) {
     platform_zero_memory(renderer_backend, sizeof(renderer_backend));
 }

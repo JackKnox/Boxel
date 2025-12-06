@@ -4,14 +4,12 @@
 b8 check_vox_header(file_handle* handle, u32* out_version) {
 	char header[4];
 	
-	if (!filesystem_read(handle, sizeof(header), header, NULL) && 
+	if (!filesystem_read(handle, sizeof(header), header, NULL) &&
 		memcmp(header, "VOX", sizeof(header)) != 0) {
-		BX_ERROR("Cannot read VOX format header.");
 		return FALSE;
 	}
 
 	if (!filesystem_read(handle, sizeof(*out_version), out_version, NULL)) {
-		BX_ERROR("Cannot read VOX format version.");
 		return FALSE;
 	}
     

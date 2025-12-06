@@ -60,6 +60,7 @@ b8 box_load_voxel_model(const char* filepath, box_octree* out_octree) {
 	out_octree->nodes = darray_create(octree_node);
 	u32 root_index = octree_node_recursive(out_octree, &model, (uvec3){ 0, 0, 0 }, cube);
 
+	filesystem_close(&handle);
 	platform_free(model.file_data, FALSE);
 	return TRUE;
 }

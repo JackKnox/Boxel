@@ -25,7 +25,7 @@ typedef struct box_config {
 	u32 target_fps;
 
 	// Configuration for render backend.
-	renderer_backend_config render_config;
+	box_renderer_backend_config render_config;
 } box_config;
 
 // Opaque handle to true box_engine.
@@ -42,6 +42,9 @@ b8 box_engine_is_running(box_engine* engine);
 
 // Checks if engine is temporarily paused.
 b8 box_engine_should_skip_frame(box_engine* engine);
+
+// Closes window safely linked to specified engine, calling box_destroy_engine still applies.
+void box_close_engine(box_engine* engine, b8 should_close);
 
 // Gets current config for specified engine.
 const box_config* box_engine_get_config(box_engine* engine);

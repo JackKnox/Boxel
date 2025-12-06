@@ -6,6 +6,7 @@
 
 #include "platform/platform.h"
 #include "renderer/renderer_cmd.h"
+#include "resource_system.h"
 
 typedef struct box_engine {
 	// Running = render thread actually open or not.
@@ -15,14 +16,14 @@ typedef struct box_engine {
 	b8 should_quit;
 
 	box_config config;
-	renderer_backend renderer;
+	box_renderer_backend renderer;
+	box_resource_system resource_system;
 	box_platform platform_state;
 
 	thrd_t render_thread;
 	f64 last_time, delta_time;
 
 	u64 game_write_idx, render_read_idx;
-	b8 first_cmd_sent;
 	box_rendercmd* command_ring; // Constant size, cannot change size
 	u8 command_ring_length; 
 

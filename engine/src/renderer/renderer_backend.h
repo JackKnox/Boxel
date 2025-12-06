@@ -2,12 +2,14 @@
 
 #include "defines.h"
 
+#include "renderer_types.h"
+
 // Type for Graphics API/Method.
-typedef enum renderer_backend_type {
+typedef enum box_renderer_backend_type {
     RENDERER_BACKEND_TYPE_VULKAN,
     RENDERER_BACKEND_TYPE_OPENGL,
     RENDERER_BACKEND_TYPE_DIRECTX
-} renderer_backend_type;
+} box_renderer_backend_type;
 
 typedef enum renderer_device_type {
     RENDERER_DEVICE_TYPE_OTHER = 0,
@@ -30,7 +32,7 @@ typedef struct renderer_capabilities {
 // Configuration for render backend.
 typedef struct renderer_backend_config {
     // Chosen type of API. Keep this in renderer_backend_config so backend knows what type is it.
-    renderer_backend_type api_type;
+    box_renderer_backend_type api_type;
 
     /// Enabled pipelines / modes for backend to prepare for.
     b8 graphics_pipeline, compute_pipeline;
@@ -64,25 +66,29 @@ typedef struct renderer_backend_config {
 
     // The framebuffer's current height.
     u32 framebuffer_height;
-} renderer_backend_config;
+} box_renderer_backend_config;
 
 // Sets default configurtion for renderer backend.
-renderer_backend_config renderer_backend_default_config();
+box_renderer_backend_config renderer_backend_default_config();
 
-typedef struct renderer_backend {
+typedef struct box_renderer_backend {
     void* internal_context;
     struct box_platform* plat_state;
 
-    b8 (*initialize)(struct renderer_backend* backend, uvec2 starting_size, const char* application_name, renderer_backend_config* config);
+    b8 (*initialize)(struct box_renderer_backend* backend, uvec2 starting_size, const char* application_name, box_renderer_backend_config* config);
 
-    void (*shutdown)(struct renderer_backend* backend);
+    void (*shutdown)(struct box_renderer_backend* backend);
 
-    void (*resized)(struct renderer_backend* backend, u32 width, u32 height);
+    void (*resized)(struct box_renderer_backend* backend, u32 width, u32 height);
 
-    b8 (*begin_frame)(struct renderer_backend* backend, f32 delta_time);
-    b8 (*playback_rendercmd)(struct renderer_backend* backend, struct box_rendercmd* rendercmd);
-    b8 (*end_frame)(struct renderer_backend* backend);
-} renderer_backend;
+    b8 (*begin_frame)(struct box_renderer_backend* backend, f32 delta_time);
+    b8 (*playback_rendercmd)(struct box_renderer_backend* backend, struct box_rendercmd* rendercmd);
+    b8 (*end_frame)(struct box_renderer_backend* backend);
 
-b8 renderer_backend_create(renderer_backend_type type, struct box_platform* plat_state, renderer_backend* out_renderer_backend);
-void renderer_backend_destroy(renderer_backend* renderer_backend);
+    // Renderer resources.
+    b8 (*create_internal_shader)(struct box_renderer_backend* backend, box_shader* out_shader);
+    b8 (*destroy_internal_shader)(struct box_renderer_backend* backend, box_shader* out_shader);
+} box_renderer_backend;
+
+b8 renderer_backend_create(box_renderer_backend_type type, struct box_platform* plat_state, box_renderer_backend* out_renderer_backend);
+void renderer_backend_destroy(box_renderer_backend* renderer_backend);

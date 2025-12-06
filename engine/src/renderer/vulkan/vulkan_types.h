@@ -81,11 +81,6 @@ typedef struct vulkan_graphics_pipeline {
     VkPipelineLayout layout;
 } vulkan_graphics_pipeline;
 
-typedef struct vulkan_compute_pipeline {
-    VkPipeline handle;
-    VkPipelineLayout layout;
-} vulkan_compute_pipeline;
-
 typedef struct vulkan_swapchain {
     VkSurfaceFormatKHR image_format;
     u8 max_frames_in_flight;
@@ -122,8 +117,8 @@ typedef struct vulkan_fence {
 } vulkan_fence;
 
 typedef struct vulkan_context {
-    // Configuration for render backend
-    renderer_backend_config* config;
+    // Configuration for render backend - TODO: Remove!
+    box_renderer_backend_config* config;
 
     // Current generation of framebuffer size. If it does not match framebuffer_size_last_generation,
     // a new one should be generated.
@@ -140,8 +135,6 @@ typedef struct vulkan_context {
     VkDebugUtilsMessengerEXT debug_messenger;
 
     vulkan_device device;
-    vulkan_graphics_pipeline graphics_pipeline;
-
     vulkan_swapchain swapchain;
     vulkan_renderpass main_renderpass;
 

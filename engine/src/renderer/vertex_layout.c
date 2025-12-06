@@ -39,7 +39,7 @@ void box_vertex_layout_add(box_vertex_layout* layout, box_vertex_attrib_type att
 	layout->attrib_count++;
 }
 
-void box_vertext_layout_set_topology(box_vertex_layout* layout, box_vertex_topology_type topology) {
+void box_vertex_layout_set_topology(box_vertex_layout* layout, box_vertex_topology_type topology) {
 	if (layout->initialized) {
 		BX_WARN("Cannot change vertex layout after ending.");
 		return;
