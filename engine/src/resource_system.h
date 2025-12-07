@@ -4,28 +4,14 @@
 
 #include "utils/freelist.h"
 
-// The long-term goal for the resource system is to become a general-purpose,
-// engine-wide memory and lifecycle manager for global resources. It should:
-//
-// 1. Allocate and own storage for all engine-level resources.
-// 2. Handle creation/destruction requests asynchronously on a dedicated thread.
-// 3. Remove the need for any explicit type registry.
-// 4. Allow each resource to define its own construction and destruction logic,
-//    with the resource system acting only as the allocator + dispatcher.
-//
-// Ultimately this system should behave like:
-//   - a thread-safe resource heap,
-//   - a job dispatcher for resource operations,
-//   - and a lifetime tracker for all engine resources.
-
-// State of relevent resource through programs lifetime.
+// State of valid resource through engine's lifetime.
 typedef enum box_resource_state {
 	BOX_RESOURCE_STATE_UNINITIALIZED,
-	BOX_RESOURCE_STATE_NEEDS_UPLOAD,  // Main thread requested upload.
-	BOX_RESOURCE_STATE_UPLOADING,     // Render/upload thread is processing.
-	BOX_RESOURCE_STATE_READY,         // GPU resource created and usable.
-	BOX_RESOURCE_STATE_FAILED,        // Upload/create failed.
-	BOX_RESOURCE_STATE_PENDING_DELETE // Flagged for deletion when safe.
+	BOX_RESOURCE_STATE_NEEDS_UPLOAD,
+	BOX_RESOURCE_STATE_UPLOADING,
+	BOX_RESOURCE_STATE_READY,  
+	BOX_RESOURCE_STATE_FAILED,
+	BOX_RESOURCE_STATE_PENDING_DELETE // TODO: Might not need this?
 } box_resource_state;
 
 // Hold resource-specific function pointer to be used on resource creation thread.
@@ -36,6 +22,7 @@ typedef struct box_resource_vtable {
 
 // Start of every valid 'box_resource' in memory, holds private data when resource is fully initialized.
 typedef struct box_resource_header {
+	u8 magic;
 	box_resource_vtable vtable;
 	box_resource_state state;
 	
@@ -43,14 +30,29 @@ typedef struct box_resource_header {
 	void* resource_arg;
 } box_resource_header;
 
+// Opaque handle to true box_resource_system. TODO: Turn into private handle.
 typedef struct box_resource_system {
 	freelist resources;
+	box_resource_header** upload_queue; // darray
+	b8 is_running;
+
+	thrd_t resource_thread;
+	mtx_t resource_thread_mutex;
+	cnd_t resource_thread_cnd;
+	u32 waiting_index;
 } box_resource_system;
 
+// Creates and initializes the resource system, with allocating resource list with start_mem.
 b8 resource_system_init(box_resource_system* system, u64 start_mem);
 
-b8 resource_system_new_resource(box_resource_system* system, void* resource, u64 resource_size, void* args);
+// Allocates memory for resource inline with internal data structures and returns address.
+b8 resource_system_allocate_resource(box_resource_system* system, u64 resource_size, void** out_resource);
 
-void resource_thread_func(box_resource_system* system);
+// After setting state for resource use this, to queue specified resource for creation.
+void resource_system_signal_upload(box_resource_system* system, void* resource);
 
+// Wait until all resources signaled for uploading before this function call.
+void resource_system_wait(box_resource_system* system);
+
+// Calls destruction function on all managed resources within specified system and deallocates memory.
 void resource_system_destroy_resources(box_resource_system* system);

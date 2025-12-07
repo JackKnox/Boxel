@@ -50,10 +50,7 @@ typedef union rendercmd_payload {
     } draw;
 
     struct {
-        struct box_shader* shader;
-        struct box_vertex_layout* layout;
-        struct box_renderbuffer* vertex_buffer, *index_buffer;
-        b8 depth_test, blending;
+        struct box_renderstage* renderstage;
     } begin_renderstage;
 
 } rendercmd_payload;
@@ -69,7 +66,7 @@ void box_rendercmd_destroy(box_rendercmd* cmd);
 void box_rendercmd_set_clear_colour(box_rendercmd* cmd, f32 clear_r, f32 clear_g, f32 clear_b);
 
 // Begin a new render stage with specified shaders. Subsequent draw calls will use this stage.
-void box_rendercmd_begin_renderstage(box_rendercmd* cmd, struct box_shader* shader, struct box_vertex_layout* layout, struct box_renderbuffer* vertex_buffer, struct box_renderbuffer* index_buffer, b8 depth_test, b8 blending);
+void box_rendercmd_begin_renderstage(box_rendercmd* cmd, struct box_renderstage* renderstage);
 
 // Issue a draw call with current bound state.
 void box_rendercmd_draw(box_rendercmd* cmd, u32 vertex_count, u32 instance_count);

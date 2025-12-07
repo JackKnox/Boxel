@@ -14,7 +14,7 @@
 #include "vulkan_command_buffer.h"
 #include "vulkan_fence.h"
 
-b8 platform_create_vulkan_surface(VkInstance instance, box_platform* plat_state, const VkAllocationCallbacks* allocator, VkSurfaceKHR* out_surface);
+VkResult platform_create_vulkan_surface(VkInstance instance, box_platform* plat_state, const VkAllocationCallbacks* allocator, VkSurfaceKHR* out_surface);
 
 b8 vulkan_regenerate_framebuffer(vulkan_context* context);
 b8 vulkan_create_command_buffers(vulkan_context* context);
@@ -130,7 +130,10 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, uvec2 start
 	}
 
 	// Create the Vulkan surface
-	if (!platform_create_vulkan_surface(context->instance, backend->plat_state, context->allocator, &context->surface)) {
+	if (!vulkan_result_is_success(
+		platform_create_vulkan_surface(
+		context->instance, backend->plat_state, 
+		context->allocator, &context->surface))) {
 		BX_ERROR("Failed to create platform surface!");
 		return FALSE;
 	}
@@ -311,7 +314,7 @@ b8 vulkan_renderer_playback_rendercmd(box_renderer_backend* backend, box_renderc
 
 	vulkan_renderpass* current_renderpass = &context->main_renderpass;
 	vulkan_framebuffer* current_framebuffer = &context->swapchain.framebuffers[context->image_index];
-	box_shader* current_shader = NULL;
+	box_renderstage* current_shader = NULL;
 
 	u8* cursor = 0;
 	while (freelist_next_block(&rendercmd->buffer, &cursor)) {
@@ -325,13 +328,14 @@ b8 vulkan_renderer_playback_rendercmd(box_renderer_backend* backend, box_renderc
 			break;
 
 		case RENDERCMD_BEGIN_RENDERSTAGE:
-			BX_ERROR("AHHHHHH!");
+			current_shader = payload->begin_renderstage.renderstage;
+			vulkan_graphics_pipeline_bind(cmd, (vulkan_graphics_pipeline*)current_shader->internal_data);
 			break;
-
+		
 		case RENDERCMD_END_RENDERSTAGE:
 			current_shader = NULL;
 			break;
-
+		
 		case RENDERCMD_DRAW:
 			vkCmdDraw(cmd->handle,
 				payload->draw.vertex_count,
@@ -388,12 +392,21 @@ b8 vulkan_renderer_backend_end_frame(box_renderer_backend* backend) {
 	return TRUE;
 }
 
-b8 vulkan_renderer_create_shader(box_renderer_backend* backend, box_shader* out_shader) {
-	return TRUE;
+b8 vulkan_renderer_create_renderstage(box_renderer_backend* backend, box_renderstage* out_stage) {
+	vulkan_context* context = (vulkan_context*)backend->internal_context;
+
+	out_stage->internal_data = platform_allocate(sizeof(vulkan_graphics_pipeline), FALSE);
+	return vulkan_graphics_pipeline_create(context, out_stage->internal_data, &context->main_renderpass, out_stage);
 }
 
-b8 vulkan_renderer_destroy_shader(box_renderer_backend* backend, box_shader* out_shader) {
-	return TRUE;
+void vulkan_renderer_destroy_renderstage(box_renderer_backend* backend, box_renderstage* out_stage) {
+	vulkan_context* context = (vulkan_context*)backend->internal_context;
+
+	if (out_stage->internal_data != NULL) {
+		vulkan_graphics_pipeline* pipeline = (vulkan_graphics_pipeline*)out_stage->internal_data;
+		vulkan_graphics_pipeline_destroy(context, pipeline);
+		platform_free(pipeline, FALSE);
+	}
 }
 
 b8 vulkan_regenerate_framebuffer(vulkan_context* context) {

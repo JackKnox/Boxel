@@ -51,15 +51,10 @@ void box_rendercmd_set_clear_colour(box_rendercmd* cmd, f32 clear_r, f32 clear_g
          (u32)(1.0f * 255.0f + 0.5f);
 }
 
-void box_rendercmd_begin_renderstage(box_rendercmd* cmd, box_shader* shader, box_vertex_layout* layout, box_renderbuffer* vertex_buffer, box_renderbuffer* index_buffer, b8 depth_test, b8 blending) {
+void box_rendercmd_begin_renderstage(box_rendercmd* cmd, box_renderstage* renderstage) {
     rendercmd_payload* payload;
     payload = add_command(cmd, RENDERCMD_BEGIN_RENDERSTAGE, sizeof(payload->begin_renderstage));
-    payload->begin_renderstage.shader = shader;
-    payload->begin_renderstage.layout = layout;
-    payload->begin_renderstage.vertex_buffer = vertex_buffer;
-    payload->begin_renderstage.index_buffer = index_buffer;
-    payload->begin_renderstage.depth_test = depth_test;
-    payload->begin_renderstage.blending = blending;
+    payload->begin_renderstage.renderstage = renderstage;
 }
 
 void box_rendercmd_draw(box_rendercmd* cmd, u32 vertex_count, u32 instance_count) {

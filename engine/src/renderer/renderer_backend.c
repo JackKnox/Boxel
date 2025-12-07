@@ -25,8 +25,8 @@ b8 renderer_backend_create(box_renderer_backend_type type, struct box_platform* 
         out_renderer_backend->begin_frame = vulkan_renderer_backend_begin_frame;
         out_renderer_backend->playback_rendercmd = vulkan_renderer_playback_rendercmd;
         out_renderer_backend->end_frame = vulkan_renderer_backend_end_frame;
-        out_renderer_backend->create_internal_shader = vulkan_renderer_create_shader;
-        out_renderer_backend->destroy_internal_shader = vulkan_renderer_destroy_shader;
+        out_renderer_backend->create_internal_renderstage = vulkan_renderer_create_renderstage;
+        out_renderer_backend->destroy_internal_renderstage = vulkan_renderer_destroy_renderstage;
 
         return TRUE;
     }

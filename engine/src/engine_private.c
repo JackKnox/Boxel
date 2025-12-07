@@ -4,7 +4,7 @@
 #include "utils/darray.h"
 
 // NOTE: Engine thread should never call functions like box_destroy_engine
-//       which deallocate memory that main thread uses. When finding a fatal error
+//       which deallocates memory that main thread uses. When finding a fatal error
 //       use "engine->should_quit = TRUE" and return to notify main thread to destroy
 //       at a time which is safe for the program (see tag "exit_and_cleanup").
 
@@ -64,8 +64,6 @@ b8 engine_thread_init(box_engine* engine) {
 		engine->last_time = frame_start;
 		engine->delta_time = delta_ms;
 
-		resource_thread_func(&engine->resource_system);
-
 		box_renderer_backend* backend = &engine->renderer;
 
 		box_rendercmd* command = NULL;
@@ -122,14 +120,16 @@ void engine_thread_shutdown(box_engine* engine) {
 	if (!engine) return;
 	// Destroy in the opposite order of creation.
 
-	BX_INFO("Destroying engine resources...");
-	resource_system_destroy_resources(&engine->resource_system);
+	//BX_INFO("Destroying engine resources...");
+	//resource_system_destroy_resources(&engine->resource_system);
 
+	BX_INFO("Shutting down renderer backend...");
 	if (engine->renderer.internal_context != NULL) {
 		engine->renderer.shutdown(&engine->renderer);
 		renderer_backend_destroy(&engine->renderer);
 	}
-	
+
+	BX_INFO("Close connection to operating system...");
 	if (engine->platform_state.internal_state != NULL) {
 		platform_shutdown(&engine->platform_state);
 	}

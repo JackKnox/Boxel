@@ -16,7 +16,7 @@ b8 vulkan_graphics_pipeline_create(
 	vulkan_context* context, 
 	vulkan_graphics_pipeline* out_pipeline, 
 	vulkan_renderpass* renderpass, 
-	box_shader* shader) {
+	box_renderstage* shader) {
 	// Fill shader stages with data from shader array
 	VkPipelineShaderStageCreateInfo* shader_stages = darray_create(VkPipelineShaderStageCreateInfo);
 	for (int i = 0; i < BOX_SHADER_STAGE_TYPE_MAX; ++i) {
@@ -44,6 +44,8 @@ b8 vulkan_graphics_pipeline_create(
 		stage_info.module = shader_module;
 		stage_info.pName = "main";
 		shader_stages = _darray_push(shader_stages, &stage_info);
+
+		platform_free(stage->file_data, FALSE);
 	}
 
 	VkPipelineViewportStateCreateInfo viewport_state = { VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO };
@@ -146,7 +148,7 @@ b8 vulkan_graphics_pipeline_create(
 
 	// Pipeline create
 	VkGraphicsPipelineCreateInfo pipelineInfo = { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
-	pipelineInfo.stageCount = darray_capacity(shader_stages);
+	pipelineInfo.stageCount = darray_length(shader_stages);
 	pipelineInfo.pStages = shader_stages;
 	pipelineInfo.pVertexInputState = &vertex_input_info;
 	pipelineInfo.pInputAssemblyState = &input_assembly;
@@ -172,6 +174,10 @@ b8 vulkan_graphics_pipeline_create(
 		&out_pipeline->handle))) {
 		BX_ERROR("Failed to create graphics pipeline!");
 		return FALSE;
+	}
+
+	for (u32 i = 0; i < darray_length(shader_stages); ++i) {
+		vkDestroyShaderModule(context->device.logical_device, shader_stages[i].module, context->allocator);
 	}
 
 	darray_destroy(shader_stages);

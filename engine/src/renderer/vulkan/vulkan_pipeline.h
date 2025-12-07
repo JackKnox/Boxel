@@ -9,7 +9,7 @@ b8 vulkan_graphics_pipeline_create(
     vulkan_context* context,
     vulkan_graphics_pipeline* out_pipeline,
     vulkan_renderpass* renderpass,
-    box_shader* shader);
+    box_renderstage* shader);
 
 void vulkan_graphics_pipeline_destroy(vulkan_context* context, vulkan_graphics_pipeline* pipeline);
 

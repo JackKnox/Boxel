@@ -86,8 +86,8 @@ typedef struct box_renderer_backend {
     b8 (*end_frame)(struct box_renderer_backend* backend);
 
     // Renderer resources.
-    b8 (*create_internal_shader)(struct box_renderer_backend* backend, box_shader* out_shader);
-    b8 (*destroy_internal_shader)(struct box_renderer_backend* backend, box_shader* out_shader);
+    b8 (*create_internal_renderstage)(struct box_renderer_backend* backend, box_renderstage* out_stage);
+    void (*destroy_internal_renderstage)(struct box_renderer_backend* backend, box_renderstage* out_stage);
 } box_renderer_backend;
 
 b8 renderer_backend_create(box_renderer_backend_type type, struct box_platform* plat_state, box_renderer_backend* out_renderer_backend);

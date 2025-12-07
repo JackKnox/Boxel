@@ -8,8 +8,9 @@
 
 box_config box_default_config() {
 	box_config configuration = {0}; // fill with zeros
-	configuration.window_mode = BOX_WINDOW_MODE_WINDOWED;
 	configuration.window_position.centered = TRUE;
+	configuration.window_mode = BOX_WINDOW_MODE_WINDOWED;
+	configuration.window_visible = TRUE;
 	configuration.window_size.x = 640;
 	configuration.window_size.y = 480;
 	configuration.title = "Boxel Sandbox";
@@ -86,7 +87,7 @@ box_engine* box_create_engine(box_config* app_config) {
 
 	// Wait for the render thread to signal startup
 	mtx_lock(&engine->rendercmd_mutex);
-	while (!(engine->is_running || engine->should_quit))
+	while (!engine->is_running && !engine->should_quit)
 		cnd_wait(&engine->rendercmd_cnd, &engine->rendercmd_mutex);
 
 	b8 failed = engine->should_quit;
@@ -151,6 +152,11 @@ void box_close_engine(box_engine* engine, b8 should_close) {
 	if (!engine || !should_close || engine->should_quit) return;
 	BX_TRACE("Closing window...");
 	engine->should_quit = TRUE;
+}
+
+void box_engine_prepare_resources(box_engine* engine) {
+	if (!engine) return;
+	resource_system_wait(&engine->resource_system);
 }
 
 void box_destroy_engine(box_engine* engine) {

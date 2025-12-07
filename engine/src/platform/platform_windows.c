@@ -16,6 +16,7 @@
 
 typedef struct internal_state {
 	GLFWwindow* window;
+	b8 visible;
 } internal_state;
 
 void GLFWErrorCallback(int error, const char* description) {
@@ -33,6 +34,7 @@ b8 platform_start(box_platform* plat_state, box_config* app_config) {
 	plat_state->internal_state = platform_allocate(sizeof(internal_state), FALSE);
 	platform_zero_memory(plat_state->internal_state, sizeof(internal_state));
 	internal_state* state = (internal_state*)plat_state->internal_state;
+	state->visible = app_config->window_visible;
 
 	glfwSetErrorCallback(GLFWErrorCallback);
 	if (glfwInit() == 0) {
@@ -76,6 +78,18 @@ b8 platform_start(box_platform* plat_state, box_config* app_config) {
 	glfwSetWindowCloseCallback(state->window, on_window_close);
 
 	return TRUE;
+}
+
+void platform_show_window(box_platform* plat_state, b8 show) {
+	internal_state* state = (internal_state*)plat_state->internal_state;
+	if (state->visible == show) return;
+
+	if (show)
+		glfwShowWindow(state->window);
+	else
+		glfwHideWindow(state->window);
+
+	state->visible = show;
 }
 
 void platform_shutdown(box_platform* plat_state) {
@@ -139,11 +153,9 @@ void platform_get_vulkan_extensions(const char*** names_darray) {
 	darray_push(*names_darray, &"VK_KHR_win32_surface");
 }
 
-b8 platform_create_vulkan_surface(VkInstance instance, box_platform* plat_state, const VkAllocationCallbacks* allocator, VkSurfaceKHR* out_surface) {
+VkResult platform_create_vulkan_surface(VkInstance instance, box_platform* plat_state, const VkAllocationCallbacks* allocator, VkSurfaceKHR* out_surface) {
 	internal_state* state = (internal_state*)plat_state->internal_state;
-
-	VkResult result = glfwCreateWindowSurface(instance, state->window, allocator, out_surface);
-	return result == VK_SUCCESS;
+	return glfwCreateWindowSurface(instance, state->window, allocator, out_surface);
 }
 
 #endif

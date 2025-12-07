@@ -13,5 +13,5 @@ b8 vulkan_renderer_backend_begin_frame(box_renderer_backend* backend, f32 delta_
 b8 vulkan_renderer_playback_rendercmd(box_renderer_backend* backend, struct box_rendercmd* rendercmd);
 b8 vulkan_renderer_backend_end_frame(box_renderer_backend* backend);
 
-b8 vulkan_renderer_create_shader(box_renderer_backend* backend, box_shader* out_shader);
-b8 vulkan_renderer_destroy_shader(box_renderer_backend* backend, box_shader* out_shader);
+b8 vulkan_renderer_create_renderstage(box_renderer_backend* backend, box_renderstage* out_stage);
+void vulkan_renderer_destroy_renderstage(box_renderer_backend* backend, box_renderstage* out_stage);
