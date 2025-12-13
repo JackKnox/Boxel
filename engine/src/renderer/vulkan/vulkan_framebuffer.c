@@ -28,10 +28,10 @@ b8 vulkan_framebuffer_create(
 
     return vulkan_result_is_success(
         vkCreateFramebuffer(
-        context->device.logical_device,
-        &framebuffer_create_info,
-        context->allocator,
-        &out_framebuffer->handle));
+            context->device.logical_device,
+            &framebuffer_create_info,
+            context->allocator,
+            &out_framebuffer->handle));
 }
 
 void vulkan_framebuffer_destroy(vulkan_context* context, vulkan_framebuffer* framebuffer) {

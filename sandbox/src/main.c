@@ -6,8 +6,8 @@
 
 #include "engine_private.h"
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
+	// Sets default config for box_engine.
 	box_config app_config = box_default_config();
 	box_engine* engine = box_create_engine(&app_config);
 
@@ -26,15 +26,20 @@ int main(int argc, char** argv)
 	box_vertex_layout_add(&layout, BOX_VERTEX_ATTRIB_FLOAT32, 3); // Colour
 	 
 	const char* graphics_shaders[] = { "assets/shader_base.vert.spv", "assets/shader_base.frag.spv" };
-	box_renderstage* renderstage = box_engine_create_renderstage(engine, graphics_shaders, BX_ARRAYSIZE(graphics_shaders), &layout, NULL, NULL, TRUE, FALSE);
+
+	box_renderstage* renderstage = box_engine_create_renderstage(
+		engine, 
+		graphics_shaders, BX_ARRAYSIZE(graphics_shaders), 
+		box_engine_create_renderbuffer(engine, vertices, sizeof(vertices)), NULL,
+		&layout,
+		FALSE, FALSE);
 
 	box_engine_prepare_resources(engine);
 
-	while (box_engine_is_running(engine))
-	{
-		if (box_engine_should_skip_frame(engine)) {
+	while (box_engine_is_running(engine)) {
+		// Checks render thread is minimised or paused.
+		if (box_engine_should_skip_frame(engine))
 			continue;
-		}
 
 		box_rendercmd* cmd = box_engine_next_rendercmd(engine);
 		box_rendercmd_set_clear_colour(cmd, 0.1f, 0.1f, 0.1f);

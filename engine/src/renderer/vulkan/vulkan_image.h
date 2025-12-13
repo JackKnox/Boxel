@@ -4,11 +4,10 @@
 
 #include "vulkan_types.h"
 
-void vulkan_image_create(
+b8 vulkan_image_create(
     vulkan_context* context,
     VkImageType image_type,
-    u32 width,
-    u32 height,
+    uvec2 size,
     VkFormat format,
     VkImageTiling tiling,
     VkImageUsageFlags usage,
@@ -17,7 +16,7 @@ void vulkan_image_create(
     VkImageAspectFlags view_aspect_flags,
     vulkan_image* out_image);
 
-void vulkan_image_view_create(
+b8 vulkan_image_view_create(
     vulkan_context* context,
     VkFormat format,
     vulkan_image* image,

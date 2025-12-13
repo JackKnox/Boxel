@@ -120,8 +120,8 @@ void engine_thread_shutdown(box_engine* engine) {
 	if (!engine) return;
 	// Destroy in the opposite order of creation.
 
-	//BX_INFO("Destroying engine resources...");
-	//resource_system_destroy_resources(&engine->resource_system);
+	BX_INFO("Destroying engine resources...");
+	resource_system_destroy_resources(&engine->resource_system);
 
 	BX_INFO("Shutting down renderer backend...");
 	if (engine->renderer.internal_context != NULL) {

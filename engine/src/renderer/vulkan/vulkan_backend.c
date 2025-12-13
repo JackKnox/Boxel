@@ -7,6 +7,7 @@
 
 #include "vulkan_types.h"
 #include "vulkan_device.h"
+#include "vulkan_buffer.h"
 #include "vulkan_swapchain.h"
 #include "vulkan_renderpass.h"
 #include "vulkan_pipeline.h"
@@ -380,6 +381,8 @@ b8 vulkan_renderer_backend_end_frame(box_renderer_backend* backend) {
 		return FALSE;
 	}
 
+	vulkan_command_buffer_update_submitted(cmd);
+
 	// Present
 	vulkan_swapchain_present(
 		context, &context->swapchain,
@@ -406,6 +409,54 @@ void vulkan_renderer_destroy_renderstage(box_renderer_backend* backend, box_rend
 		vulkan_graphics_pipeline* pipeline = (vulkan_graphics_pipeline*)out_stage->internal_data;
 		vulkan_graphics_pipeline_destroy(context, pipeline);
 		platform_free(pipeline, FALSE);
+	}
+}
+
+b8 vulkan_renderer_create_renderbuffer(box_renderer_backend* backend, box_renderbuffer* out_buffer) {
+	vulkan_context* context = (vulkan_context*)backend->internal_context;
+	
+	out_buffer->internal_data = platform_allocate(sizeof(vulkan_buffer), FALSE);
+	vulkan_buffer* buffer = (vulkan_buffer*)out_buffer->internal_data;
+	
+	vulkan_buffer staging_buffer = { 0 };
+	if (!vulkan_buffer_create(
+		context,
+		out_buffer->temp_user_size,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		&staging_buffer)) {
+		BX_WARN("Failed to create Vulkan staging buffer.");
+		return FALSE;
+	}
+
+	vulkan_buffer_map_data(context, &staging_buffer, out_buffer->temp_user_size, out_buffer->temp_user_data);
+
+	vulkan_buffer_create(
+		context, 
+		out_buffer->temp_user_size, 
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, // TODO: Make configurable
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
+		buffer);
+
+	vulkan_command_buffer command_buffer;
+	vulkan_command_buffer_allocate_and_begin_single_use(context, context->device.graphics_command_pool, &command_buffer);
+	
+	VkBufferCopy copy_info = { 0 };
+	copy_info.size = out_buffer->temp_user_size;
+	vkCmdCopyBuffer(command_buffer.handle, staging_buffer.handle, buffer->handle, 1, &copy_info);
+
+	vulkan_command_buffer_end_single_use(context, context->device.graphics_command_pool, &command_buffer, context->device.graphics_queue);
+	vulkan_buffer_destroy(context, &staging_buffer);
+	return TRUE;
+}
+
+void vulkan_renderer_destroy_renderbuffer(box_renderer_backend* backend, box_renderbuffer* out_buffer) {
+	vulkan_context* context = (vulkan_context*)backend->internal_context;
+
+	if (out_buffer->internal_data != NULL) {
+		vulkan_buffer* buffer = (vulkan_buffer*)out_buffer->internal_data;
+		vulkan_buffer_destroy(context, buffer);
+		platform_free(buffer, FALSE);
 	}
 }
 

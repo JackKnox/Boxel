@@ -3,11 +3,10 @@
 
 #include "vulkan_device.h"
 
-void vulkan_image_create(
+b8 vulkan_image_create(
     vulkan_context* context,
     VkImageType image_type,
-    u32 width,
-    u32 height,
+    uvec2 size,
     VkFormat format,
     VkImageTiling tiling,
     VkImageUsageFlags usage,
@@ -15,16 +14,15 @@ void vulkan_image_create(
     b32 create_view,
     VkImageAspectFlags view_aspect_flags,
     vulkan_image* out_image) {
-
     // Copy params
-    out_image->width = width;
-    out_image->height = height;
+    out_image->size = size;
+    out_image->view = 0;
 
     // Creation info.
     VkImageCreateInfo image_create_info = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
-    image_create_info.imageType = VK_IMAGE_TYPE_2D;
-    image_create_info.extent.width = width;
-    image_create_info.extent.height = height;
+    image_create_info.imageType = image_type;
+    image_create_info.extent.width = out_image->size.x;
+    image_create_info.extent.height = out_image->size.y;
     image_create_info.extent.depth = 1;  // TODO: Support configurable depth.
     image_create_info.mipLevels = 4;     // TODO: Support mip mapping
     image_create_info.arrayLayers = 1;   // TODO: Support number of layers in the image.
@@ -35,44 +33,48 @@ void vulkan_image_create(
     image_create_info.samples = VK_SAMPLE_COUNT_1_BIT;          // TODO: Configurable sample count.
     image_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;  // TODO: Configurable sharing mode.
 
-    VK_CHECK(vkCreateImage(context->device.logical_device, &image_create_info, context->allocator, &out_image->handle));
+    VkResult result = vkCreateImage(context->device.logical_device, &image_create_info, context->allocator, &out_image->handle);
+    if (!vulkan_result_is_success(result)) {
+        BX_ERROR("Failed to create Vulkan image: %s", vulkan_result_string(result, FALSE));
+        return FALSE;
+    }
 
     // Query memory requirements.
     VkMemoryRequirements memory_requirements;
     vkGetImageMemoryRequirements(context->device.logical_device, out_image->handle, &memory_requirements);
 
-    VkPhysicalDeviceMemoryProperties memory_properties;
-    vkGetPhysicalDeviceMemoryProperties(context->device.physical_device, &memory_properties);
-
-    i32 memory_type = -1;
-    for (u32 i = 0; i < memory_properties.memoryTypeCount; ++i) {
-        // Check each memory type to see if its bit is set to 1.
-        if (memory_requirements.memoryTypeBits & (1 << i) && (memory_properties.memoryTypes[i].propertyFlags & memory_flags) == memory_flags) {
-            memory_type = i;
-        }
-    }
-
-    if (memory_type == -1) {
+    i32 memory_index = find_memory_index(context, memory_requirements.memoryTypeBits, memory_flags);
+    if (memory_index == -1) {
         BX_ERROR("Required memory type not found. Image not valid.");
+        return FALSE;
     }
 
     // Allocate memory
     VkMemoryAllocateInfo memory_allocate_info = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
     memory_allocate_info.allocationSize = memory_requirements.size;
-    memory_allocate_info.memoryTypeIndex = memory_type;
-    VK_CHECK(vkAllocateMemory(context->device.logical_device, &memory_allocate_info, context->allocator, &out_image->memory));
+    memory_allocate_info.memoryTypeIndex = memory_index;
+
+    result = vkAllocateMemory(context->device.logical_device, &memory_allocate_info, context->allocator, &out_image->memory);
+    if (!vulkan_result_is_success(result)) {
+        BX_ERROR("Failed to create Vulkan image: %s", vulkan_result_string(result, FALSE));
+        return FALSE;
+    }
 
     // Bind the memory
-    VK_CHECK(vkBindImageMemory(context->device.logical_device, out_image->handle, out_image->memory, 0));  // TODO: configurable memory offset.
+    result = vkBindImageMemory(context->device.logical_device, out_image->handle, out_image->memory, 0);  // TODO: configurable memory offset.
+    if (!vulkan_result_is_success(result)) {
+        BX_ERROR("Failed to create Vulkan image: %s", vulkan_result_string(result, FALSE));
+        return FALSE;
+    }
 
     // Create view
-    if (create_view) {
-        out_image->view = 0;
-        vulkan_image_view_create(context, format, out_image, view_aspect_flags);
-    }
+    if (create_view)
+        return vulkan_image_view_create(context, format, out_image, view_aspect_flags);
+
+    return TRUE;
 }
 
-void vulkan_image_view_create(
+b8 vulkan_image_view_create(
     vulkan_context* context,
     VkFormat format,
     vulkan_image* image,
@@ -89,7 +91,12 @@ void vulkan_image_view_create(
     view_create_info.subresourceRange.baseArrayLayer = 0;
     view_create_info.subresourceRange.layerCount = 1;
 
-    VK_CHECK(vkCreateImageView(context->device.logical_device, &view_create_info, context->allocator, &image->view));
+    return vulkan_result_is_success(
+        vkCreateImageView(
+            context->device.logical_device,
+            &view_create_info,
+            context->allocator,
+            &image->view));
 }
 
 void vulkan_image_destroy(vulkan_context* context, vulkan_image* image) {

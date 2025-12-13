@@ -15,3 +15,6 @@ b8 vulkan_renderer_backend_end_frame(box_renderer_backend* backend);
 
 b8 vulkan_renderer_create_renderstage(box_renderer_backend* backend, box_renderstage* out_stage);
 void vulkan_renderer_destroy_renderstage(box_renderer_backend* backend, box_renderstage* out_stage);
+
+b8 vulkan_renderer_create_renderbuffer(box_renderer_backend* backend, box_renderbuffer* out_buffer);
+void vulkan_renderer_destroy_renderbuffer(box_renderer_backend* backend, box_renderbuffer* out_buffer);

@@ -38,7 +38,7 @@ void freelist_reset(freelist* list, b8 zero_memory, b8 free_memory);
 // Pushes free range of memory onto list.
 void* freelist_push(freelist* list, u64 block_size, void* memory);
 
-// Gets index'th block and returns pointer, use sparingly or freelist_next_block.
+// Gets index'th block and returns pointer, use sparingly or use freelist_next_block.
 void* freelist_get(freelist* list, u64 index);
 
 // Used for iteration and while loop.

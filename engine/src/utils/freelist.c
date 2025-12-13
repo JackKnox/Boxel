@@ -89,7 +89,7 @@ void* freelist_push(freelist* list, u64 block_size, void* memory) {
     if (!list) return NULL;
     if (block_size == 0) return NULL;
 
-    u64 aligned_pos = align_up_u64(list->size, 8ULL);
+    u64 aligned_pos = alignment(list->size, 8ULL);
     u64 padding = aligned_pos - list->size;
 
     u64 required = padding + sizeof(freelist_header) + block_size;
@@ -120,7 +120,7 @@ void* freelist_get(freelist* list, u64 index) {
         freelist_header* hdr = (freelist_header*)((u8*)list->memory + pos);
         if (hdr->payload_size > list->capacity) return NULL;
         pos += sizeof(freelist_header) + hdr->payload_size;
-        pos = align_up_u64(pos, 8ULL);
+        pos = alignment(pos, 8ULL);
     }
 
     if (pos + sizeof(freelist_header) > list->size) return NULL;
@@ -146,6 +146,6 @@ b8 freelist_next_block(freelist* list, u8** cursor) {
         return FALSE;
     }
 
-    *cursor = (u8*)align_up_u64((u64)next_block_header + sizeof(freelist_header), 8);
+    *cursor = (u8*)alignment((u64)next_block_header + sizeof(freelist_header), 8);
     return TRUE;
 }

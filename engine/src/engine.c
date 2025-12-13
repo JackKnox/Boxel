@@ -154,6 +154,11 @@ void box_close_engine(box_engine* engine, b8 should_close) {
 	engine->should_quit = TRUE;
 }
 
+box_resource_system* box_engine_get_resource_system(box_engine* engine) {
+	if (!engine) return NULL;
+	return &engine->resource_system;
+}
+
 void box_engine_prepare_resources(box_engine* engine) {
 	if (!engine) return;
 	resource_system_wait(&engine->resource_system);

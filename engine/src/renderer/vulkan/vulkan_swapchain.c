@@ -205,8 +205,7 @@ b8 create(vulkan_context* context, VkExtent2D size, vulkan_swapchain* swapchain)
     vulkan_image_create(
         context,
         VK_IMAGE_TYPE_2D,
-        size.width,
-        size.height,
+        (uvec2) { size.width, size.height },
         context->device.depth_format,
         VK_IMAGE_TILING_OPTIMAL,
         VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,

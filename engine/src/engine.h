@@ -49,6 +49,8 @@ b8 box_engine_should_skip_frame(box_engine* engine);
 // Closes window safely linked to specified engine, calling box_destroy_engine still applies.
 void box_close_engine(box_engine* engine, b8 should_close);
 
+box_resource_system* box_engine_get_resource_system(box_engine* engine);
+
 // Waits until engine and it's dependencies is fully initialized.
 void box_engine_prepare_resources(box_engine* engine);
 

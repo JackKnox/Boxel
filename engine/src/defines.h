@@ -67,11 +67,9 @@ STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes.");
 // If not setup, try the old way.
 #if !defined(bxdebug_break)
 #    if defined(__clang__) || defined(__gcc__)
-/** @brief Causes a debug breakpoint to be hit. */
 #        define bxdebug_break() __builtin_trap()
 #    elif defined(_MSC_VER)
 #        include <intrin.h>
-/** @brief Causes a debug breakpoint to be hit. */
 #        define bxdebug_break() __debugbreak()
 #    else
 // Fall back to x86/x86_64
@@ -119,15 +117,14 @@ STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes.");
 
 #define BX_OFFSETOF(s, m) (&(((s*)0)->m))
 
-#define BX_CLAMP(value, min, max) ((value <= min) ? min : (value >= max) ? max \
-                                                                         : value)
+#define BX_CLAMP(value, min, max) ((value <= min) ? min : (value >= max) ? max : value)
 
 #define BX_MIN(x, y) (x < y ? x : y)
 #define BX_MAX(x, y) (x > y ? x : y)
 
 #define BX_ARRAYSIZE(arr) (sizeof(arr) / sizeof(*arr))
 
-static u64 align_up_u64(u64 v, u64 align) {
+static u64 alignment(u64 v, u64 align) {
     return (v + (align - 1)) & ~(align - 1);
 }
 

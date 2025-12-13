@@ -15,10 +15,6 @@
         if (!vulkan_result_is_success(r)) BX_FATAL("VK_CHECK failed: (Line = %i) "  __FILE__ "  (Error code: %s) ", __LINE__, vulkan_result_string(r, 1)); \
     }
 
-const char* vulkan_result_string(VkResult result, b8 get_extended);
-
-b8 vulkan_result_is_success(VkResult result);
-
 typedef struct vulkan_swapchain_support_info {
     VkSurfaceCapabilitiesKHR capabilities;
     u32 format_count;
@@ -45,9 +41,17 @@ typedef struct vulkan_image {
     VkImage handle;
     VkDeviceMemory memory;
     VkImageView view;
-    u32 width;
-    u32 height;
+    uvec2 size;
 } vulkan_image;
+
+typedef struct vulkan_buffer {
+    VkBuffer handle;
+    VkDeviceMemory memory;
+    VkBufferUsageFlags usage;
+    VkMemoryPropertyFlags properties;
+    VkMemoryRequirements memory_requirements;
+    i32 memory_index;
+} vulkan_buffer;
 
 typedef enum vulkan_render_pass_state {
     RENDER_PASS_STATE_READY,
@@ -159,3 +163,9 @@ typedef struct vulkan_context {
     b8 recreating_swapchain;
 
 } vulkan_context;
+
+i32 find_memory_index(vulkan_context* context, u32 type_filter, u32 property_flags);
+
+const char* vulkan_result_string(VkResult result, b8 get_extended);
+
+b8 vulkan_result_is_success(VkResult result);
