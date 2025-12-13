@@ -3,7 +3,7 @@
 
 #include "vulkan_device.h"
 
-b8 vulkan_image_create(
+VkResult vulkan_image_create(
     vulkan_context* context,
     VkImageType image_type,
     uvec2 size,
@@ -34,10 +34,7 @@ b8 vulkan_image_create(
     image_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;  // TODO: Configurable sharing mode.
 
     VkResult result = vkCreateImage(context->device.logical_device, &image_create_info, context->allocator, &out_image->handle);
-    if (!vulkan_result_is_success(result)) {
-        BX_ERROR("Failed to create Vulkan image: %s", vulkan_result_string(result, FALSE));
-        return FALSE;
-    }
+    if (!vulkan_result_is_success(result)) return result;
 
     // Query memory requirements.
     VkMemoryRequirements memory_requirements;
@@ -46,7 +43,7 @@ b8 vulkan_image_create(
     i32 memory_index = find_memory_index(context, memory_requirements.memoryTypeBits, memory_flags);
     if (memory_index == -1) {
         BX_ERROR("Required memory type not found. Image not valid.");
-        return FALSE;
+        return VK_ERROR_OUT_OF_DEVICE_MEMORY;
     }
 
     // Allocate memory
@@ -55,26 +52,20 @@ b8 vulkan_image_create(
     memory_allocate_info.memoryTypeIndex = memory_index;
 
     result = vkAllocateMemory(context->device.logical_device, &memory_allocate_info, context->allocator, &out_image->memory);
-    if (!vulkan_result_is_success(result)) {
-        BX_ERROR("Failed to create Vulkan image: %s", vulkan_result_string(result, FALSE));
-        return FALSE;
-    }
+    if (!vulkan_result_is_success(result)) return result;
 
     // Bind the memory
     result = vkBindImageMemory(context->device.logical_device, out_image->handle, out_image->memory, 0);  // TODO: configurable memory offset.
-    if (!vulkan_result_is_success(result)) {
-        BX_ERROR("Failed to create Vulkan image: %s", vulkan_result_string(result, FALSE));
-        return FALSE;
-    }
+    if (!vulkan_result_is_success(result)) return result;
 
     // Create view
     if (create_view)
         return vulkan_image_view_create(context, format, out_image, view_aspect_flags);
 
-    return TRUE;
+    return VK_SUCCESS;
 }
 
-b8 vulkan_image_view_create(
+VkResult vulkan_image_view_create(
     vulkan_context* context,
     VkFormat format,
     vulkan_image* image,
@@ -91,12 +82,11 @@ b8 vulkan_image_view_create(
     view_create_info.subresourceRange.baseArrayLayer = 0;
     view_create_info.subresourceRange.layerCount = 1;
 
-    return vulkan_result_is_success(
-        vkCreateImageView(
-            context->device.logical_device,
-            &view_create_info,
-            context->allocator,
-            &image->view));
+    return vkCreateImageView(
+        context->device.logical_device,
+        &view_create_info,
+        context->allocator,
+        &image->view);
 }
 
 void vulkan_image_destroy(vulkan_context* context, vulkan_image* image) {

@@ -4,8 +4,6 @@
 #include "renderer/vertex_layout.h"
 #include "renderer/renderer_types.h"
 
-#include "engine_private.h"
-
 int main(int argc, char** argv) {
 	// Sets default config for box_engine.
 	box_config app_config = box_default_config();

@@ -4,7 +4,7 @@
 
 #include "vulkan_types.h"
 
-b8 vulkan_buffer_create(
+VkResult vulkan_buffer_create(
 	vulkan_context* context, 
 	VkDeviceSize size, 
 	VkBufferUsageFlags usage, 

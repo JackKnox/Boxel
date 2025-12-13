@@ -4,7 +4,7 @@
 
 #include "vulkan_types.h"
 
-b8 vulkan_framebuffer_create(
+VkResult vulkan_framebuffer_create(
     vulkan_context* context,
     vulkan_renderpass* renderpass,
     u32 width, u32 height,

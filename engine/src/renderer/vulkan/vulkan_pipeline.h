@@ -5,7 +5,7 @@
 #include "vulkan_types.h"
 #include "platform/filesystem.h"
 
-b8 vulkan_graphics_pipeline_create(
+VkResult vulkan_graphics_pipeline_create(
     vulkan_context* context,
     vulkan_graphics_pipeline* out_pipeline,
     vulkan_renderpass* renderpass,

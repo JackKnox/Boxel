@@ -4,7 +4,7 @@
 
 #include "vulkan_types.h"
 
-b8 vulkan_renderpass_create(
+VkResult vulkan_renderpass_create(
     vulkan_context* context,
     vulkan_renderpass* out_renderpass,
     f32 x, f32 y, f32 w, f32 h,

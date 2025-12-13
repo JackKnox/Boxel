@@ -15,10 +15,14 @@
 #include "vulkan_command_buffer.h"
 #include "vulkan_fence.h"
 
-VkResult platform_create_vulkan_surface(VkInstance instance, box_platform* plat_state, const VkAllocationCallbacks* allocator, VkSurfaceKHR* out_surface);
+#define VERBOSE_ERRORS TRUE
 
-b8 vulkan_regenerate_framebuffer(vulkan_context* context);
-b8 vulkan_create_command_buffers(vulkan_context* context);
+#define CHECK_VKRESULT(func, message) { VkResult result = func; if (!vulkan_result_is_success(result)) { BX_ERROR(message ": %s", vulkan_result_string(result, VERBOSE_ERRORS)); return FALSE; } }
+
+VkResult platform_create_vulkan_surface(vulkan_context* context, box_platform* plat_state);
+
+VkResult vulkan_regenerate_framebuffer(vulkan_context* context);
+VkResult vulkan_create_command_buffers(vulkan_context* context);
 
 VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
 	VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
@@ -59,7 +63,7 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, uvec2 start
 	context->current_frame = 0;
 	
 	VkApplicationInfo app_info = { VK_STRUCTURE_TYPE_APPLICATION_INFO };
-	app_info.apiVersion = VK_API_VERSION_1_2; // Does it need to be this low??
+	app_info.apiVersion = VK_API_VERSION_1_2; // TODO: Does it need to be this low??
 	app_info.pApplicationName = application_name;
 	app_info.applicationVersion = VK_MAKE_API_VERSION(0, 1, 0, 0);
 	app_info.engineVersion = VK_MAKE_API_VERSION(0, 0, 1, 0);
@@ -95,10 +99,9 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, uvec2 start
 		BX_TRACE("    %s", required_extensions[i]);
 	}
 
-	if (!vulkan_result_is_success(vkCreateInstance(&create_info, context->allocator, &context->instance))) {
-		BX_ERROR("Failed to create Vulkan instance!");
-		return FALSE;
-	}
+	CHECK_VKRESULT(
+		vkCreateInstance(&create_info, context->allocator, &context->instance), 
+		"Failed to create Vulkan instance");
 
 	BX_INFO("Vulkan Instance created.");
 
@@ -119,52 +122,50 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, uvec2 start
 			VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
 		debug_create_info.pfnUserCallback = vk_debug_callback;
 
-		PFN_vkCreateDebugUtilsMessengerEXT func =
-			(PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(context->instance, "vkCreateDebugUtilsMessengerEXT");
+		PFN_vkCreateDebugUtilsMessengerEXT func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(context->instance, "vkCreateDebugUtilsMessengerEXT");
 
-		if (!vulkan_result_is_success(func(context->instance, &debug_create_info, context->allocator, &context->debug_messenger))) {
-			BX_ERROR("Failed to create Vulkan debug messanger!");
-			return FALSE;
-		}
-
-		BX_INFO("Vulkan debugger created.");
+		CHECK_VKRESULT(
+			func(context->instance, &debug_create_info, context->allocator, &context->debug_messenger),
+			"Failed to create Vulkan debug messanger");
 	}
 
 	// Create the Vulkan surface
-	if (!vulkan_result_is_success(
-		platform_create_vulkan_surface(
-		context->instance, backend->plat_state, 
-		context->allocator, &context->surface))) {
-		BX_ERROR("Failed to create platform surface!");
-		return FALSE;
-	}
+	CHECK_VKRESULT(
+		platform_create_vulkan_surface(context, backend->plat_state),
+		"Failed to create platform surface");
+
 	BX_INFO("Vulkan surface created.");
 
-	if (!vulkan_device_create(context)) {
-		BX_ERROR("Failed to create device!");
-		return FALSE;
-	}
+	// Create the Vulkan device
+	CHECK_VKRESULT(
+		vulkan_device_create(context),
+		"Failed to create Vulkan device");
+
+	BX_INFO("Vulkan device created.");
 
 	if (!vulkan_device_detect_depth_format(&context->device)) {
 		context->device.depth_format = VK_FORMAT_UNDEFINED;
 		BX_ERROR("Failed to find a depth supported format!");
 	}
 
-	if (!vulkan_swapchain_create(context, context->config->framebuffer_width, context->config->framebuffer_height, &context->swapchain)) {
-		BX_ERROR("Failed to create swapchain!");
-		return FALSE;
-	}
+	// Create the Vulkan swapchain
+	CHECK_VKRESULT(
+		vulkan_swapchain_create(context, context->config->framebuffer_width, context->config->framebuffer_height, &context->swapchain),
+		"Failed to create Vulkan swapchain");
 
-	if (!vulkan_renderpass_create(context, &context->main_renderpass, 0, 0,
-		context->config->framebuffer_width, context->config->framebuffer_height,
-		1.0f, 0)) {
-		BX_ERROR("Failed to create main renderpass!");
-		return FALSE;
-	}
+	CHECK_VKRESULT(
+		vulkan_renderpass_create(context, &context->main_renderpass, 0, 0, context->config->framebuffer_width, context->config->framebuffer_height, 1.0f, 0),
+		"Failed to create main Vulkan renderpass");
 
 	context->swapchain.framebuffers = darray_reserve(vulkan_framebuffer, context->swapchain.image_count);
-	vulkan_regenerate_framebuffer(context);
-	vulkan_create_command_buffers(context);
+
+	CHECK_VKRESULT(
+		vulkan_regenerate_framebuffer(context),
+		"Failed to create Vulkan framebuffers");
+
+	CHECK_VKRESULT(
+		vulkan_create_command_buffers(context),
+		"Failed to create Vulkan command buffers");
 
 	// Create sync objects.
 	context->image_available_semaphores = darray_reserve(VkSemaphore, context->swapchain.max_frames_in_flight);
@@ -460,29 +461,28 @@ void vulkan_renderer_destroy_renderbuffer(box_renderer_backend* backend, box_ren
 	}
 }
 
-b8 vulkan_regenerate_framebuffer(vulkan_context* context) {
+VkResult vulkan_regenerate_framebuffer(vulkan_context* context) {
 	for (u32 i = 0; i < context->swapchain.image_count; ++i) {
 		// TODO: make this dynamic based on the currently configured attachments
 		VkImageView attachments[] = {
 			context->swapchain.views[i],
 			context->swapchain.depth_attachment.view };
 
-		if (!vulkan_framebuffer_create(
+		VkResult result = vulkan_framebuffer_create(
 			context,
 			&context->main_renderpass,
 			context->config->framebuffer_width,
 			context->config->framebuffer_height,
 			BX_ARRAYSIZE(attachments),
 			attachments,
-			&context->swapchain.framebuffers[i])) {
-			return FALSE;
-		}
+			&context->swapchain.framebuffers[i]);
+		if (!vulkan_result_is_success(result)) return result;
 	}
 
-	return TRUE;
+	return VK_SUCCESS;
 }
 
-b8 vulkan_create_command_buffers(vulkan_context* context) {
+VkResult vulkan_create_command_buffers(vulkan_context* context) {
 	if (!context->graphics_command_buffers) {
 		context->graphics_command_buffers = darray_reserve(vulkan_command_buffer, context->swapchain.image_count);
 	}
@@ -497,13 +497,14 @@ b8 vulkan_create_command_buffers(vulkan_context* context) {
 
 		platform_zero_memory(&context->graphics_command_buffers[i], sizeof(vulkan_command_buffer));
 
-		vulkan_command_buffer_allocate(
+		VkResult result = vulkan_command_buffer_allocate(
 			context,
 			context->device.graphics_command_pool,
 			TRUE,
 			&context->graphics_command_buffers[i]);
+		if (!vulkan_result_is_success(result)) return result;
 	}
 
 	BX_TRACE("Vulkan command buffers created.");
-	return TRUE;
+	return VK_SUCCESS;
 }

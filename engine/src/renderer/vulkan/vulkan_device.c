@@ -10,11 +10,12 @@ b8 physical_device_meets_requirements(
     renderer_capabilities* out_capabilities,
     vulkan_swapchain_support_info* out_swapchain_support);
 
-b8 vulkan_device_create(vulkan_context* context) {
+VkResult vulkan_device_create(vulkan_context* context) {
     darray_push(context->config->required_extensions, VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
     if (!select_physical_device(context)) {
-        return FALSE;
+        BX_ERROR("Could not find device which supported requested GPU features.");
+        return VK_ERROR_INITIALIZATION_FAILED;
     }
 
     // NOTE: Do not create additional queues for shared indices
@@ -60,13 +61,8 @@ b8 vulkan_device_create(vulkan_context* context) {
     device_create_info.ppEnabledExtensionNames = context->config->required_extensions;
 
     // Create the device.
-    if (!vulkan_result_is_success(
-        vkCreateDevice(context->device.physical_device,
-        &device_create_info, context->allocator,
-        &context->device.logical_device))) {
-        BX_ERROR("Failed to create Vulkan logical device");
-        return FALSE;
-    }
+    VkResult result = vkCreateDevice(context->device.physical_device, &device_create_info, context->allocator, &context->device.logical_device);
+    if (!vulkan_result_is_success(result)) return result;
 
     BX_INFO("Logical device created.");
 
@@ -95,13 +91,9 @@ b8 vulkan_device_create(vulkan_context* context) {
     VkCommandPoolCreateInfo pool_create_info = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
     pool_create_info.queueFamilyIndex = context->config->capabilities.graphics_queue_index;
     pool_create_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    if (!vulkan_result_is_success(
-        vkCreateCommandPool(context->device.logical_device,
-        &pool_create_info, context->allocator,
-        &context->device.graphics_command_pool))) {
-        BX_ERROR("Failed to create Vulkan commmand pool");
-        return FALSE;
-    }
+
+    result = vkCreateCommandPool(context->device.logical_device, &pool_create_info, context->allocator, &context->device.graphics_command_pool);
+    if (!vulkan_result_is_success(result)) return result;
 
     BX_INFO("Graphics command pool created.");
     return TRUE;

@@ -3,16 +3,16 @@
 
 VkShaderStageFlagBits box_shader_type_to_vulkan_type(box_shader_stage_type type) {
 	switch (type) {
-	case BOX_SHADER_STAGE_TYPE_VERTEX: return VK_SHADER_STAGE_VERTEX_BIT;
+	case BOX_SHADER_STAGE_TYPE_VERTEX:  return VK_SHADER_STAGE_VERTEX_BIT;
 	case BOX_SHADER_STAGE_TYPE_GEOMETRY: return VK_SHADER_STAGE_GEOMETRY_BIT;
 	case BOX_SHADER_STAGE_TYPE_FRAGMENT: return VK_SHADER_STAGE_FRAGMENT_BIT;
-	case BOX_SHADER_STAGE_TYPE_COMPUTE: return VK_SHADER_STAGE_COMPUTE_BIT;
+	case BOX_SHADER_STAGE_TYPE_COMPUTE:  return VK_SHADER_STAGE_COMPUTE_BIT;
 	}
 
 	return 0;
 }
 
-b8 vulkan_graphics_pipeline_create(
+VkResult vulkan_graphics_pipeline_create(
 	vulkan_context* context, 
 	vulkan_graphics_pipeline* out_pipeline, 
 	vulkan_renderpass* renderpass, 
@@ -32,12 +32,8 @@ b8 vulkan_graphics_pipeline_create(
 		VkShaderModuleCreateInfo create_info = { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
 		create_info.pCode = stage->file_data;
 		create_info.codeSize = stage->file_size;
-		if (!vulkan_result_is_success(vkCreateShaderModule(
-			context->device.logical_device, &create_info, 
-			context->allocator, &shader_module))) {
-			// ...
-			return FALSE;
-		}
+		VkResult result = vkCreateShaderModule(context->device.logical_device, &create_info, context->allocator, &shader_module);
+		if (!vulkan_result_is_success(result)) return result;
 
 		VkPipelineShaderStageCreateInfo stage_info = { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
 		stage_info.stage = box_shader_type_to_vulkan_type((box_shader_stage_type)i);
@@ -139,12 +135,8 @@ b8 vulkan_graphics_pipeline_create(
 	pipelineLayoutInfo.setLayoutCount = 0;
 	pipelineLayoutInfo.pushConstantRangeCount = 0;
 
-	if (!vulkan_result_is_success(
-		vkCreatePipelineLayout(context->device.logical_device,
-		&pipelineLayoutInfo, context->allocator, &out_pipeline->layout))) {
-		BX_ERROR("Failed to create pipeline layout!");
-		return FALSE;
-	}
+	VkResult result = vkCreatePipelineLayout(context->device.logical_device, &pipelineLayoutInfo, context->allocator, &out_pipeline->layout);
+	if (!vulkan_result_is_success(result)) return result;
 
 	// Pipeline create
 	VkGraphicsPipelineCreateInfo pipelineInfo = { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
@@ -168,13 +160,8 @@ b8 vulkan_graphics_pipeline_create(
 	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 	pipelineInfo.basePipelineIndex = -1;
 
-	if (!vulkan_result_is_success(
-		vkCreateGraphicsPipelines(context->device.logical_device,
-		VK_NULL_HANDLE, 1, &pipelineInfo, context->allocator,
-		&out_pipeline->handle))) {
-		BX_ERROR("Failed to create graphics pipeline!");
-		return FALSE;
-	}
+	result = vkCreateGraphicsPipelines(context->device.logical_device, VK_NULL_HANDLE, 1, &pipelineInfo, context->allocator, &out_pipeline->handle);
+	if (!vulkan_result_is_success(result)) return result;
 
 	for (u32 i = 0; i < darray_length(shader_stages); ++i) {
 		vkDestroyShaderModule(context->device.logical_device, shader_stages[i].module, context->allocator);

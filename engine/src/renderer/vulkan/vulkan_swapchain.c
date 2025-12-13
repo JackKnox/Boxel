@@ -4,10 +4,10 @@
 #include "vulkan_device.h"
 #include "vulkan_image.h"
 
-b8 create(vulkan_context* context, VkExtent2D size, vulkan_swapchain* swapchain);
+VkResult create(vulkan_context* context, VkExtent2D size, vulkan_swapchain* swapchain);
 void destroy(vulkan_context* context, vulkan_swapchain* swapchain);
 
-b8 vulkan_swapchain_create(
+VkResult vulkan_swapchain_create(
     vulkan_context* context,
     u32 width,
     u32 height,
@@ -16,7 +16,7 @@ b8 vulkan_swapchain_create(
     return create(context, (VkExtent2D) { width, height }, out_swapchain);
 }
 
-b8 vulkan_swapchain_recreate(
+VkResult vulkan_swapchain_recreate(
     vulkan_context* context,
     u32 width,
     u32 height,
@@ -102,10 +102,10 @@ VkSurfaceFormatKHR find_swapchain_format(vulkan_swapchain_support_info* swapchai
     return swapchain_info->formats[0];
 }
 
-b8 create(vulkan_context* context, VkExtent2D size, vulkan_swapchain* swapchain) {
+VkResult create(vulkan_context* context, VkExtent2D size, vulkan_swapchain* swapchain) {
     if (size.width == 0 || size.height == 0) {
         BX_ERROR("Could not create swapchain with a size of 0");
-        return FALSE;
+        return VK_ERROR_FORMAT_NOT_SUPPORTED;
     }
 
     // Choose a swap surface format.
@@ -165,11 +165,8 @@ b8 create(vulkan_context* context, VkExtent2D size, vulkan_swapchain* swapchain)
     swapchain_create_info.clipped = VK_TRUE;
     swapchain_create_info.oldSwapchain = 0;
 
-    if (!vulkan_result_is_success(
-        vkCreateSwapchainKHR(context->device.logical_device, &swapchain_create_info,
-        context->allocator, &swapchain->handle))) {
-        return FALSE;
-    }
+    VkResult result = vkCreateSwapchainKHR(context->device.logical_device, &swapchain_create_info, context->allocator, &swapchain->handle);
+    if (!vulkan_result_is_success(result)) return result;
 
     // Images
     swapchain->image_count = 0;
@@ -194,15 +191,12 @@ b8 create(vulkan_context* context, VkExtent2D size, vulkan_swapchain* swapchain)
         view_info.subresourceRange.baseArrayLayer = 0;
         view_info.subresourceRange.layerCount = 1;
 
-        if (!vulkan_result_is_success(
-            vkCreateImageView(context->device.logical_device, &view_info,
-            context->allocator, &swapchain->views[i]))) {
-            return FALSE;
-        }
+        result = vkCreateImageView(context->device.logical_device, &view_info, context->allocator, &swapchain->views[i]);
+        if (!vulkan_result_is_success(result)) return result;
     }
 
     // Create depth image and its view.
-    vulkan_image_create(
+    result = vulkan_image_create(
         context,
         VK_IMAGE_TYPE_2D,
         (uvec2) { size.width, size.height },
@@ -213,9 +207,10 @@ b8 create(vulkan_context* context, VkExtent2D size, vulkan_swapchain* swapchain)
         TRUE,
         VK_IMAGE_ASPECT_DEPTH_BIT,
         &swapchain->depth_attachment);
+    if (!vulkan_result_is_success(result)) return result;
 
     BX_INFO("Swapchain created successfully.");
-    return TRUE;
+    return VK_SUCCESS;
 }
 
 void destroy(vulkan_context* context, vulkan_swapchain* swapchain) {

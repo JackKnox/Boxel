@@ -8,7 +8,8 @@
 
 box_config box_default_config() {
 	box_config configuration = {0}; // fill with zeros
-	configuration.window_position.centered = TRUE;
+	configuration.window_position.absolute.x = 100;
+	configuration.window_position.absolute.y = 100;
 	configuration.window_mode = BOX_WINDOW_MODE_WINDOWED;
 	configuration.window_visible = TRUE;
 	configuration.window_size.x = 640;

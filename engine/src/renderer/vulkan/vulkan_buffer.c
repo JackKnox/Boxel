@@ -1,7 +1,7 @@
 #include "defines.h"
 #include "vulkan_buffer.h"
 
-b8 vulkan_buffer_create(
+VkResult vulkan_buffer_create(
 	vulkan_context* context, 
 	VkDeviceSize size, 
 	VkBufferUsageFlags usage, 
@@ -16,10 +16,7 @@ b8 vulkan_buffer_create(
 	create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // TODO: Make configurable.
 
 	VkResult result = vkCreateBuffer(context->device.logical_device, &create_info, context->allocator, &out_buffer->handle);
-	if (!vulkan_result_is_success(result)) {
-		BX_ERROR("Failed to create Vulkan buffer: %s", vulkan_result_string(result, FALSE));
-		return FALSE;
-	}
+	if (!vulkan_result_is_success(result)) return result;
 
 	vkGetBufferMemoryRequirements(context->device.logical_device, out_buffer->handle, &out_buffer->memory_requirements);
 	out_buffer->memory_index = find_memory_index(context, out_buffer->memory_requirements.memoryTypeBits, out_buffer->properties);
@@ -34,17 +31,14 @@ b8 vulkan_buffer_create(
 	alloc_info.memoryTypeIndex = out_buffer->memory_index;
 
 	result = vkAllocateMemory(context->device.logical_device, &alloc_info, context->allocator, &out_buffer->memory);
-	if (!vulkan_result_is_success(result)) {
-		BX_ERROR("Failed to create Vulkan buffer: %s", vulkan_result_string(result, FALSE));
-		return FALSE;
-	}
+	if (!vulkan_result_is_success(result)) return result;
 
-	return vulkan_result_is_success(
-		vkBindBufferMemory(
-			context->device.logical_device, 
-			out_buffer->handle, 
-			out_buffer->memory, 
-			0));
+	return vkBindBufferMemory(
+		context->device.logical_device,
+		out_buffer->handle,
+		out_buffer->memory,
+		0);
+		
 }
 
 b8 vulkan_buffer_map_data(vulkan_context* context, vulkan_buffer* buffer, VkDeviceSize buf_size, void* buf_data) {

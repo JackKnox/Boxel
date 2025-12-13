@@ -10,13 +10,6 @@ add_subdirectory(engine)
 add_subdirectory(sandbox)
 
 FetchContent_Declare(
-    GLFW
-    GIT_REPOSITORY https://github.com/glfw/glfw.git
-    GIT_TAG        3.4
-)
-FetchContent_MakeAvailable(GLFW)
-
-FetchContent_Declare(
     TinyCThread
     GIT_REPOSITORY https://github.com/tinycthread/tinycthread.git
     GIT_TAG        master

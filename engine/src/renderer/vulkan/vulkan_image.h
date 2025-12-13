@@ -4,7 +4,7 @@
 
 #include "vulkan_types.h"
 
-b8 vulkan_image_create(
+VkResult vulkan_image_create(
     vulkan_context* context,
     VkImageType image_type,
     uvec2 size,
@@ -16,7 +16,7 @@ b8 vulkan_image_create(
     VkImageAspectFlags view_aspect_flags,
     vulkan_image* out_image);
 
-b8 vulkan_image_view_create(
+VkResult vulkan_image_view_create(
     vulkan_context* context,
     VkFormat format,
     vulkan_image* image,

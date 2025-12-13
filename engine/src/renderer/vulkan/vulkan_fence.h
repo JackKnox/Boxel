@@ -4,7 +4,7 @@
 
 #include "vulkan_types.h"
 
-b8 vulkan_fence_create(
+VkResult vulkan_fence_create(
     vulkan_context* context,
     b8 create_signaled,
     vulkan_fence* out_fence);

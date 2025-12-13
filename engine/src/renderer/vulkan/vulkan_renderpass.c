@@ -1,7 +1,7 @@
 #include "defines.h"
 #include "vulkan_renderpass.h"
 
-b8 vulkan_renderpass_create(
+VkResult vulkan_renderpass_create(
     vulkan_context* context,
     vulkan_renderpass* out_renderpass,
     f32 x, f32 y, f32 w, f32 h,
@@ -100,14 +100,8 @@ b8 vulkan_renderpass_create(
     render_pass_create_info.pNext = 0;
     render_pass_create_info.flags = 0;
 
-    if (!vulkan_result_is_success(
-        vkCreateRenderPass(context->device.logical_device, &render_pass_create_info,
-        context->allocator, &out_renderpass->handle))) {
-        BX_ERROR("Failed to create Vulkan renderpass");
-        return FALSE;
-    }
-
-    return TRUE;
+    return vkCreateRenderPass(context->device.logical_device, &render_pass_create_info,
+        context->allocator, &out_renderpass->handle);
 }
 
 void vulkan_renderpass_destroy(vulkan_context* context, vulkan_renderpass* renderpass) {

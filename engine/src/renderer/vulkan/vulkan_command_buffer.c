@@ -1,7 +1,7 @@
 #include "defines.h"
 #include "vulkan_command_buffer.h"
 
-b8 vulkan_command_buffer_allocate(
+VkResult vulkan_command_buffer_allocate(
     vulkan_context* context,
     VkCommandPool pool,
     b8 is_primary,
@@ -9,19 +9,15 @@ b8 vulkan_command_buffer_allocate(
     platform_zero_memory(out_command_buffer, sizeof(out_command_buffer));
 
     VkCommandBufferAllocateInfo allocate_info = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
-    allocate_info.commandPool = pool;
     allocate_info.level = is_primary ? VK_COMMAND_BUFFER_LEVEL_PRIMARY : VK_COMMAND_BUFFER_LEVEL_SECONDARY;
+    allocate_info.commandPool = pool;
     allocate_info.commandBufferCount = 1;
-    allocate_info.pNext = 0;
 
     out_command_buffer->state = COMMAND_BUFFER_STATE_NOT_ALLOCATED;
-    if (!vulkan_result_is_success(
-        vkAllocateCommandBuffers(
-            context->device.logical_device,
-            &allocate_info,
-            &out_command_buffer->handle))) {
-        return FALSE;
-    }
+
+    VkResult result = vkAllocateCommandBuffers(context->device.logical_device, &allocate_info, &out_command_buffer->handle);
+    if (!vulkan_result_is_success(result)) return result;
+
     out_command_buffer->state = COMMAND_BUFFER_STATE_READY;
     return TRUE;
 }
