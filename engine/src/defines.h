@@ -77,6 +77,25 @@ STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes.");
 #    endif
 #endif
 
+// Compiler-specific stuff
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+#   define BX_NORETURN _Noreturn
+#   elif defined(__GNUC__)
+#       define BX_NORETURN __attribute__((__noreturn__))
+#   else
+#       define BX_NORETURN
+#endif
+
+#if !(defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201102L)) && !defined(_Thread_local)
+#   if defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__SUNPRO_CC) || defined(__IBMCPP__)
+#       define _Thread_local __thread
+#   else
+#       define _Thread_local __declspec(thread)
+#   endif
+#elif defined(__GNUC__) && defined(__GNUC_MINOR__) && (((__GNUC__ << 8) | __GNUC_MINOR__) < ((4 << 8) | 9))
+#   define _Thread_local __thread
+#endif
+
 // Platform detection
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) 
 #define BX_PLATFORM_WINDOWS 1

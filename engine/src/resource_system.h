@@ -33,13 +33,14 @@ typedef struct box_resource_header {
 // Opaque handle to true box_resource_system. TODO: Turn into private handle.
 typedef struct box_resource_system {
 	freelist resources;
-	box_resource_header** upload_queue; // darray
+	u64* upload_queue; // darray
+
 	b8 is_running;
+	u32 waiting_index;
 
 	thrd_t resource_thread;
-	mtx_t resource_thread_mutex;
-	cnd_t resource_thread_cnd;
-	u32 waiting_index;
+	mtx_t mutex;
+	cnd_t cnd;
 } box_resource_system;
 
 // Creates and initializes the resource system, with allocating resource list with start_mem.

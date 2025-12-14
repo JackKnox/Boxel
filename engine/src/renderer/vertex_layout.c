@@ -14,10 +14,6 @@ u64 box_vertex_attrib_type_size(box_vertex_attrib_type type) {
 	case BOX_VERTEX_ATTRIB_UINT32:
 	case BOX_VERTEX_ATTRIB_FLOAT32:
 		return 4;
-	case BOX_VERTEX_ATTRIB_SINT64:
-	case BOX_VERTEX_ATTRIB_UINT64:
-	case BOX_VERTEX_ATTRIB_FLOAT64:
-		return 8;
 	default:
 		return 1;
     }
@@ -56,6 +52,8 @@ void box_vertex_layout_end(box_vertex_layout* layout) {
 		desc->offset = stride;
 		stride += box_vertex_attrib_type_size(desc->type);
 	}
+
+	layout->initialized = TRUE;
 }
 
 // Get total stride from vertex layout.

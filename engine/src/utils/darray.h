@@ -44,7 +44,7 @@ void* _darray_insert_at(void* array, u64 index, void* value_ptr);
 
 #define darray_push(array, value)           \
     {                                       \
-        void* temp = (value);               \
+        void* temp = (void*)(value);        \
         array = _darray_push(array, &temp); \
     }
 

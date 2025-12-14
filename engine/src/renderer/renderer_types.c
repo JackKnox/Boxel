@@ -80,7 +80,11 @@ void internal_destroy_renderbuffer(box_resource_system* system, box_renderbuffer
 	engine->renderer.destroy_internal_renderbuffer(&engine->renderer, resource);
 }
 
-box_renderbuffer* box_engine_create_renderbuffer(box_engine* engine, void* data_to_send, u64 data_size) {
+box_renderbuffer* box_engine_create_renderbuffer(
+	box_engine* engine,
+	box_renderbuffer_usage usage,
+	void* data_to_send, 
+	u64 data_size) {
 	box_renderbuffer* renderbuffer = NULL;
 	if (!resource_system_allocate_resource(&engine->resource_system, sizeof(box_renderbuffer), &renderbuffer)) {
 		// Error already printed...
@@ -90,6 +94,7 @@ box_renderbuffer* box_engine_create_renderbuffer(box_engine* engine, void* data_
 	// Fill static data
 	renderbuffer->temp_user_data = data_to_send;
 	renderbuffer->temp_user_size = data_size;
+	renderbuffer->usage = usage;
 
 	renderbuffer->header.vtable.create_local = internal_create_renderbuffer;
 	renderbuffer->header.vtable.destroy_local = internal_destroy_renderbuffer;

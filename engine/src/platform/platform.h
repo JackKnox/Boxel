@@ -3,7 +3,7 @@
 #include "defines.h"
 
 // TODO: Make your own threading library.
-#include <tinycthread.h>
+#include "tinycthread.h"
 
 typedef struct box_platform {
 	void* internal_state;

@@ -1,6 +1,8 @@
 #include "defines.h"
 #include "vulkan_pipeline.h"
 
+#include "renderer/vertex_layout.h"
+
 VkShaderStageFlagBits box_shader_type_to_vulkan_type(box_shader_stage_type type) {
 	switch (type) {
 	case BOX_SHADER_STAGE_TYPE_VERTEX:  return VK_SHADER_STAGE_VERTEX_BIT;
@@ -10,6 +12,60 @@ VkShaderStageFlagBits box_shader_type_to_vulkan_type(box_shader_stage_type type)
 	}
 
 	return 0;
+}
+
+VkFormat box_attribute_to_vulkan_type(box_vertex_attrib_type type, u64 count) {
+	// Vulkan supports 1-4 components only
+	if (count < 1 || count > 4) {
+		return VK_FORMAT_UNDEFINED;
+	}
+
+	switch (type) {
+	case BOX_VERTEX_ATTRIB_SINT8:
+		if (count == 1) return VK_FORMAT_R8_SINT;
+		if (count == 2) return VK_FORMAT_R8G8_SINT;
+		if (count == 3) return VK_FORMAT_R8G8B8_SINT;
+		if (count == 4) return VK_FORMAT_R8G8B8A8_SINT;
+
+	case BOX_VERTEX_ATTRIB_SINT16:
+		if (count == 1) return VK_FORMAT_R16_SINT;
+		if (count == 2) return VK_FORMAT_R16G16_SINT;
+		if (count == 3) return VK_FORMAT_R16G16B16_SINT;
+		if (count == 4) return VK_FORMAT_R16G16B16A16_SINT;
+
+	case BOX_VERTEX_ATTRIB_SINT32:
+		if (count == 1) return VK_FORMAT_R32_SINT;
+		if (count == 2) return VK_FORMAT_R32G32_SINT;
+		if (count == 3) return VK_FORMAT_R32G32B32_SINT;
+		if (count == 4) return VK_FORMAT_R32G32B32A32_SINT;
+
+	case BOX_VERTEX_ATTRIB_UINT8:
+		if (count == 1) return VK_FORMAT_R8_UINT;
+		if (count == 2) return VK_FORMAT_R8G8_UINT;
+		if (count == 3) return VK_FORMAT_R8G8B8_UINT;
+		if (count == 4) return VK_FORMAT_R8G8B8A8_UINT;
+
+	case BOX_VERTEX_ATTRIB_UINT16:
+		if (count == 1) return VK_FORMAT_R16_UINT;
+		if (count == 2) return VK_FORMAT_R16G16_UINT;
+		if (count == 3) return VK_FORMAT_R16G16B16_UINT;
+		if (count == 4) return VK_FORMAT_R16G16B16A16_UINT;
+
+	case BOX_VERTEX_ATTRIB_BOOL:
+	case BOX_VERTEX_ATTRIB_UINT32:
+		if (count == 1) return VK_FORMAT_R32_UINT;
+		if (count == 2) return VK_FORMAT_R32G32_UINT;
+		if (count == 3) return VK_FORMAT_R32G32B32_UINT;
+		if (count == 4) return VK_FORMAT_R32G32B32A32_UINT;
+
+	case BOX_VERTEX_ATTRIB_FLOAT32:
+		if (count == 1) return VK_FORMAT_R32_SFLOAT;
+		if (count == 2) return VK_FORMAT_R32G32_SFLOAT;
+		if (count == 3) return VK_FORMAT_R32G32B32_SFLOAT;
+		if (count == 4) return VK_FORMAT_R32G32B32A32_SFLOAT;
+	}
+
+	return VK_FORMAT_UNDEFINED;
 }
 
 VkResult vulkan_graphics_pipeline_create(
@@ -123,19 +179,39 @@ VkResult vulkan_graphics_pipeline_create(
 	dynamic_state.pDynamicStates = dynamicStates;
 
 	// Attributes
-	vertex_input_info.vertexBindingDescriptionCount = 0;
-	vertex_input_info.vertexAttributeDescriptionCount = 0;
+	VkVertexInputBindingDescription binding_desc = { 0 };
+	binding_desc.binding = 0;
+	binding_desc.stride = box_vertex_layout_stride(shader->layout);
+	binding_desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+	VkVertexInputAttributeDescription* attributes = darray_create(VkVertexInputAttributeDescription);
+	for (u32 i = 0; i < box_vertex_layout_count(shader->layout); ++i) {
+		box_vertex_attrib_desc* attribute = &shader->layout->attribs[i];
+
+		VkVertexInputAttributeDescription descriptor = { 0 };
+		descriptor.binding = 0;
+		descriptor.location = i;
+		descriptor.format = box_attribute_to_vulkan_type(attribute->type, attribute->count);
+		descriptor.offset = attribute->offset;
+		attributes = _darray_push(attributes, &descriptor);
+	}
+
+	vertex_input_info.vertexBindingDescriptionCount = 1;
+	vertex_input_info.pVertexBindingDescriptions = &binding_desc;
+
+	vertex_input_info.vertexAttributeDescriptionCount = darray_length(attributes);
+	vertex_input_info.pVertexAttributeDescriptions = attributes;
 
 	// Input assembly
 	input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 	input_assembly.primitiveRestartEnable = VK_FALSE;
 
 	// Pipeline layout
-	VkPipelineLayoutCreateInfo pipelineLayoutInfo = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
-	pipelineLayoutInfo.setLayoutCount = 0;
-	pipelineLayoutInfo.pushConstantRangeCount = 0;
+	VkPipelineLayoutCreateInfo layout_info = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
+	layout_info.setLayoutCount = 0;
+	layout_info.pushConstantRangeCount = 0;
 
-	VkResult result = vkCreatePipelineLayout(context->device.logical_device, &pipelineLayoutInfo, context->allocator, &out_pipeline->layout);
+	VkResult result = vkCreatePipelineLayout(context->device.logical_device, &layout_info, context->allocator, &out_pipeline->layout);
 	if (!vulkan_result_is_success(result)) return result;
 
 	// Pipeline create
@@ -167,6 +243,7 @@ VkResult vulkan_graphics_pipeline_create(
 		vkDestroyShaderModule(context->device.logical_device, shader_stages[i].module, context->allocator);
 	}
 
+	darray_destroy(attributes);
 	darray_destroy(shader_stages);
 	return TRUE;
 }

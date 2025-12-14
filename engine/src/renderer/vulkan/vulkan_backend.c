@@ -339,6 +339,9 @@ b8 vulkan_renderer_playback_rendercmd(box_renderer_backend* backend, box_renderc
 			break;
 		
 		case RENDERCMD_DRAW:
+			VkBuffer vtx_buffers[] = { ((vulkan_buffer*)current_shader->vertex_buffer->internal_data)->handle };
+			VkDeviceSize offsets[] = { 0 };
+			vkCmdBindVertexBuffers(cmd->handle, 0, 1, vtx_buffers, offsets);
 			vkCmdDraw(cmd->handle,
 				payload->draw.vertex_count,
 				payload->draw.instance_count,
@@ -416,28 +419,32 @@ void vulkan_renderer_destroy_renderstage(box_renderer_backend* backend, box_rend
 b8 vulkan_renderer_create_renderbuffer(box_renderer_backend* backend, box_renderbuffer* out_buffer) {
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 	
+	// TODO: Make configurable
+	VkBufferUsageFlagBits buffer_usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+
 	out_buffer->internal_data = platform_allocate(sizeof(vulkan_buffer), FALSE);
 	vulkan_buffer* buffer = (vulkan_buffer*)out_buffer->internal_data;
 	
 	vulkan_buffer staging_buffer = { 0 };
-	if (!vulkan_buffer_create(
-		context,
-		out_buffer->temp_user_size,
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		&staging_buffer)) {
-		BX_WARN("Failed to create Vulkan staging buffer.");
-		return FALSE;
-	}
+	CHECK_VKRESULT(
+		vulkan_buffer_create(
+			context,
+			out_buffer->temp_user_size,
+			VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			&staging_buffer),
+		"Failed to create Vulkan staging buffer");
 
 	vulkan_buffer_map_data(context, &staging_buffer, out_buffer->temp_user_size, out_buffer->temp_user_data);
 
-	vulkan_buffer_create(
-		context, 
-		out_buffer->temp_user_size, 
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, // TODO: Make configurable
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
-		buffer);
+	CHECK_VKRESULT(
+		vulkan_buffer_create(
+			context,
+			out_buffer->temp_user_size,
+			VK_BUFFER_USAGE_TRANSFER_DST_BIT | buffer_usage,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			buffer),
+		"Failed to create internal Vulkan renderbuffer");
 
 	vulkan_command_buffer command_buffer;
 	vulkan_command_buffer_allocate_and_begin_single_use(context, context->device.graphics_command_pool, &command_buffer);
