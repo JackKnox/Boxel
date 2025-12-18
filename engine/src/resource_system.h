@@ -2,6 +2,7 @@
 
 #include "defines.h"
 
+#include "platform/threading.h"
 #include "utils/freelist.h"
 
 // State of valid resource through engine's lifetime.

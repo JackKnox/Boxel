@@ -50,8 +50,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
 }
 
 b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, uvec2 starting_size, const char* application_name, box_renderer_backend_config* config) {
-	backend->internal_context = platform_allocate(sizeof(vulkan_context), FALSE);
-	platform_zero_memory(backend->internal_context, sizeof(vulkan_context));
+	backend->internal_context = ballocate(sizeof(vulkan_context), MEMORY_TAG_RENDERER);
 
 	platform_zero_memory(&config->capabilities, sizeof(renderer_capabilities));
 	config->framebuffer_width = starting_size.x; // TODO: Use vec2 for frambuffer size
@@ -73,8 +72,8 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, uvec2 start
 	create_info.pApplicationInfo = &app_info;
 
 	// Obtain a list of required extensions
-	const char** required_extensions = darray_create(const char*);
-	const char** required_validation_layer_names = darray_create(const char*);
+	const char** required_extensions = darray_create(const char*, MEMORY_TAG_RENDERER);
+	const char** required_validation_layer_names = darray_create(const char*, MEMORY_TAG_RENDERER);
 
 	// Generic surface extension
 	darray_push(required_extensions, VK_KHR_SURFACE_EXTENSION_NAME);
@@ -157,7 +156,7 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, uvec2 start
 		vulkan_renderpass_create(context, &context->main_renderpass, 0, 0, context->config->framebuffer_width, context->config->framebuffer_height, 1.0f, 0),
 		"Failed to create main Vulkan renderpass");
 
-	context->swapchain.framebuffers = darray_reserve(vulkan_framebuffer, context->swapchain.image_count);
+	context->swapchain.framebuffers = darray_reserve(vulkan_framebuffer, context->swapchain.image_count, MEMORY_TAG_RENDERER);
 
 	CHECK_VKRESULT(
 		vulkan_regenerate_framebuffer(context),
@@ -168,9 +167,9 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, uvec2 start
 		"Failed to create Vulkan command buffers");
 
 	// Create sync objects.
-	context->image_available_semaphores = darray_reserve(VkSemaphore, context->swapchain.max_frames_in_flight);
-	context->queue_complete_semaphores = darray_reserve(VkSemaphore, context->swapchain.max_frames_in_flight);
-	context->in_flight_fences = darray_reserve(vulkan_fence, context->swapchain.max_frames_in_flight);
+	context->image_available_semaphores = darray_reserve(VkSemaphore, context->swapchain.max_frames_in_flight, MEMORY_TAG_RENDERER);
+	context->queue_complete_semaphores = darray_reserve(VkSemaphore, context->swapchain.max_frames_in_flight, MEMORY_TAG_RENDERER);
+	context->in_flight_fences = darray_reserve(vulkan_fence, context->swapchain.max_frames_in_flight, MEMORY_TAG_RENDERER);
 
 	for (u8 i = 0; i < context->swapchain.max_frames_in_flight; ++i) {
 		VkSemaphoreCreateInfo semaphore_create_info = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
@@ -186,7 +185,7 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, uvec2 start
 	// In flight fences should not yet exist at this point, so clear the list. These are stored in pointers
 	// because the initial state should be 0, and will be 0 when not in use. Acutal fences are not owned
 	// by this list.
-	context->images_in_flight = darray_reserve(vulkan_fence, context->swapchain.image_count);
+	context->images_in_flight = darray_reserve(vulkan_fence, context->swapchain.image_count, MEMORY_TAG_RENDERER);
 
 	// Renderer backend consumes this darray and owns it so it's allowed to do this.
 	darray_destroy(config->required_extensions);
@@ -253,7 +252,7 @@ void vulkan_renderer_backend_shutdown(box_renderer_backend* backend) {
 		vkDestroyInstance(context->instance, context->allocator);
 	}
 
-	platform_free(context, FALSE);
+	bfree(context, sizeof(vulkan_context), MEMORY_TAG_RENDERER);
 	backend->internal_context = NULL;
 }
 
@@ -339,9 +338,11 @@ b8 vulkan_renderer_playback_rendercmd(box_renderer_backend* backend, box_renderc
 			break;
 		
 		case RENDERCMD_DRAW:
+			/*
 			VkBuffer vtx_buffers[] = { ((vulkan_buffer*)current_shader->vertex_buffer->internal_data)->handle };
 			VkDeviceSize offsets[] = { 0 };
 			vkCmdBindVertexBuffers(cmd->handle, 0, 1, vtx_buffers, offsets);
+			*/
 			vkCmdDraw(cmd->handle,
 				payload->draw.vertex_count,
 				payload->draw.instance_count,
@@ -402,7 +403,7 @@ b8 vulkan_renderer_backend_end_frame(box_renderer_backend* backend) {
 b8 vulkan_renderer_create_renderstage(box_renderer_backend* backend, box_renderstage* out_stage) {
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 
-	out_stage->internal_data = platform_allocate(sizeof(vulkan_graphics_pipeline), FALSE);
+	out_stage->internal_data = ballocate(sizeof(vulkan_graphics_pipeline), MEMORY_TAG_RENDERER);
 	return vulkan_graphics_pipeline_create(context, out_stage->internal_data, &context->main_renderpass, out_stage);
 }
 
@@ -412,7 +413,7 @@ void vulkan_renderer_destroy_renderstage(box_renderer_backend* backend, box_rend
 	if (out_stage->internal_data != NULL) {
 		vulkan_graphics_pipeline* pipeline = (vulkan_graphics_pipeline*)out_stage->internal_data;
 		vulkan_graphics_pipeline_destroy(context, pipeline);
-		platform_free(pipeline, FALSE);
+ 		bfree(pipeline, sizeof(vulkan_graphics_pipeline), MEMORY_TAG_RENDERER);
 	}
 }
 
@@ -422,7 +423,7 @@ b8 vulkan_renderer_create_renderbuffer(box_renderer_backend* backend, box_render
 	// TODO: Make configurable
 	VkBufferUsageFlagBits buffer_usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 
-	out_buffer->internal_data = platform_allocate(sizeof(vulkan_buffer), FALSE);
+	out_buffer->internal_data = ballocate(sizeof(vulkan_buffer), MEMORY_TAG_RENDERER);
 	vulkan_buffer* buffer = (vulkan_buffer*)out_buffer->internal_data;
 	
 	vulkan_buffer staging_buffer = { 0 };
@@ -464,7 +465,7 @@ void vulkan_renderer_destroy_renderbuffer(box_renderer_backend* backend, box_ren
 	if (out_buffer->internal_data != NULL) {
 		vulkan_buffer* buffer = (vulkan_buffer*)out_buffer->internal_data;
 		vulkan_buffer_destroy(context, buffer);
-		platform_free(buffer, FALSE);
+		bfree(buffer, sizeof(vulkan_buffer), MEMORY_TAG_RENDERER);
 	}
 }
 
@@ -491,7 +492,7 @@ VkResult vulkan_regenerate_framebuffer(vulkan_context* context) {
 
 VkResult vulkan_create_command_buffers(vulkan_context* context) {
 	if (!context->graphics_command_buffers) {
-		context->graphics_command_buffers = darray_reserve(vulkan_command_buffer, context->swapchain.image_count);
+		context->graphics_command_buffers = darray_reserve(vulkan_command_buffer, context->swapchain.image_count, MEMORY_TAG_RENDERER);
 	}
 
 	for (u32 i = 0; i < context->swapchain.image_count; ++i) {

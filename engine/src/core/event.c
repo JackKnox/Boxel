@@ -52,7 +52,7 @@ b8 event_register(u16 code, void* listener, PFN_on_event on_event) {
     }
 
     if (state.registered[code].events == 0) {
-        state.registered[code].events = darray_create(registered_event);
+        state.registered[code].events = darray_create(registered_event, MEMORY_TAG_CORE);
     }
 
     u64 registered_count = darray_length(state.registered[code].events);

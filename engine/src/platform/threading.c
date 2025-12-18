@@ -1,5 +1,5 @@
 #include "defines.h"
-#include "tinycthread.h"
+#include "threading.h"
 
 #include <stdlib.h>
 

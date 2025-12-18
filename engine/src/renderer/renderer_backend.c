@@ -10,7 +10,7 @@ box_renderer_backend_config renderer_backend_default_config() {
 	configuration.swapchain_frame_count = 3;
 	configuration.enable_validation = TRUE;
 	configuration.graphics_pipeline = TRUE;
-	configuration.required_extensions = darray_create(const char*);
+	configuration.required_extensions = darray_create(const char*, MEMORY_TAG_RENDERER);
     return configuration;
 }
 

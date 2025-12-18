@@ -85,8 +85,8 @@ int resource_thread_func(void* arg) {
 b8 resource_system_init(box_resource_system* system, u64 start_mem) {
     platform_zero_memory(system, sizeof(box_resource_system));
 
-    freelist_create(start_mem, &system->resources);
-    system->upload_queue = darray_create(u64);
+    freelist_create(start_mem, MEMORY_TAG_RESOURCES, &system->resources);
+    system->upload_queue = darray_create(u64, MEMORY_TAG_RESOURCES);
 
     system->waiting_index = 0;
     system->is_running = TRUE;

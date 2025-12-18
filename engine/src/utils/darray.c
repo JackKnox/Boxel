@@ -1,14 +1,14 @@
 #include "defines.h"
 #include "darray.h"
 
-void* _darray_create(u64 length, u64 stride) {
+void* _darray_create(u64 length, u64 stride, memory_tag tag) {
     u64 header_size = DARRAY_FIELD_LENGTH * sizeof(u64);
     u64 array_size = length * stride;
-    u64* new_array = platform_allocate(header_size + array_size, FALSE);
-    platform_set_memory(new_array, 0, header_size + array_size);
+    u64* new_array = ballocate(header_size + array_size, tag);
     new_array[DARRAY_CAPACITY] = length;
     new_array[DARRAY_LENGTH] = 0;
     new_array[DARRAY_STRIDE] = stride;
+    new_array[DARRAY_MEMORY_TAG] = tag;
 
     return platform_zero_memory((void*)(new_array + DARRAY_FIELD_LENGTH), array_size);
 }
@@ -19,7 +19,7 @@ void _darray_destroy(void* array) {
     u64* header = (u64*)array - DARRAY_FIELD_LENGTH;
     u64 header_size = DARRAY_FIELD_LENGTH * sizeof(u64);
     u64 total_size = header_size + header[DARRAY_CAPACITY] * header[DARRAY_STRIDE];
-    platform_free(header, FALSE);
+    bfree(header, total_size, _darray_field_get(array, DARRAY_MEMORY_TAG));
 }
 
 u64 _darray_field_get(void* array, u64 field) {
@@ -37,7 +37,7 @@ void* _darray_resize(void* array) {
     u64 stride = darray_stride(array);
     void* temp = _darray_create(
         (DARRAY_RESIZE_FACTOR * darray_capacity(array)),
-        stride);
+        stride, _darray_field_get(array, DARRAY_MEMORY_TAG));
     platform_copy_memory(temp, array, length * stride);
 
     _darray_field_set(temp, DARRAY_LENGTH, length);

@@ -13,7 +13,7 @@ rendercmd_payload* add_command(box_rendercmd* cmd, rendercmd_payload_type type, 
 
     if (freelist_empty(&cmd->buffer)) {
         // Initialize freelist (start_size ensures there's room)
-        freelist_create(user_block_size, &cmd->buffer);
+        freelist_create(user_block_size, MEMORY_TAG_RENDERER, &cmd->buffer);
     }
 
     void* user_memory = freelist_push(&cmd->buffer, user_block_size, NULL);

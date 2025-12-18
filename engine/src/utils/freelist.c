@@ -11,12 +11,13 @@ void* get_user_memory(freelist* list, void* internal_block) {
     return (u8*)internal_block + sizeof(freelist_header);
 }
 
-void freelist_create(u64 start_size, freelist* out_list) {
+void freelist_create(u64 start_size, memory_tag tag, freelist* out_list) {
     if (!out_list) return;
 
     out_list->memory = NULL;
     out_list->size = 0;
     out_list->capacity = 0;
+    out_list->tag = tag;
 
     if (start_size > 0) {
         freelist_resize(out_list, start_size);
@@ -31,7 +32,7 @@ void freelist_destroy(freelist* list) {
     if (!list) return;
 
     if (list->memory) {
-        platform_free(list->memory, FALSE);
+        bfree(list->memory, list->capacity, list->tag);
         list->memory = NULL;
     }
 
@@ -56,12 +57,12 @@ void freelist_resize(freelist* list, u64 new_size) {
         u64 new_capacity = (list->capacity == 0) ? 8 : list->capacity;
         while (new_capacity < new_size) new_capacity *= 2;
 
-        void* new_buffer = platform_allocate(new_capacity, FALSE);
+        void* new_buffer = ballocate(new_capacity, list->tag);
 
         if (list->memory) {
             // copy only the used bytes
             platform_copy_memory(new_buffer, list->memory, list->size);
-            platform_free(list->memory, FALSE);
+            bfree(list->memory, list->capacity, list->tag);
         }
 
         list->memory = new_buffer;
@@ -74,7 +75,7 @@ void freelist_reset(freelist* list, b8 zero_memory, b8 free_memory) {
     list->size = 0;
 
     if (free_memory) {
-        platform_free(list->memory, FALSE);
+        bfree(list->memory, list->capacity, list->tag);
         list->memory = NULL;
         list->capacity = 0;
         return;

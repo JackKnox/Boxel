@@ -74,7 +74,7 @@ VkResult vulkan_graphics_pipeline_create(
 	vulkan_renderpass* renderpass, 
 	box_renderstage* shader) {
 	// Fill shader stages with data from shader array
-	VkPipelineShaderStageCreateInfo* shader_stages = darray_create(VkPipelineShaderStageCreateInfo);
+	VkPipelineShaderStageCreateInfo* shader_stages = darray_create(VkPipelineShaderStageCreateInfo, MEMORY_TAG_RENDERER);
 	for (int i = 0; i < BOX_SHADER_STAGE_TYPE_MAX; ++i) {
 		shader_stage* stage = &shader->stages[i];
 		if (stage->file_size == 0) {
@@ -97,7 +97,7 @@ VkResult vulkan_graphics_pipeline_create(
 		stage_info.pName = "main";
 		shader_stages = _darray_push(shader_stages, &stage_info);
 
-		platform_free(stage->file_data, FALSE);
+		bfree(stage->file_data, stage->file_size, MEMORY_TAG_CORE); // Comes from filesystem_read_entire_binary_file
 	}
 
 	VkPipelineViewportStateCreateInfo viewport_state = { VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO };
@@ -179,28 +179,31 @@ VkResult vulkan_graphics_pipeline_create(
 	dynamic_state.pDynamicStates = dynamicStates;
 
 	// Attributes
-	VkVertexInputBindingDescription binding_desc = { 0 };
-	binding_desc.binding = 0;
-	binding_desc.stride = box_vertex_layout_stride(shader->layout);
-	binding_desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+	VkVertexInputAttributeDescription* attributes = darray_create(VkVertexInputAttributeDescription, MEMORY_TAG_RENDERER);
 
-	VkVertexInputAttributeDescription* attributes = darray_create(VkVertexInputAttributeDescription);
-	for (u32 i = 0; i < box_vertex_layout_count(shader->layout); ++i) {
-		box_vertex_attrib_desc* attribute = &shader->layout->attribs[i];
+	if (shader->vertex_buffer) {
+		VkVertexInputBindingDescription binding_desc = { 0 };
+		binding_desc.binding = 0;
+		binding_desc.stride = box_vertex_layout_stride(shader->layout);
+		binding_desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-		VkVertexInputAttributeDescription descriptor = { 0 };
-		descriptor.binding = 0;
-		descriptor.location = i;
-		descriptor.format = box_attribute_to_vulkan_type(attribute->type, attribute->count);
-		descriptor.offset = attribute->offset;
-		attributes = _darray_push(attributes, &descriptor);
+		for (u32 i = 0; i < box_vertex_layout_count(shader->layout); ++i) {
+			box_vertex_attrib_desc* attribute = &shader->layout->attribs[i];
+
+			VkVertexInputAttributeDescription descriptor = { 0 };
+			descriptor.binding = 0;
+			descriptor.location = i;
+			descriptor.format = box_attribute_to_vulkan_type(attribute->type, attribute->count);
+			descriptor.offset = attribute->offset;
+			attributes = _darray_push(attributes, &descriptor);
+		}
+
+		vertex_input_info.vertexBindingDescriptionCount = 1;
+		vertex_input_info.pVertexBindingDescriptions = &binding_desc;
+
+		vertex_input_info.vertexAttributeDescriptionCount = darray_length(attributes);
+		vertex_input_info.pVertexAttributeDescriptions = attributes;
 	}
-
-	vertex_input_info.vertexBindingDescriptionCount = 1;
-	vertex_input_info.pVertexBindingDescriptions = &binding_desc;
-
-	vertex_input_info.vertexAttributeDescriptionCount = darray_length(attributes);
-	vertex_input_info.pVertexAttributeDescriptions = attributes;
 
 	// Input assembly
 	input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;

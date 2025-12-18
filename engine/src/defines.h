@@ -147,8 +147,10 @@ static u64 alignment(u64 v, u64 align) {
     return (v + (align - 1)) & ~(align - 1);
 }
 
-#include "logger.h"
+#include "core/logger.h"
+#include "core/memory.h"
+#include "core/event.h"
+#include "core/math_types.h"
 
+// TODO: Remove
 #include "platform/platform.h"
-#include "utils/event.h"
-#include "utils/math_types.h"

@@ -45,19 +45,10 @@ char* string_duplicate(const char* str) {
     }
 
     u64 length = string_length(str);
-    char* copy = platform_copy_memory(platform_allocate(length + 1, FALSE), str, length);
+    char* copy = platform_copy_memory(ballocate(length + 1, MEMORY_TAG_CORE), str, length);
 
     copy[length] = 0;
     return copy;
-}
-
-void string_free(const char* str) {
-    if (!str) {
-        BX_WARN("string_free called with an empty string. Nothing to be done.");
-        return;
-    }
-
-    platform_free((char*)str, FALSE);
 }
 
 i64 str_ncmp(const char* str0, const char* str1, u32 max_len) {
@@ -77,57 +68,27 @@ i64 str_ncmp(const char* str0, const char* str1, u32 max_len) {
     return strncmp(str0, str1, max_len);
 }
 
-i64 str_ncmpi(const char* str0, const char* str1, u32 max_len) {
-    char* lower_0 = 0;
-    char* lower_1 = 0;
-    // Lowercase both strings and use them for comparison.
-    if (str0) {
-        lower_0 = string_duplicate(str0);
-        string_to_lower(lower_0);
-    }
-    if (str1) {
-        lower_1 = string_duplicate(str1);
-        string_to_lower(lower_1);
-    }
-    i64 result = str_ncmp(lower_0, lower_1, max_len);
-    if (lower_0) {
-        string_free(lower_0);
-    }
-    if (lower_1) {
-        string_free(lower_1);
-    }
-    return result;
-}
-
 b8 strings_equal(const char* str0, const char* str1) {
     return str_ncmp(str0, str1, UINT32_MAX) == 0;
-}
-
-b8 strings_equali(const char* str0, const char* str1) {
-    return str_ncmpi(str0, str1, UINT32_MAX) == 0;
 }
 
 b8 strings_nequal(const char* str0, const char* str1, u32 max_len) {
     return str_ncmp(str0, str1, max_len) == 0;
 }
 
-b8 strings_nequali(const char* str0, const char* str1, u32 max_len) {
-    return str_ncmpi(str0, str1, max_len) == 0;
-}
-
-char* string_format(const char* format, ...) {
+char* string_format(const char* format, u64* out_length, ...) {
     if (!format) {
         return 0;
     }
 
     va_list arg_ptr;
     va_start(arg_ptr, format);
-    char* result = string_format_v(format, arg_ptr);
+    char* result = string_format_v(format, out_length, arg_ptr);
     va_end(arg_ptr);
     return result;
 }
 
-char* string_format_v(const char* format, void* va_listp) {
+char* string_format_v(const char* format, u64* out_length, void* va_listp) {
     if (!format) {
         return 0;
     }
@@ -142,13 +103,13 @@ char* string_format_v(const char* format, void* va_listp) {
 #else
     va_copy(list_copy, va_listp);
 #endif
-    i32 length = vsnprintf(0, 0, format, list_copy);
+    *out_length = vsnprintf(0, 0, format, list_copy);
     va_end(list_copy);
-    char* buffer = platform_allocate(length + 1, FALSE);
+    char* buffer = ballocate(*out_length + 1, MEMORY_TAG_CORE);
     if (!buffer) {
         return 0;
     }
-    vsnprintf(buffer, length + 1, format, va_listp);
-    buffer[length] = 0;
+    vsnprintf(buffer, *out_length + 1, format, va_listp);
+    buffer[*out_length] = 0;
     return buffer;
 }

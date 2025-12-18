@@ -25,17 +25,6 @@ typedef struct shader_stage {
     u64 file_size;
 } shader_stage;
 
-// Container for shader stages to later be connected to a renderstage.
-typedef struct box_renderstage {
-    box_resource_header header;
-    shader_stage stages[BOX_SHADER_STAGE_TYPE_MAX];
-    struct box_vertex_layout* layout;
-    struct box_renderbuffer* vertex_buffer, *index_buffer;
-    b8 depth_test, blending;
-
-    void* internal_data;
-} box_renderstage;
-
 // Container for buffer of data stored on GPU.
 typedef struct box_renderbuffer {
     box_resource_header header;
@@ -45,6 +34,18 @@ typedef struct box_renderbuffer {
 
     void* internal_data;
 } box_renderbuffer;
+
+// Container for shader stages to later be connected to a renderstage.
+typedef struct box_renderstage {
+    box_resource_header header;
+    shader_stage stages[BOX_SHADER_STAGE_TYPE_MAX];
+    box_renderbuffer* vertex_buffer, *index_buffer;
+    struct box_vertex_layout* layout;
+    b8 depth_test, blending;
+
+    void* internal_data;
+} box_renderstage;
+
 
 // Creates a renderstage asynchronously and logs it with the resource system attached to the specified box_engine.
 box_renderstage* box_engine_create_renderstage(struct box_engine* engine, const char* shader_stages[], u8 shader_stages_count, box_renderbuffer* vertex_buffer, box_renderbuffer* index_buffer, struct box_vertex_layout* layout, b8 depth_test, b8 blending);

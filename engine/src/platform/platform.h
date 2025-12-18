@@ -2,9 +2,6 @@
 
 #include "defines.h"
 
-// TODO: Make your own threading library.
-#include "tinycthread.h"
-
 typedef struct box_platform {
 	void* internal_state;
 } box_platform;
@@ -19,8 +16,6 @@ typedef enum box_window_mode {
 
 // Starts window and it's specific platform.
 b8 platform_start(box_platform* state, struct box_config* app_config);
-
-void platform_show_window(box_platform* state, b8 show);
 
 // Shutdown and cleans platform-specific state
 void platform_shutdown(box_platform* plat_state);

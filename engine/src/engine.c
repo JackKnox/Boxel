@@ -48,29 +48,36 @@ b8 engine_on_application_quit(u16 code, void* sender, void* listener_inst, event
 // Allocates render command ring next to engine memory for speediness
 box_engine* allocate_engine_and_ring(u32 ring_size) {
 	u64 total_size = sizeof(box_engine) + sizeof(box_rendercmd) * ring_size;
+	box_engine* engine = ballocate(total_size, MEMORY_TAG_ENGINE);
 
-	box_engine* engine = platform_allocate(total_size, FALSE);
-	return (box_engine*)platform_zero_memory(engine, total_size);
+	engine->allocation_size = total_size;
+	return engine;
 }
 
 box_engine* box_create_engine(box_config* app_config) {
 	if (!app_config) return NULL;
 
-	u32 ring_length = (u32)app_config->render_config.swapchain_frame_count + 1;
-	box_engine* engine = allocate_engine_and_ring(ring_length);
-	if (!engine) {
-		BX_ERROR("Failed to allocate engine memory.");
-		return NULL;
+	// Init core systems
+	if (!memory_initialize()) {
+		BX_ERROR("Failed to initialize memory system.");
+		goto failed_init;
 	}
-
-	engine->command_ring = (box_rendercmd*)((u8*)engine + sizeof(box_engine));
-	engine->command_ring_length = (u32)ring_length;
-	engine->config = *app_config;
 
 	if (!event_initialize()) {
 		BX_ERROR("Failed to initialize event system.");
 		goto failed_init;
 	}
+
+	u32 ring_length = (u32)app_config->render_config.swapchain_frame_count + 1;
+	box_engine* engine = allocate_engine_and_ring(ring_length);
+	if (!engine) {
+		BX_ERROR("Failed to allocate engine memory.");
+		goto failed_init;
+	}
+
+	engine->command_ring = (box_rendercmd*)((u8*)engine + sizeof(box_engine));
+	engine->command_ring_length = (u32)ring_length;
+	engine->config = *app_config;
 
 	if (!resource_system_init(&engine->resource_system, 0)) {
 		BX_ERROR("Failed to initialize resource system.");
@@ -99,6 +106,7 @@ box_engine* box_create_engine(box_config* app_config) {
 		goto failed_init;
 	}
 
+	print_memory_usage();
 	return engine;
 
 failed_init:
@@ -191,5 +199,6 @@ void box_destroy_engine(box_engine* engine) {
 		box_rendercmd_destroy(&engine->command_ring[i]);
 	}
 
-	platform_free(engine, FALSE);
+	bfree(engine, engine->allocation_size, MEMORY_TAG_ENGINE);
+	memory_shutdown();
 }

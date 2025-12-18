@@ -16,6 +16,8 @@ typedef struct box_engine {
 	b8 should_quit;
 
 	box_config config;
+	u64 allocation_size;
+
 	box_renderer_backend renderer;
 	box_resource_system resource_system;
 	box_platform platform_state;

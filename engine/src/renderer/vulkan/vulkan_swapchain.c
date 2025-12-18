@@ -172,10 +172,10 @@ VkResult create(vulkan_context* context, VkExtent2D size, vulkan_swapchain* swap
     swapchain->image_count = 0;
     VK_CHECK(vkGetSwapchainImagesKHR(context->device.logical_device, swapchain->handle, &swapchain->image_count, 0));
     if (!swapchain->images) {
-        swapchain->images = (VkImage*)platform_allocate(sizeof(VkImage) * swapchain->image_count, FALSE);
+        swapchain->images = (VkImage*)ballocate(sizeof(VkImage) * swapchain->image_count, MEMORY_TAG_RENDERER);
     }
     if (!swapchain->views) {
-        swapchain->views = (VkImageView*)platform_allocate(sizeof(VkImageView) * swapchain->image_count, FALSE);
+        swapchain->views = (VkImageView*)ballocate(sizeof(VkImageView) * swapchain->image_count, MEMORY_TAG_RENDERER);
     }
     VK_CHECK(vkGetSwapchainImagesKHR(context->device.logical_device, swapchain->handle, &swapchain->image_count, swapchain->images));
 
@@ -224,8 +224,8 @@ void destroy(vulkan_context* context, vulkan_swapchain* swapchain) {
             vkDestroyImageView(context->device.logical_device, swapchain->views[i], context->allocator);
         }
 
-        platform_free(swapchain->images, FALSE);
-        platform_free(swapchain->views, FALSE);
+        bfree(swapchain->images, sizeof(VkImage) * swapchain->image_count, MEMORY_TAG_RENDERER);
+        bfree(swapchain->views, sizeof(VkImageView) * swapchain->image_count, MEMORY_TAG_RENDERER);
 
         vkDestroySwapchainKHR(context->device.logical_device, swapchain->handle, context->allocator);
     }

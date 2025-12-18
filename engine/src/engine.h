@@ -2,6 +2,7 @@
 
 #include "defines.h"
 
+#include "platform/platform.h"
 #include "renderer/renderer_backend.h"
 
 // Application configuration

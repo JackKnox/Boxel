@@ -173,7 +173,7 @@ const void* filesystem_read_entire_binary_file(const char* filepath, u64* out_si
     if (!filesystem_size(&f, out_size)) {
         return 0;
     }
-    char* buf = platform_allocate(*out_size, FALSE);
+    char* buf = ballocate(*out_size, MEMORY_TAG_CORE);
     fread(buf, 1, *out_size, (FILE*)f.handle);
 
     return buf;

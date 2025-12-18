@@ -12,10 +12,13 @@ typedef struct freelist {
 
     // Size of region used by freelist within managed buffer.
     u64 size;
+
+    // Memory tag of internal memory in freelist.
+    memory_tag tag;
 } freelist;
 
 // Creates a new freelist.
-void freelist_create(u64 start_size, freelist* out_list);
+void freelist_create(u64 start_size, memory_tag tag, freelist* out_list);
 
 // Safely checks if data at pointer is freelist or is freelist and capacity == 0.
 b8 freelist_empty(freelist* list);
