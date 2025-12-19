@@ -19,27 +19,48 @@ static const char* tag_strings[MEMORY_TAG_MAX_TAGS] = {
 static memory_stats stats;
 
 b8 memory_initialize() {
-	platform_zero_memory(&stats, sizeof(stats));
+	bzero_memory(&stats, sizeof(stats));
 	return TRUE;
 }
 
 void memory_shutdown() {
 	if (stats.total_allocated == 0) return;
 	for (u32 i = 0; i < MEMORY_TAG_MAX_TAGS; ++i) {
-		BX_ERROR("Unfreed %llu bytes on tag %s", stats.tagged_allocations[i], tag_strings[i]);
+		if (stats.tagged_allocations[i] == 0) continue;
+		BX_ERROR("Unfreed %llu bytes on MEMORY_TAG_%s", stats.tagged_allocations[i], tag_strings[i]);
 	}
 }
 
 void* ballocate(u64 size, memory_tag tag) {
-	stats.total_allocated += size;
-	stats.tagged_allocations[tag] += size;
-	return platform_zero_memory(platform_allocate(size, FALSE), size);
+	breport(size, tag);
+	return bzero_memory(platform_allocate(size, FALSE), size);
 }
 
 void bfree(void* block, u64 size, memory_tag tag) {
+	breport_free(size, tag);
+	platform_free(block, FALSE);
+}
+
+void breport(u64 size, memory_tag tag) {
+	stats.total_allocated += size;
+	stats.tagged_allocations[tag] += size;
+}
+
+void breport_free(u64 size, memory_tag tag) {
 	stats.total_allocated -= size;
 	stats.tagged_allocations[tag] -= size;
-	platform_free(block, FALSE);
+}
+
+void* bzero_memory(void* block, u64 size) {
+	return bset_memory(block, 0, size);
+}
+
+void* bcopy_memory(void* dest, const void* source, u64 size) {
+	return platform_copy_memory(dest, source, size);
+}
+
+void* bset_memory(void* dest, i32 value, u64 size) {
+	return platform_set_memory(dest, value, size);
 }
 
 void print_memory_usage() {

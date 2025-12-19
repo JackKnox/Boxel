@@ -25,7 +25,6 @@ b8 platform_pump_messages(box_platform* plat_state);
 
 void* platform_allocate(u64 size, b8 aligned);
 void platform_free(const void* block, b8 aligned);
-void* platform_zero_memory(void* block, u64 size);
 void* platform_copy_memory(void* dest, const void* source, u64 size);
 void* platform_set_memory(void* dest, i32 value, u64 size);
 

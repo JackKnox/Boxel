@@ -8,10 +8,8 @@
 
 box_config box_default_config() {
 	box_config configuration = {0}; // fill with zeros
-	configuration.window_position.absolute.x = 100;
-	configuration.window_position.absolute.y = 100;
 	configuration.window_mode = BOX_WINDOW_MODE_WINDOWED;
-	configuration.window_visible = TRUE;
+	configuration.window_position.centered = TRUE;
 	configuration.window_size.x = 640;
 	configuration.window_size.y = 480;
 	configuration.title = "Boxel Sandbox";
@@ -42,7 +40,7 @@ int render_thread_loop(void* arg) {
 
 b8 engine_on_application_quit(u16 code, void* sender, void* listener_inst, event_context data) {
 	box_close_engine((box_engine*)listener_inst, TRUE);
-	return TRUE;
+	return FALSE;
 }
 
 // Allocates render command ring next to engine memory for speediness

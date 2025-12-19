@@ -68,6 +68,8 @@ box_renderstage* box_engine_create_renderstage(
 	renderstage->header.vtable.create_local = internal_create_renderstage;
 	renderstage->header.vtable.destroy_local = internal_destroy_renderstage;
 	renderstage->header.resource_arg = (void*)engine;
+	resource_system_add_dependency(&engine->resource_system, renderstage, vertex_buffer);
+	resource_system_add_dependency(&engine->resource_system, renderstage, index_buffer);
 	resource_system_signal_upload(&engine->resource_system, renderstage);
 	return renderstage;
 }

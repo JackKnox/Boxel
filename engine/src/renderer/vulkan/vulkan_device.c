@@ -12,7 +12,7 @@ b8 physical_device_meets_requirements(
     vulkan_swapchain_support_info* out_swapchain_support);
 
 VkResult vulkan_device_create(vulkan_context* context) {
-    darray_push(context->config->required_extensions, VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+    darray_push(context->config->required_extensions, &VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
     if (!select_physical_device(context)) {
         BX_ERROR("Could not find device which supported requested GPU features.");
@@ -24,7 +24,7 @@ VkResult vulkan_device_create(vulkan_context* context) {
     u32 present_index = context->config->capabilities.present_queue_index;
     u32 transfer_index = context->config->capabilities.transfer_queue_index;
 
-    // TODO: I don't this code, so fix it I guess.
+    // TODO: I don't like this code, so fix it I guess.
     b8 present_shares_graphics = (graphics_index == present_index);
     b8 transfer_shares_graphics = (graphics_index == transfer_index);
 
@@ -353,13 +353,11 @@ b8 physical_device_meets_requirements(
           out_capabilities->transfer_queue_index != -1,
           properties.deviceName);
 
-    b8 need_present_queue = (context->config->graphics_pipeline);
-
     if (
-        (!context->config->graphics_pipeline || (context->config->graphics_pipeline && out_capabilities->graphics_queue_index != -1)) &&
-        (!need_present_queue                 || (need_present_queue && out_capabilities->present_queue_index != -1)) &&
-        (!context->config->compute_pipeline  || (context->config->compute_pipeline && out_capabilities->compute_queue_index != -1)) &&
-        (!context->config->enable_transfer   || (context->config->enable_transfer && out_capabilities->transfer_queue_index != -1))) {
+        (!(context->config->modes & RENDERER_MODE_GRAPHICS) || ((context->config->modes & RENDERER_MODE_GRAPHICS) && out_capabilities->graphics_queue_index != -1)) &&
+        (!(context->config->modes & RENDERER_MODE_GRAPHICS) || ((context->config->modes & RENDERER_MODE_GRAPHICS) && out_capabilities->present_queue_index != -1)) &&
+        (!(context->config->modes & RENDERER_MODE_COMPUTE)  || ((context->config->modes & RENDERER_MODE_COMPUTE) && out_capabilities->compute_queue_index != -1)) &&
+        (!(context->config->modes & RENDERER_MODE_TRANSFER) || ((context->config->modes & RENDERER_MODE_TRANSFER) && out_capabilities->transfer_queue_index != -1))) {
         BX_INFO("Device meets queue requirements.");
         BX_TRACE("Graphics Family Index: %i", out_capabilities->graphics_queue_index);
         BX_TRACE("Present Family Index:  %i", out_capabilities->present_queue_index);

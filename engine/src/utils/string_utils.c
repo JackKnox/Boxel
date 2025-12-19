@@ -45,7 +45,7 @@ char* string_duplicate(const char* str) {
     }
 
     u64 length = string_length(str);
-    char* copy = platform_copy_memory(ballocate(length + 1, MEMORY_TAG_CORE), str, length);
+    char* copy = bcopy_memory(ballocate(length + 1, MEMORY_TAG_CORE), str, length);
 
     copy[length] = 0;
     return copy;

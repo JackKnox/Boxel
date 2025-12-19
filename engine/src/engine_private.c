@@ -120,6 +120,8 @@ void engine_thread_shutdown(box_engine* engine) {
 	if (!engine) return;
 	// Destroy in the opposite order of creation.
 
+	engine->renderer.wait_until_idle(&engine->renderer, UINT64_MAX);
+
 	BX_INFO("Destroying engine resources...");
 	resource_system_destroy_resources(&engine->resource_system);
 

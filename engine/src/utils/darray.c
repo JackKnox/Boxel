@@ -10,7 +10,7 @@ void* _darray_create(u64 length, u64 stride, memory_tag tag) {
     new_array[DARRAY_STRIDE] = stride;
     new_array[DARRAY_MEMORY_TAG] = tag;
 
-    return platform_zero_memory((void*)(new_array + DARRAY_FIELD_LENGTH), array_size);
+    return bzero_memory((void*)(new_array + DARRAY_FIELD_LENGTH), array_size);
 }
 
 void _darray_destroy(void* array) {
@@ -38,7 +38,7 @@ void* _darray_resize(void* array) {
     void* temp = _darray_create(
         (DARRAY_RESIZE_FACTOR * darray_capacity(array)),
         stride, _darray_field_get(array, DARRAY_MEMORY_TAG));
-    platform_copy_memory(temp, array, length * stride);
+    bcopy_memory(temp, array, length * stride);
 
     _darray_field_set(temp, DARRAY_LENGTH, length);
     _darray_destroy(array);
@@ -54,7 +54,7 @@ void* _darray_push(void* array, const void* value_ptr) {
 
     u64 addr = (u64)array;
     addr += (length * stride);
-    platform_copy_memory((void*)addr, value_ptr, stride);
+    bcopy_memory((void*)addr, value_ptr, stride);
     _darray_field_set(array, DARRAY_LENGTH, length + 1);
     return array;
 }
@@ -64,7 +64,7 @@ void _darray_pop(void* array, void* dest) {
     u64 stride = darray_stride(array);
     u64 addr = (u64)array;
     addr += ((length - 1) * stride);
-    platform_copy_memory(dest, (void*)addr, stride);
+    bcopy_memory(dest, (void*)addr, stride);
     _darray_field_set(array, DARRAY_LENGTH, length - 1);
 }
 
@@ -77,11 +77,11 @@ void* _darray_pop_at(void* array, u64 index, void* dest) {
     }
 
     u64 addr = (u64)array;
-    platform_copy_memory(dest, (void*)(addr + (index * stride)), stride);
+    bcopy_memory(dest, (void*)(addr + (index * stride)), stride);
 
     // If not on the last element, snip out the entry and copy the rest inward.
     if (index != length - 1) {
-        platform_copy_memory(
+        bcopy_memory(
             (void*)(addr + (index * stride)),
             (void*)(addr + ((index + 1) * stride)),
             stride * (length - index));
@@ -106,14 +106,14 @@ void* _darray_insert_at(void* array, u64 index, void* value_ptr) {
 
     // If not on the last element, copy the rest outward.
     if (index != length - 1) {
-        platform_copy_memory(
+        bcopy_memory(
             (void*)(addr + ((index + 1) * stride)),
             (void*)(addr + (index * stride)),
             stride * (length - index));
     }
 
     // Set the value at the index
-    platform_copy_memory((void*)(addr + (index * stride)), value_ptr, stride);
+    bcopy_memory((void*)(addr + (index * stride)), value_ptr, stride);
 
     _darray_field_set(array, DARRAY_LENGTH, length + 1);
     return array;

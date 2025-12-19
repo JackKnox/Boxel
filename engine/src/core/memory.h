@@ -18,4 +18,14 @@ void* ballocate(u64 size, memory_tag tag);
 
 void bfree(void* block, u64 size, memory_tag tag);
 
+void breport(u64 size, memory_tag tag);
+
+void breport_free(u64 size, memory_tag tag);
+
+void* bzero_memory(void* block, u64 size);
+
+void* bcopy_memory(void* dest, const void* source, u64 size);
+
+void* bset_memory(void* dest, i32 value, u64 size);
+
 void print_memory_usage();

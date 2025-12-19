@@ -29,13 +29,16 @@ b8 event_initialize() {
         return FALSE;
     }
 
-    platform_zero_memory(&state, sizeof(state));
+    bzero_memory(&state, sizeof(state));
+    breport(sizeof(state), MEMORY_TAG_CORE);
+
     is_initialized = TRUE;
     return TRUE;
 }
 
 void event_shutdown() {
     if (!is_initialized) return;
+    breport_free(sizeof(state), MEMORY_TAG_CORE);
 
     // Free the events arrays. And objects pointed to should be destroyed on their own.
     for (u16 i = 0; i < MAX_MESSAGE_CODES; ++i) {
@@ -79,7 +82,6 @@ b8 event_unregister(u16 code, void* listener, PFN_on_event on_event) {
 
     // On nothing is registered for the code, boot out.
     if (state.registered[code].events == 0) {
-        // TODO: warn
         return FALSE;
     }
 

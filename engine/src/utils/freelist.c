@@ -61,7 +61,7 @@ void freelist_resize(freelist* list, u64 new_size) {
 
         if (list->memory) {
             // copy only the used bytes
-            platform_copy_memory(new_buffer, list->memory, list->size);
+            bcopy_memory(new_buffer, list->memory, list->size);
             bfree(list->memory, list->capacity, list->tag);
         }
 
@@ -82,7 +82,7 @@ void freelist_reset(freelist* list, b8 zero_memory, b8 free_memory) {
     }
 
     if (zero_memory) {
-        platform_zero_memory(list->memory, list->capacity);
+        bzero_memory(list->memory, list->capacity);
     }
 }
 
@@ -104,7 +104,7 @@ void* freelist_push(freelist* list, u64 block_size, void* memory) {
     u8* user_ptr = internal_block + sizeof(freelist_header);
 
     if (memory != NULL) {
-        platform_copy_memory(user_ptr, memory, block_size);
+        bcopy_memory(user_ptr, memory, block_size);
     }
 
     list->size = aligned_pos + sizeof(freelist_header) + block_size;

@@ -15,7 +15,20 @@ b8 resource_system_on_application_quit(u16 code, void* sender, void* listener_in
     mtx_lock(&system->mutex);
     cnd_signal(&system->cnd);
     mtx_unlock(&system->mutex);
-    return TRUE;
+    return FALSE;
+}
+
+void create_resource(box_resource_system* system, box_resource_header* resource) {
+    resource->state = BOX_RESOURCE_STATE_UPLOADING;
+
+    // Perform the create (does its own GPU/local allocations)
+    b8 created = resource->vtable.create_local(system, resource, resource->resource_arg);
+    if (!created) {
+        resource->state = BOX_RESOURCE_STATE_FAILED;
+    }
+    else {
+        resource->state = BOX_RESOURCE_STATE_READY;
+    }
 }
 
 int resource_thread_func(void* arg) {
@@ -44,34 +57,19 @@ int resource_thread_func(void* arg) {
 
         if (resource->magic != RESOURCE_MAGIC) {
             BX_WARN("Resource in upload queue had invalid magic; skipping.");
-            // Decrement waiting_index and signal waiter
-            mtx_lock(&system->mutex);
-            if (system->waiting_index > 0) --system->waiting_index;
-            cnd_signal(&system->cnd);
-            mtx_unlock(&system->mutex);
-            continue;
+            goto continue_thread;
         }
 
         if (resource->state != BOX_RESOURCE_STATE_NEEDS_UPLOAD) {
-            // Not expected state, treat as done
-            mtx_lock(&system->mutex);
-            if (system->waiting_index > 0) --system->waiting_index;
-            cnd_signal(&system->cnd);
-            mtx_unlock(&system->mutex);
-            continue;
+            goto continue_thread;
         }
 
-        resource->state = BOX_RESOURCE_STATE_UPLOADING;
-
-        // Perform the create (does its own GPU/local allocations)
-        b8 created = resource->vtable.create_local(system, resource, resource->resource_arg);
-        if (!created) {
-            resource->state = BOX_RESOURCE_STATE_FAILED;
+        for (u32 i = 0; i < resource->dependent_count; ++i) {
+            create_resource(system, resource->dependents[i]);
         }
-        else {
-            resource->state = BOX_RESOURCE_STATE_READY;
-        }
+        create_resource(system, resource);
 
+    continue_thread:
         // Notify waiters that one resource finished
         mtx_lock(&system->mutex);
         if (system->waiting_index > 0) --system->waiting_index;
@@ -83,7 +81,7 @@ int resource_thread_func(void* arg) {
 }
 
 b8 resource_system_init(box_resource_system* system, u64 start_mem) {
-    platform_zero_memory(system, sizeof(box_resource_system));
+    bzero_memory(system, sizeof(box_resource_system));
 
     freelist_create(start_mem, MEMORY_TAG_RESOURCES, &system->resources);
     system->upload_queue = darray_create(u64, MEMORY_TAG_RESOURCES);
@@ -115,7 +113,7 @@ b8 resource_system_allocate_resource(box_resource_system* system, u64 size, void
     *out_resource = freelist_push(&system->resources, size, NULL);
     if (!*out_resource) return FALSE;
 
-    platform_zero_memory(*out_resource, size);
+    bzero_memory(*out_resource, size);
 
     box_resource_header* hdr = (box_resource_header*)*out_resource;
     hdr->magic = RESOURCE_MAGIC;
@@ -124,6 +122,10 @@ b8 resource_system_allocate_resource(box_resource_system* system, u64 size, void
 }
 
 void resource_system_add_dependency(box_resource_system* system, void* parent, void* dependency) {
+    if (!parent || !dependency) return;
+    box_resource_header* parent_hdr = (box_resource_header*)parent;
+
+    parent_hdr->dependents[++parent_hdr->dependent_count] = dependency;
 }
 
 void resource_system_signal_upload(box_resource_system* system, void* resource) {
@@ -172,13 +174,10 @@ void resource_system_destroy_resources(box_resource_system* system) {
     u8* cursor = NULL;
     while (freelist_next_block(&system->resources, &cursor)) {
         box_resource_header* hdr = (box_resource_header*)cursor;
-
-        if (!hdr) continue;
-        if (hdr->magic != RESOURCE_MAGIC) continue;
+        if (!hdr || hdr->magic != RESOURCE_MAGIC) continue;
 
         // If resource created local data, call destroy_local
-        if ((hdr->state == BOX_RESOURCE_STATE_READY || hdr->state == BOX_RESOURCE_STATE_FAILED) &&
-            hdr->vtable.destroy_local) {
+        if (hdr->state == BOX_RESOURCE_STATE_READY || hdr->state == BOX_RESOURCE_STATE_FAILED) {
             hdr->vtable.destroy_local(system, hdr, hdr->resource_arg);
         }
     }

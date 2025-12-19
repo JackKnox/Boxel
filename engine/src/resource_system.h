@@ -21,14 +21,17 @@ typedef struct box_resource_vtable {
 	void (*destroy_local)(struct box_resource_system* system, void* resource, void* args);
 } box_resource_vtable;
 
+#define RESOURCE_MAX_DEPENDENTS 3
+
 // Start of every valid 'box_resource' in memory, holds private data when resource is fully initialized.
 typedef struct box_resource_header {
-	u8 magic;
 	box_resource_vtable vtable;
+	struct box_resource_header* dependents[RESOURCE_MAX_DEPENDENTS];
+
 	box_resource_state state;
-	
-	// Not managed by system, just held for benifit of user.
-	void* resource_arg;
+	u8 magic, dependent_count;
+
+	void* resource_arg; // User-owned, must outlive the resource
 } box_resource_header;
 
 // Opaque handle to true box_resource_system. TODO: Turn into private handle.
@@ -52,6 +55,9 @@ b8 resource_system_allocate_resource(box_resource_system* system, u64 resource_s
 
 // After setting state for resource use this, to queue specified resource for creation.
 void resource_system_signal_upload(box_resource_system* system, void* resource);
+
+// Ensures that 'dependency' is always created and destroyed before target resource.
+void resource_system_add_dependency(box_resource_system* system, void* parent, void* dependency);
 
 // Wait until all resources signaled for uploading before this function call.
 void resource_system_wait(box_resource_system* system);

@@ -112,6 +112,11 @@ VkResult create(vulkan_context* context, VkExtent2D size, vulkan_swapchain* swap
     swapchain->image_format = find_swapchain_format(&context->device.swapchain_support);
     swapchain->max_frames_in_flight = context->config->swapchain_frame_count;
     
+    if (swapchain->max_frames_in_flight <= 1) {
+        BX_ERROR("config->max_frames_in_flight must be set greater than one");
+        return VK_ERROR_FORMAT_NOT_SUPPORTED;
+    }
+
     // Requery swapchain support.
     vulkan_device_query_swapchain_support(
         context->device.physical_device,

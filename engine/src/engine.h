@@ -16,17 +16,14 @@ typedef struct box_config {
 	// Window starting mode.
 	box_window_mode window_mode;
 
-	// Window visible on start.
-	b8 window_visible;
+	// FPS to lock render thread to.
+	u32 target_fps;
 
 	// Window starting size.
 	uvec2 window_size;
 
 	// The application name used in windowing.
 	const char* title;
-
-	// FPS to lock render thread to.
-	u32 target_fps;
 
 	// Configuration for render backend.
 	box_renderer_backend_config render_config;

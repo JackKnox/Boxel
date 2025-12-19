@@ -59,7 +59,6 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, uvec2 start
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 	context->config = config;
 	context->allocator = 0; // TODO: Custom allocator
-	context->current_frame = 0;
 	
 	VkApplicationInfo app_info = { VK_STRUCTURE_TYPE_APPLICATION_INFO };
 	app_info.apiVersion = VK_API_VERSION_1_2; // TODO: Does it need to be this low??
@@ -74,9 +73,6 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, uvec2 start
 	// Obtain a list of required extensions
 	const char** required_extensions = darray_create(const char*, MEMORY_TAG_RENDERER);
 	const char** required_validation_layer_names = darray_create(const char*, MEMORY_TAG_RENDERER);
-
-	// Generic surface extension
-	darray_push(required_extensions, VK_KHR_SURFACE_EXTENSION_NAME);
 
 	// Platform-specific extension(s)
 	platform_get_vulkan_extensions(&required_extensions);
@@ -256,6 +252,11 @@ void vulkan_renderer_backend_shutdown(box_renderer_backend* backend) {
 	backend->internal_context = NULL;
 }
 
+void vulkan_renderer_backend_wait_until_idle(box_renderer_backend* backend, u64 timeout) {
+	vulkan_context* context = (vulkan_context*)backend->internal_context;
+	if (context->device.logical_device) vkDeviceWaitIdle(context->device.logical_device);
+}
+
 void vulkan_renderer_backend_on_resized(box_renderer_backend* backend, u32 width, u32 height) {
 	// TODO: Swapchain recreation.
 }
@@ -338,11 +339,11 @@ b8 vulkan_renderer_playback_rendercmd(box_renderer_backend* backend, box_renderc
 			break;
 		
 		case RENDERCMD_DRAW:
-			/*
-			VkBuffer vtx_buffers[] = { ((vulkan_buffer*)current_shader->vertex_buffer->internal_data)->handle };
-			VkDeviceSize offsets[] = { 0 };
-			vkCmdBindVertexBuffers(cmd->handle, 0, 1, vtx_buffers, offsets);
-			*/
+			if (current_shader->vertex_buffer) {
+				VkBuffer vtx_buffers[] = { ((vulkan_buffer*)current_shader->vertex_buffer->internal_data)->handle };
+				VkDeviceSize offsets[] = { 0 };
+				vkCmdBindVertexBuffers(cmd->handle, 0, 1, vtx_buffers, offsets);
+			}
 			vkCmdDraw(cmd->handle,
 				payload->draw.vertex_count,
 				payload->draw.instance_count,
@@ -419,7 +420,10 @@ void vulkan_renderer_destroy_renderstage(box_renderer_backend* backend, box_rend
 
 b8 vulkan_renderer_create_renderbuffer(box_renderer_backend* backend, box_renderbuffer* out_buffer) {
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
-	
+	if (!(context->config->modes & RENDERER_MODE_TRANSFER)) {
+		BX_WARN("Attempting to transfer data between CPU and GPU without enabling, falling back to graphics queue.");
+	}
+
 	// TODO: Make configurable
 	VkBufferUsageFlagBits buffer_usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 
@@ -454,7 +458,17 @@ b8 vulkan_renderer_create_renderbuffer(box_renderer_backend* backend, box_render
 	copy_info.size = out_buffer->temp_user_size;
 	vkCmdCopyBuffer(command_buffer.handle, staging_buffer.handle, buffer->handle, 1, &copy_info);
 
-	vulkan_command_buffer_end_single_use(context, context->device.graphics_command_pool, &command_buffer, context->device.graphics_queue);
+	CHECK_VKRESULT(
+		vulkan_command_buffer_end_single_use(
+			context,
+			context->graphics_command_pool,
+			&command_buffer,
+			context->config->modes & RENDERER_MODE_TRANSFER ?
+				context->device.transfer_queue :
+				context->device.graphics_queue),
+		"Failed to transfer Vulkan renderbuffer to GPU"
+	);
+	
 	vulkan_buffer_destroy(context, &staging_buffer);
 	return TRUE;
 }

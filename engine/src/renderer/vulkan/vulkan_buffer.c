@@ -47,7 +47,7 @@ b8 vulkan_buffer_map_data(vulkan_context* context, vulkan_buffer* buffer, VkDevi
 		return FALSE;
 	}
 
-	platform_copy_memory(data, buf_data, buf_size);
+	bcopy_memory(data, buf_data, buf_size);
 	vkUnmapMemory(context->device.logical_device, buffer->memory);
 	return TRUE;
 }

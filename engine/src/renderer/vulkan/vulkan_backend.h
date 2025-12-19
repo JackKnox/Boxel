@@ -7,6 +7,7 @@
 b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, uvec2 starting_size, const char* application_name, box_renderer_backend_config* config);
 void vulkan_renderer_backend_shutdown(box_renderer_backend* backend);
 
+void vulkan_renderer_backend_wait_until_idle(box_renderer_backend* backend, u64 timeout);
 void vulkan_renderer_backend_on_resized(box_renderer_backend* backend, u32 width, u32 height);
 
 b8 vulkan_renderer_backend_begin_frame(box_renderer_backend* backend, f32 delta_time);

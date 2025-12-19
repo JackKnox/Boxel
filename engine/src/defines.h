@@ -151,6 +151,3 @@ static u64 alignment(u64 v, u64 align) {
 #include "core/memory.h"
 #include "core/event.h"
 #include "core/math_types.h"
-
-// TODO: Remove
-#include "platform/platform.h"

@@ -6,7 +6,7 @@ VkResult vulkan_command_buffer_allocate(
     VkCommandPool pool,
     b8 is_primary,
     vulkan_command_buffer* out_command_buffer) {
-    platform_zero_memory(out_command_buffer, sizeof(out_command_buffer));
+    bzero_memory(out_command_buffer, sizeof(out_command_buffer));
 
     VkCommandBufferAllocateInfo allocate_info = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
     allocate_info.level = is_primary ? VK_COMMAND_BUFFER_LEVEL_PRIMARY : VK_COMMAND_BUFFER_LEVEL_SECONDARY;

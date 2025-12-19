@@ -96,3 +96,12 @@ VkResult platform_create_vulkan_surface(vulkan_context* context, box_platform* p
 	internal_state* state = (internal_state*)plat_state->internal_state;
 	return glfwCreateWindowSurface(context->instance, state->window, context->allocator, &context->surface);
 }
+
+void platform_get_vulkan_extensions(const char*** names_darray) {
+	uint32_t count;
+	const char** extensions = glfwGetRequiredInstanceExtensions(&count);
+
+	for (u32 i = 0; i < count; ++i) {
+		darray_push(*names_darray, extensions[i]);
+	}
+}

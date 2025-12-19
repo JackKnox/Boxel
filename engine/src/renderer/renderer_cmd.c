@@ -38,7 +38,7 @@ void box_rendercmd_reset(box_rendercmd* cmd) {
 
 void box_rendercmd_destroy(box_rendercmd* cmd) {
     freelist_destroy(&cmd->buffer);
-    platform_zero_memory(cmd, sizeof(box_rendercmd));
+    bzero_memory(cmd, sizeof(box_rendercmd));
 }
 
 void box_rendercmd_set_clear_colour(box_rendercmd* cmd, f32 clear_r, f32 clear_g, f32 clear_b) {

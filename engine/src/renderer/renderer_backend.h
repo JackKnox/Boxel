@@ -11,6 +11,7 @@ typedef enum box_renderer_backend_type {
     RENDERER_BACKEND_TYPE_DIRECTX
 } box_renderer_backend_type;
 
+// Type of GPU / Device.
 typedef enum renderer_device_type {
     RENDERER_DEVICE_TYPE_OTHER = 0,
     RENDERER_DEVICE_TYPE_INTEGRATED_GPU = 1,
@@ -19,7 +20,15 @@ typedef enum renderer_device_type {
     RENDERER_DEVICE_TYPE_CPU = 4,
 } renderer_device_type;
 
+// Modes for renderer to prepare for.
+typedef enum renderer_mode {
+    RENDERER_MODE_GRAPHICS = 1 << 0,
+    RENDERER_MODE_COMPUTE = 1 << 1,
+    RENDERER_MODE_TRANSFER = 1 << 2,
+} renderer_mode;
+
 typedef struct renderer_capabilities {
+    // TODO: Remove - front end shouldn't know about these
     i32 graphics_queue_index;
     i32 present_queue_index;
     i32 transfer_queue_index;
@@ -31,17 +40,8 @@ typedef struct renderer_capabilities {
 
 // Configuration for render backend.
 typedef struct renderer_backend_config {
-    // Chosen type of API. Keep this in renderer_backend_config so backend knows what type is it.
-    box_renderer_backend_type api_type;
-
     /// Enabled pipelines / modes for backend to prepare for.
-    b8 graphics_pipeline, compute_pipeline;
-
-    // Enable transfering data between app and GPU.
-    b8 enable_transfer;
-
-    // Frame count for swapchain, must be greater than 1.
-    u32 swapchain_frame_count;
+    renderer_mode modes;
 
     // Send validation messages through out engine.
     b8 enable_validation;
@@ -51,6 +51,12 @@ typedef struct renderer_backend_config {
 
     // Force renderer backend to use a discrete GPU.
     b8 discrete_gpu;
+
+    // Chosen type of API. Keep this in renderer_backend_config so backend knows what type is it.
+    box_renderer_backend_type api_type;
+
+    // Frame count for swapchain, must be greater than 1.
+    u32 swapchain_frame_count;
 
     // darray - Extensions enabled on graphics API. Consumed by renderer backend.
     const char** required_extensions;
@@ -79,6 +85,7 @@ typedef struct box_renderer_backend {
 
     void (*shutdown)(struct box_renderer_backend* backend);
 
+    void (*wait_until_idle)(struct box_renderer_backend* backend, u64 timeout);
     void (*resized)(struct box_renderer_backend* backend, u32 width, u32 height);
 
     b8 (*begin_frame)(struct box_renderer_backend* backend, f32 delta_time);
