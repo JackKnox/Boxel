@@ -112,17 +112,17 @@ VkResult vulkan_graphics_pipeline_create(
 	// Recieve viewport/scissor from renderpass
 	VkViewport viewport;
 	viewport.x = 0.0f;
-	viewport.y = (f32)renderpass->h;
-	viewport.width = (f32)renderpass->w;
-	viewport.height = -(f32)renderpass->h;
+	viewport.y = (f32)renderpass->size.height;
+	viewport.width = (f32)renderpass->size.width;
+	viewport.height = -(f32)renderpass->size.height;
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
 
 	// Scissor
 	VkRect2D scissor;
 	scissor.offset.x = scissor.offset.y = 0;
-	scissor.extent.width = renderpass->w;
-	scissor.extent.height = renderpass->h;
+	scissor.extent.width = renderpass->size.width;
+	scissor.extent.height = renderpass->size.height;
 
 	// Viewport state
 	viewport_state.viewportCount = 1;
@@ -181,7 +181,7 @@ VkResult vulkan_graphics_pipeline_create(
 	// Attributes
 	VkVertexInputAttributeDescription* attributes = darray_create(VkVertexInputAttributeDescription, MEMORY_TAG_RENDERER);
 
-	if (shader->vertex_buffer) {
+	if (shader->layout) {
 		VkVertexInputBindingDescription binding_desc = { 0 };
 		binding_desc.binding = 0;
 		binding_desc.stride = box_vertex_layout_stride(shader->layout);

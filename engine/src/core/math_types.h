@@ -10,13 +10,15 @@ typedef union vec2 {
             f32 x,
                 r,
                 s,
-                u;
+                u,
+                width;
         };
         union {
             f32 y,
                 g,
                 t,
-                v;
+                v,
+                height;
         };
     };
 } vec2;
@@ -29,19 +31,22 @@ typedef union vec3 {
             f32 x,
                 r,
                 s,
-                u;
+                u,
+                width;
         };
         union {
             f32 y,
                 g,
                 t,
-                v;
+                v,
+                height;
         };
         union {
             f32 z,
                 b,
                 p,
-                w;
+                w,
+                length;
         };
     };
 } vec3;
@@ -64,14 +69,12 @@ typedef union vec4 {
             union {
                 f32 z,
                     b,
-                    p,
-                    width;
+                    p;
             };
             union {
                 f32 w,
                     a,
-                    q,
-                    height;
+                    q;
             };
         };
     };
@@ -85,13 +88,15 @@ typedef union uvec2 {
             u32 x,
                 r,
                 s,
-                u;
+                u,
+                width;
         };
         union {
             u32 y,
                 g,
                 t,
-                v;
+                v,
+                height;
         };
     };
 } uvec2;
@@ -104,19 +109,22 @@ typedef union uvec3 {
             u32 x,
                 r,
                 s,
-                u;
+                u,
+                width;
         };
         union {
             u32 y,
                 g,
                 t,
-                v;
+                v,
+                height;
         };
         union {
             u32 z,
                 b,
                 p,
-                w;
+                w,
+                length;
         };
     };
 } uvec3;

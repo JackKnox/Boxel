@@ -4,6 +4,8 @@
 
 #include "utils/freelist.h"
 
+#include "renderer_backend.h"
+
 /*
 Memory layout:
 void* buffer = buffer to render commands
@@ -20,13 +22,14 @@ enum {
     RENDERCMD_SET_CLEAR_COLOUR,
     RENDERCMD_BEGIN_RENDERSTAGE,
     RENDERCMD_END_RENDERSTAGE,
-    RENDERCMD_SET_VERTEX_BUFFER,
+    RENDERCMD_BIND_BUFFER,
     RENDERCMD_DRAW,
 };
 typedef u32 rendercmd_payload_type;
 
 // Async container of commands to send to the render backend.
 typedef struct box_rendercmd {
+    renderer_mode required_modes;
     freelist buffer;
     b8 finished;
 } box_rendercmd;
@@ -36,7 +39,6 @@ typedef struct rendercmd_header {
     rendercmd_payload_type type;
 } rendercmd_header;
 #pragma pack(pop)
-
 
 #pragma pack(push, 1)
 typedef union rendercmd_payload {
@@ -53,6 +55,11 @@ typedef union rendercmd_payload {
         struct box_renderstage* renderstage;
     } begin_renderstage;
 
+    struct {
+        struct box_renderbuffer* renderbuffer;
+        u32 set, binding;
+    } bind_buffer;
+
 } rendercmd_payload;
 #pragma pack(pop)
 
@@ -67,6 +74,9 @@ void box_rendercmd_set_clear_colour(box_rendercmd* cmd, f32 clear_r, f32 clear_g
 
 // Begin a new render stage with specified shaders. Subsequent draw calls will use this stage.
 void box_rendercmd_begin_renderstage(box_rendercmd* cmd, struct box_renderstage* renderstage);
+
+// Binds buffers to next draw call, inferes buffer type and usage.
+void box_rendercmd_bind_buffer(box_rendercmd* cmd, struct box_renderbuffer* renderbuffer, u32 set, u32 binding);
 
 // Issue a draw call with current bound state.
 void box_rendercmd_draw(box_rendercmd* cmd, u32 vertex_count, u32 instance_count);

@@ -66,7 +66,7 @@ box_engine* box_create_engine(box_config* app_config) {
 		goto failed_init;
 	}
 
-	u32 ring_length = (u32)app_config->render_config.swapchain_frame_count + 1;
+	u32 ring_length = (u32)app_config->render_config.frames_in_flight + 1;
 	box_engine* engine = allocate_engine_and_ring(ring_length);
 	if (!engine) {
 		BX_ERROR("Failed to allocate engine memory.");

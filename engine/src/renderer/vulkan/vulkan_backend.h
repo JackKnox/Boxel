@@ -4,7 +4,7 @@
 
 #include "renderer/renderer_backend.h"
 
-b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, uvec2 starting_size, const char* application_name, box_renderer_backend_config* config);
+b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, uvec2 starting_size, const char* application_name);
 void vulkan_renderer_backend_shutdown(box_renderer_backend* backend);
 
 void vulkan_renderer_backend_wait_until_idle(box_renderer_backend* backend, u64 timeout);

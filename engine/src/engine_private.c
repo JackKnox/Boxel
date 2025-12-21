@@ -32,8 +32,8 @@ b8 engine_thread_init(box_engine* engine) {
 		goto exit_and_cleanup;
 	}
 
-	if (!renderer_backend_create(engine->config.render_config.api_type, &engine->platform_state, &engine->renderer)
-		|| !engine->renderer.initialize(&engine->renderer, engine->config.window_size, engine->config.title, &engine->config.render_config)) {
+	if (!renderer_backend_create(engine->config.render_config.api_type, &engine->platform_state, &engine->config.render_config, &engine->renderer)
+		|| !engine->renderer.initialize(&engine->renderer, engine->config.window_size, engine->config.title)) {
 		BX_ERROR("Failed to init renderer backend.");
 		goto exit_and_cleanup;
 	}
@@ -71,7 +71,8 @@ b8 engine_thread_init(box_engine* engine) {
 
 		if (has_finished && backend->begin_frame(backend, engine->delta_time)) {
 			// Grab a snapshot of the command->finished under the lock and then unlock
-			if (!backend->playback_rendercmd(backend, command)) {
+			b8 succeceded = backend->playback_rendercmd(backend, command);
+			if (!succeceded) {
 				BX_WARN("Could not playback render command.");
 			}
 
@@ -83,7 +84,7 @@ b8 engine_thread_init(box_engine* engine) {
 			mtx_unlock(&engine->rendercmd_mutex);
 
 			// Finish frame after sending validated rendercmd
-			if (!backend->end_frame(backend)) {
+			if (succeceded && !backend->end_frame(backend)) {
 				BX_ERROR("Could not finish render frame.");
 				goto exit_and_cleanup;
 			}

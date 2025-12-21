@@ -15,6 +15,13 @@
         if (!vulkan_result_is_success(r)) BX_FATAL("VK_CHECK failed: (Line = %i) "  __FILE__ "  (Error code: %s) ", __LINE__, vulkan_result_string(r, 1)); \
     }
 
+typedef struct vulkan_queue_support_info {
+    i32 graphics_queue_index;
+    i32 present_queue_index;
+    i32 transfer_queue_index;
+    i32 compute_queue_index;
+} vulkan_queue_support_info;
+
 typedef struct vulkan_swapchain_support_info {
     VkSurfaceCapabilitiesKHR capabilities;
     u32 format_count;
@@ -27,14 +34,17 @@ typedef struct vulkan_device {
     VkPhysicalDevice physical_device;
     VkDevice logical_device;
     vulkan_swapchain_support_info swapchain_support;
+    vulkan_queue_support_info queue_support;
 
     VkQueue graphics_queue;
     VkQueue present_queue;
     VkQueue transfer_queue;
+    VkQueue compute_queue;
 
     VkCommandPool graphics_command_pool;
-
-    VkFormat depth_format;
+    VkCommandPool present_command_pool;
+    VkCommandPool transfer_command_pool;
+    VkCommandPool compute_command_pool;
 } vulkan_device;
 
 typedef struct vulkan_image {
@@ -64,13 +74,12 @@ typedef enum vulkan_render_pass_state {
 
 typedef struct vulkan_renderpass {
     VkRenderPass handle;
-    f32 x, y, w, h;
-    u32 clear_colour;
-
-    f32 depth;
-    u32 stencil;
-
     vulkan_render_pass_state state;
+
+    vec2 origin, size;
+
+    u32 clear_colour;
+    u32 stencil;
 } vulkan_renderpass;
 
 typedef struct vulkan_framebuffer {
@@ -87,13 +96,11 @@ typedef struct vulkan_graphics_pipeline {
 
 typedef struct vulkan_swapchain {
     VkSurfaceFormatKHR image_format;
-    u8 max_frames_in_flight;
     VkSwapchainKHR handle;
-    u32 image_count;
+
     VkImage* images;
     VkImageView* views;
-
-    vulkan_image depth_attachment;
+    u32 image_count;
 
     // framebuffers used for on-screen rendering.
     vulkan_framebuffer* framebuffers;
@@ -121,9 +128,6 @@ typedef struct vulkan_fence {
 } vulkan_fence;
 
 typedef struct vulkan_context {
-    // Configuration for render backend - TODO: Remove!
-    box_renderer_backend_config* config;
-
     // Current generation of framebuffer size. If it does not match framebuffer_size_last_generation,
     // a new one should be generated.
     u64 framebuffer_size_generation;
@@ -161,7 +165,7 @@ typedef struct vulkan_context {
     u32 current_frame;
 
     b8 recreating_swapchain;
-
+    vec2 framebuffer_size;
 } vulkan_context;
 
 i32 find_memory_index(vulkan_context* context, u32 type_filter, u32 property_flags);

@@ -7,8 +7,8 @@
 VkResult vulkan_renderpass_create(
     vulkan_context* context,
     vulkan_renderpass* out_renderpass,
-    f32 x, f32 y, f32 w, f32 h,
-    f32 depth, u32 stencil);
+    vec2 origin, vec2 size,
+    u32 stencil);
 
 void vulkan_renderpass_destroy(vulkan_context* context, vulkan_renderpass* renderpass);
 

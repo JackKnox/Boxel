@@ -30,8 +30,7 @@ void internal_destroy_renderstage(box_resource_system* system, box_renderstage* 
 
 box_renderstage* box_engine_create_renderstage(
 	box_engine* engine, 
-	const char* shader_stages[], u8 shader_stages_count, 
-	box_renderbuffer* vertex_buffer, box_renderbuffer* index_buffer, 
+	const char* shader_stages[], u8 shader_stages_count,
 	box_vertex_layout* layout,
 	b8 depth_test, b8 blending) {
 	box_renderstage* renderstage = NULL;
@@ -60,16 +59,12 @@ box_renderstage* box_engine_create_renderstage(
 
 	// Fill static data
 	renderstage->layout = layout;
-	renderstage->vertex_buffer = vertex_buffer;
-	renderstage->index_buffer = index_buffer;
 	renderstage->depth_test = depth_test;
 	renderstage->blending = blending;
 
 	renderstage->header.vtable.create_local = internal_create_renderstage;
 	renderstage->header.vtable.destroy_local = internal_destroy_renderstage;
 	renderstage->header.resource_arg = (void*)engine;
-	resource_system_add_dependency(&engine->resource_system, renderstage, vertex_buffer);
-	resource_system_add_dependency(&engine->resource_system, renderstage, index_buffer);
 	resource_system_signal_upload(&engine->resource_system, renderstage);
 	return renderstage;
 }

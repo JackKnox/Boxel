@@ -49,12 +49,26 @@ void box_rendercmd_set_clear_colour(box_rendercmd* cmd, f32 clear_r, f32 clear_g
         ((u32)(clear_g * 255.0f + 0.5f) << 16) |
         ((u32)(clear_b * 255.0f + 0.5f) << 8)  |
          (u32)(1.0f * 255.0f + 0.5f);
+
+    cmd->required_modes |= RENDERER_MODE_GRAPHICS;
 }
 
 void box_rendercmd_begin_renderstage(box_rendercmd* cmd, box_renderstage* renderstage) {
     rendercmd_payload* payload;
     payload = add_command(cmd, RENDERCMD_BEGIN_RENDERSTAGE, sizeof(payload->begin_renderstage));
     payload->begin_renderstage.renderstage = renderstage;
+
+    cmd->required_modes |= RENDERER_MODE_GRAPHICS;
+}
+
+void box_rendercmd_bind_buffer(box_rendercmd* cmd, box_renderbuffer* renderbuffer, u32 set, u32 binding) {
+    rendercmd_payload* payload;
+    payload = add_command(cmd, RENDERCMD_BIND_BUFFER, sizeof(payload->bind_buffer));
+    payload->bind_buffer.renderbuffer = renderbuffer;
+    payload->bind_buffer.set = set;
+    payload->bind_buffer.binding = binding;
+
+    cmd->required_modes |= RENDERER_MODE_GRAPHICS;
 }
 
 void box_rendercmd_draw(box_rendercmd* cmd, u32 vertex_count, u32 instance_count) {
@@ -62,8 +76,12 @@ void box_rendercmd_draw(box_rendercmd* cmd, u32 vertex_count, u32 instance_count
     payload = add_command(cmd, RENDERCMD_DRAW, sizeof(payload->draw));
     payload->draw.vertex_count = vertex_count;
     payload->draw.instance_count = instance_count;
+
+    cmd->required_modes |= RENDERER_MODE_GRAPHICS;
 }
 
 void box_rendercmd_end_renderstage(box_rendercmd* cmd) {
     add_command(cmd, RENDERCMD_END_RENDERSTAGE, 0);
+
+    cmd->required_modes |= RENDERER_MODE_GRAPHICS;
 }

@@ -5,15 +5,13 @@
 #include "vulkan_types.h"
 
 VkResult vulkan_swapchain_create(
-    vulkan_context* context,
-    u32 width,
-    u32 height,
+    box_renderer_backend* backend,
+    vec2 size,
     vulkan_swapchain* out_swapchain);
 
 VkResult vulkan_swapchain_recreate(
     vulkan_context* context,
-    u32 width,
-    u32 height,
+    vec2 size,
     vulkan_swapchain* swapchain);
 
 void vulkan_swapchain_destroy(

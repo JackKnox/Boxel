@@ -8,15 +8,16 @@
 box_renderer_backend_config renderer_backend_default_config() {
     box_renderer_backend_config configuration = {0}; // fill with zeros
     configuration.modes = RENDERER_MODE_GRAPHICS /* | RENDERER_MODE_COMPUTE */;
-    configuration.required_extensions = darray_create(const char*, MEMORY_TAG_RENDERER);
-	configuration.swapchain_frame_count = 3;
-	configuration.enable_validation = TRUE;
+    configuration.enable_validation = TRUE;
+	configuration.frames_in_flight = 3;
     return configuration;
 }
 
-b8 renderer_backend_create(box_renderer_backend_type type, struct box_platform* plat_state, box_renderer_backend* out_renderer_backend) {
+b8 renderer_backend_create(box_renderer_backend_type type, struct box_platform* plat_state, box_renderer_backend_config* config, box_renderer_backend* out_renderer_backend) {
     if (!out_renderer_backend) return FALSE;
     out_renderer_backend->plat_state = plat_state;
+    out_renderer_backend->config = *config;
+    bzero_memory(&out_renderer_backend->config.capabilities, sizeof(renderer_capabilities));
 
     if (type == RENDERER_BACKEND_TYPE_VULKAN) {
         out_renderer_backend->initialize = vulkan_renderer_backend_initialize;

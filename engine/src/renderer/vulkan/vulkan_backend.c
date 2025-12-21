@@ -49,15 +49,11 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
 	return VK_FALSE;
 }
 
-b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, uvec2 starting_size, const char* application_name, box_renderer_backend_config* config) {
+b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, uvec2 starting_size, const char* application_name) {
 	backend->internal_context = ballocate(sizeof(vulkan_context), MEMORY_TAG_RENDERER);
 
-	platform_zero_memory(&config->capabilities, sizeof(renderer_capabilities));
-	config->framebuffer_width = starting_size.x; // TODO: Use vec2 for frambuffer size
-	config->framebuffer_height = starting_size.y;
-
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
-	context->config = config;
+	context->framebuffer_size = (vec2){ starting_size.x, starting_size.y };
 	context->allocator = 0; // TODO: Custom allocator
 	
 	VkApplicationInfo app_info = { VK_STRUCTURE_TYPE_APPLICATION_INFO };
@@ -67,9 +63,6 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, uvec2 start
 	app_info.engineVersion = VK_MAKE_API_VERSION(0, 0, 1, 0);
 	app_info.pEngineName = "Boxel";
 
-	VkInstanceCreateInfo create_info = { VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
-	create_info.pApplicationInfo = &app_info;
-
 	// Obtain a list of required extensions
 	const char** required_extensions = darray_create(const char*, MEMORY_TAG_RENDERER);
 	const char** required_validation_layer_names = darray_create(const char*, MEMORY_TAG_RENDERER);
@@ -78,12 +71,14 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, uvec2 start
 	platform_get_vulkan_extensions(&required_extensions);
 
 	// Add debug extensions/layers if enabled
-	if (context->config->enable_validation) {
+	if (backend->config.enable_validation) {
 		darray_push(required_extensions, VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 		darray_push(required_validation_layer_names, "VK_LAYER_KHRONOS_validation");
 	}
 
 	// Fill create info
+	VkInstanceCreateInfo create_info = { VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
+	create_info.pApplicationInfo = &app_info;
 	create_info.enabledExtensionCount = darray_length(required_extensions); // TODO: Verify existence of extensions.
 	create_info.ppEnabledExtensionNames = required_extensions;              // TODO: Verify existence of validation layers.
 	create_info.enabledLayerCount = darray_length(required_validation_layer_names);
@@ -105,7 +100,7 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, uvec2 start
 	darray_destroy(required_validation_layer_names);
 
 	// Setup debug messenger if validation enabled
-	if (context->config->enable_validation) {
+	if (backend->config.enable_validation) {
 		u32 log_severity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
 			VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
 
@@ -133,23 +128,18 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, uvec2 start
 
 	// Create the Vulkan device
 	CHECK_VKRESULT(
-		vulkan_device_create(context),
+		vulkan_device_create(backend),
 		"Failed to create Vulkan device");
 
 	BX_INFO("Vulkan device created.");
 
-	if (!vulkan_device_detect_depth_format(&context->device)) {
-		context->device.depth_format = VK_FORMAT_UNDEFINED;
-		BX_ERROR("Failed to find a depth supported format!");
-	}
-
 	// Create the Vulkan swapchain
 	CHECK_VKRESULT(
-		vulkan_swapchain_create(context, context->config->framebuffer_width, context->config->framebuffer_height, &context->swapchain),
+		vulkan_swapchain_create(backend, context->framebuffer_size, &context->swapchain),
 		"Failed to create Vulkan swapchain");
 
 	CHECK_VKRESULT(
-		vulkan_renderpass_create(context, &context->main_renderpass, 0, 0, context->config->framebuffer_width, context->config->framebuffer_height, 1.0f, 0),
+		vulkan_renderpass_create(context, &context->main_renderpass, (vec2) { 0, 0 }, context->framebuffer_size, 0),
 		"Failed to create main Vulkan renderpass");
 
 	context->swapchain.framebuffers = darray_reserve(vulkan_framebuffer, context->swapchain.image_count, MEMORY_TAG_RENDERER);
@@ -163,11 +153,11 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, uvec2 start
 		"Failed to create Vulkan command buffers");
 
 	// Create sync objects.
-	context->image_available_semaphores = darray_reserve(VkSemaphore, context->swapchain.max_frames_in_flight, MEMORY_TAG_RENDERER);
-	context->queue_complete_semaphores = darray_reserve(VkSemaphore, context->swapchain.max_frames_in_flight, MEMORY_TAG_RENDERER);
-	context->in_flight_fences = darray_reserve(vulkan_fence, context->swapchain.max_frames_in_flight, MEMORY_TAG_RENDERER);
+	context->image_available_semaphores = darray_reserve(VkSemaphore, backend->config.frames_in_flight, MEMORY_TAG_RENDERER);
+	context->queue_complete_semaphores = darray_reserve(VkSemaphore, backend->config.frames_in_flight, MEMORY_TAG_RENDERER);
+	context->in_flight_fences = darray_reserve(vulkan_fence, backend->config.frames_in_flight, MEMORY_TAG_RENDERER);
 
-	for (u8 i = 0; i < context->swapchain.max_frames_in_flight; ++i) {
+	for (u8 i = 0; i < backend->config.frames_in_flight; ++i) {
 		VkSemaphoreCreateInfo semaphore_create_info = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
 		vkCreateSemaphore(context->device.logical_device, &semaphore_create_info, context->allocator, &context->image_available_semaphores[i]);
 		vkCreateSemaphore(context->device.logical_device, &semaphore_create_info, context->allocator, &context->queue_complete_semaphores[i]);
@@ -183,9 +173,6 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, uvec2 start
 	// by this list.
 	context->images_in_flight = darray_reserve(vulkan_fence, context->swapchain.image_count, MEMORY_TAG_RENDERER);
 
-	// Renderer backend consumes this darray and owns it so it's allowed to do this.
-	darray_destroy(config->required_extensions);
-
 	BX_INFO("Vulkan renderer initialized successfully.");
 	return TRUE;
 }
@@ -197,7 +184,7 @@ void vulkan_renderer_backend_shutdown(box_renderer_backend* backend) {
 	// Destroy in the opposite order of creation.
 
 	// Sync objects
-	for (u8 i = 0; i < context->swapchain.max_frames_in_flight; ++i) {
+	for (u8 i = 0; i < backend->config.frames_in_flight; ++i) {
 		vulkan_fence_destroy(context, &context->in_flight_fences[i]);
 
 		if (context->image_available_semaphores[i]) {
@@ -264,7 +251,7 @@ void vulkan_renderer_backend_on_resized(box_renderer_backend* backend, u32 width
 b8 vulkan_renderer_backend_begin_frame(box_renderer_backend* backend, f32 delta_time) {
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 
-	vulkan_fence_wait(context, &context->in_flight_fences[context->current_frame], UINT64_MAX);
+	vulkan_fence_wait(context, &context->in_flight_fences[context->current_frame], delta_time * 10.0f);
 	vulkan_fence_reset(context, &context->in_flight_fences[context->current_frame]);
 
 	// Acquire next swapchain image
@@ -288,23 +275,22 @@ b8 vulkan_renderer_backend_begin_frame(box_renderer_backend* backend, f32 delta_
 	// Set dynamic state, begin render pass, etc.
 	VkViewport viewport;
 	viewport.x = 0.0f;
-	viewport.y = (f32)context->config->framebuffer_height;
-	viewport.width = (f32)context->config->framebuffer_width;
-	viewport.height = -(f32)context->config->framebuffer_height;
+	viewport.y = (f32)context->framebuffer_size.height;
+	viewport.width = (f32)context->framebuffer_size.width;
+	viewport.height = -(f32)context->framebuffer_size.height;
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
 
 	// Scissor
 	VkRect2D scissor;
 	scissor.offset.x = scissor.offset.y = 0;
-	scissor.extent.width = context->config->framebuffer_width;
-	scissor.extent.height = context->config->framebuffer_height;
+	scissor.extent.width = context->framebuffer_size.width;
+	scissor.extent.height = context->framebuffer_size.height;
 
 	vkCmdSetViewport(cmd->handle, 0, 1, &viewport);
 	vkCmdSetScissor(cmd->handle, 0, 1, &scissor);
 	
-	context->main_renderpass.w = context->config->framebuffer_width;
-	context->main_renderpass.h = context->config->framebuffer_height;
+	context->main_renderpass.size = context->framebuffer_size;
 	return TRUE;
 }
 
@@ -312,6 +298,11 @@ b8 vulkan_renderer_backend_begin_frame(box_renderer_backend* backend, f32 delta_
 //       in render thread so Vulkan doesn't have too.
 b8 vulkan_renderer_playback_rendercmd(box_renderer_backend* backend, box_rendercmd* rendercmd) {
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
+	if ((backend->config.modes & rendercmd->required_modes) != rendercmd->required_modes) {
+		BX_ERROR("Did not configure renderer with selected mode on render command.");
+		return FALSE;
+	}
+
 	vulkan_command_buffer* cmd = &context->graphics_command_buffers[context->current_frame];
 
 	vulkan_renderpass* current_renderpass = &context->main_renderpass;
@@ -338,12 +329,17 @@ b8 vulkan_renderer_playback_rendercmd(box_renderer_backend* backend, box_renderc
 			current_shader = NULL;
 			break;
 		
+		case RENDERCMD_BIND_BUFFER:
+			box_renderbuffer* buf = payload->bind_buffer.renderbuffer;
+			VkDeviceSize offsets[] = { 0 };
+			
+			vkCmdBindVertexBuffers(cmd->handle, 
+				payload->bind_buffer.binding, 1, 
+				&((vulkan_buffer*)buf->internal_data)->handle, 
+				offsets);
+			break;
+
 		case RENDERCMD_DRAW:
-			if (current_shader->vertex_buffer) {
-				VkBuffer vtx_buffers[] = { ((vulkan_buffer*)current_shader->vertex_buffer->internal_data)->handle };
-				VkDeviceSize offsets[] = { 0 };
-				vkCmdBindVertexBuffers(cmd->handle, 0, 1, vtx_buffers, offsets);
-			}
 			vkCmdDraw(cmd->handle,
 				payload->draw.vertex_count,
 				payload->draw.instance_count,
@@ -397,7 +393,7 @@ b8 vulkan_renderer_backend_end_frame(box_renderer_backend* backend) {
 		context->image_index);
 
 	// Advance frame index
-	context->current_frame = (context->current_frame + 1) % context->swapchain.max_frames_in_flight;
+ 	context->current_frame = (context->current_frame + 1) % backend->config.frames_in_flight;
 	return TRUE;
 }
 
@@ -420,7 +416,7 @@ void vulkan_renderer_destroy_renderstage(box_renderer_backend* backend, box_rend
 
 b8 vulkan_renderer_create_renderbuffer(box_renderer_backend* backend, box_renderbuffer* out_buffer) {
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
-	if (!(context->config->modes & RENDERER_MODE_TRANSFER)) {
+	if (!(backend->config.modes & RENDERER_MODE_TRANSFER)) {
 		BX_WARN("Attempting to transfer data between CPU and GPU without enabling, falling back to graphics queue.");
 	}
 
@@ -461,9 +457,9 @@ b8 vulkan_renderer_create_renderbuffer(box_renderer_backend* backend, box_render
 	CHECK_VKRESULT(
 		vulkan_command_buffer_end_single_use(
 			context,
-			context->graphics_command_pool,
+			context->device.graphics_command_pool,
 			&command_buffer,
-			context->config->modes & RENDERER_MODE_TRANSFER ?
+			backend->config.modes & RENDERER_MODE_TRANSFER ?
 				context->device.transfer_queue :
 				context->device.graphics_queue),
 		"Failed to transfer Vulkan renderbuffer to GPU"
@@ -486,15 +482,13 @@ void vulkan_renderer_destroy_renderbuffer(box_renderer_backend* backend, box_ren
 VkResult vulkan_regenerate_framebuffer(vulkan_context* context) {
 	for (u32 i = 0; i < context->swapchain.image_count; ++i) {
 		// TODO: make this dynamic based on the currently configured attachments
-		VkImageView attachments[] = {
-			context->swapchain.views[i],
-			context->swapchain.depth_attachment.view };
+		VkImageView attachments[] = { context->swapchain.views[i] };
 
 		VkResult result = vulkan_framebuffer_create(
 			context,
 			&context->main_renderpass,
-			context->config->framebuffer_width,
-			context->config->framebuffer_height,
+			context->framebuffer_size.width,
+			context->framebuffer_size.height,
 			BX_ARRAYSIZE(attachments),
 			attachments,
 			&context->swapchain.framebuffers[i]);
@@ -517,7 +511,7 @@ VkResult vulkan_create_command_buffers(vulkan_context* context) {
 				&context->graphics_command_buffers[i]);
 		}
 
-		platform_zero_memory(&context->graphics_command_buffers[i], sizeof(vulkan_command_buffer));
+		bzero_memory(&context->graphics_command_buffers[i], sizeof(vulkan_command_buffer));
 
 		VkResult result = vulkan_command_buffer_allocate(
 			context,
