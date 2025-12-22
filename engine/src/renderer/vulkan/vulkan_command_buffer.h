@@ -12,7 +12,6 @@ VkResult vulkan_command_buffer_allocate(
 
 void vulkan_command_buffer_free(
     vulkan_context* context,
-    VkCommandPool pool,
     vulkan_command_buffer* command_buffer);
 
 b8 vulkan_command_buffer_begin(
@@ -34,6 +33,5 @@ VkResult vulkan_command_buffer_allocate_and_begin_single_use(
 
 VkResult vulkan_command_buffer_end_single_use(
     vulkan_context* context,
-    VkCommandPool pool,
     vulkan_command_buffer* command_buffer,
     VkQueue queue);

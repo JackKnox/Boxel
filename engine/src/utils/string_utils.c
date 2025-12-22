@@ -3,8 +3,9 @@
 
 #include <stdarg.h> // For variadic functions
 #include <stdio.h>  // vsnprintf, sscanf, sprintf
-
 #include <string.h>
+
+#include "platform/platform.h"
 
 u64 string_length(const char* str) {
     return strlen(str);
@@ -45,7 +46,7 @@ char* string_duplicate(const char* str) {
     }
 
     u64 length = string_length(str);
-    char* copy = bcopy_memory(ballocate(length + 1, MEMORY_TAG_CORE), str, length);
+    char* copy = platform_copy_memory(platform_allocate(length + 1, FALSE), str, length);
 
     copy[length] = 0;
     return copy;
@@ -76,40 +77,28 @@ b8 strings_nequal(const char* str0, const char* str1, u32 max_len) {
     return str_ncmp(str0, str1, max_len) == 0;
 }
 
-char* string_format(const char* format, u64* out_length, ...) {
-    if (!format) {
-        return 0;
-    }
+char* string_format(const char* format, ...) {
+    if (!format) return NULL;
 
-    va_list arg_ptr;
-    va_start(arg_ptr, format);
-    char* result = string_format_v(format, out_length, arg_ptr);
-    va_end(arg_ptr);
+    va_list args;
+    va_start(args, format);
+    char* result = string_format_v(format, args);
+    va_end(args);
     return result;
 }
 
-char* string_format_v(const char* format, u64* out_length, void* va_listp) {
-    if (!format) {
-        return 0;
-    }
+char* string_format_v(const char* format, va_list args) {
+    if (!format) return NULL;
 
-    // Create a copy of the va_listp since vsnprintf can invalidate the elements of the list
-    // while finding the required buffer length.
     va_list list_copy;
-#ifdef _MSC_VER
-    list_copy = va_listp;
-#elif defined(BX_PLATFORM_APPLE)
-    list_copy = va_listp;
-#else
-    va_copy(list_copy, va_listp);
-#endif
-    *out_length = vsnprintf(0, 0, format, list_copy);
+    va_copy(list_copy, args);
+    u64 length = vsnprintf(NULL, 0, format, list_copy);
     va_end(list_copy);
-    char* buffer = ballocate(*out_length + 1, MEMORY_TAG_CORE);
-    if (!buffer) {
-        return 0;
-    }
-    vsnprintf(buffer, *out_length + 1, format, va_listp);
-    buffer[*out_length] = 0;
+
+    char* buffer = platform_allocate(length + 1, FALSE);
+    if (!buffer) return NULL;
+
+    vsnprintf(buffer, length + 1, format, args);
+    buffer[length] = '\0';
     return buffer;
 }

@@ -21,9 +21,6 @@
 
 VkResult platform_create_vulkan_surface(vulkan_context* context, box_platform* plat_state);
 
-VkResult vulkan_regenerate_framebuffer(vulkan_context* context);
-VkResult vulkan_create_command_buffers(vulkan_context* context);
-
 VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
 	VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
 	VkDebugUtilsMessageTypeFlagsEXT message_types,
@@ -122,7 +119,7 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, uvec2 start
 	// Create the Vulkan surface
 	CHECK_VKRESULT(
 		platform_create_vulkan_surface(context, backend->plat_state),
-		"Failed to create platform surface");
+		"Failed to create Vulkan platform surface");
 
 	BX_INFO("Vulkan surface created.");
 
@@ -142,36 +139,68 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, uvec2 start
 		vulkan_renderpass_create(context, &context->main_renderpass, (vec2) { 0, 0 }, context->framebuffer_size, 0),
 		"Failed to create main Vulkan renderpass");
 
+	// Create intermediate objects.
 	context->swapchain.framebuffers = darray_reserve(vulkan_framebuffer, context->swapchain.image_count, MEMORY_TAG_RENDERER);
+	context->graphics_command_buffers = darray_reserve(vulkan_command_buffer, context->swapchain.image_count, MEMORY_TAG_RENDERER);
+	context->images_in_flight = darray_reserve(vulkan_fence*, context->swapchain.image_count, MEMORY_TAG_RENDERER);
 
-	CHECK_VKRESULT(
-		vulkan_regenerate_framebuffer(context),
-		"Failed to create Vulkan framebuffers");
-
-	CHECK_VKRESULT(
-		vulkan_create_command_buffers(context),
-		"Failed to create Vulkan command buffers");
-
-	// Create sync objects.
 	context->image_available_semaphores = darray_reserve(VkSemaphore, backend->config.frames_in_flight, MEMORY_TAG_RENDERER);
 	context->queue_complete_semaphores = darray_reserve(VkSemaphore, backend->config.frames_in_flight, MEMORY_TAG_RENDERER);
 	context->in_flight_fences = darray_reserve(vulkan_fence, backend->config.frames_in_flight, MEMORY_TAG_RENDERER);
 
+	// Create framebuffers & command buffers.
+	for (u32 i = 0; i < context->swapchain.image_count; ++i) {
+		// TODO: make this dynamic based on the currently configured attachments
+		VkImageView attachments[] = { context->swapchain.views[i] };
+
+		CHECK_VKRESULT(
+			vulkan_framebuffer_create(
+				context,
+				&context->main_renderpass,
+				context->framebuffer_size,
+				BX_ARRAYSIZE(attachments), attachments,
+				&context->swapchain.framebuffers[i]),
+			"Failed to create Vulkan framebuffers");
+
+		CHECK_VKRESULT(
+			vulkan_command_buffer_allocate(
+				context,
+				context->device.mode_queues[VULKAN_QUEUE_TYPE_GRAPHICS].pool,
+				TRUE,
+				&context->graphics_command_buffers[i]),
+			"Failed to create Vulkan command buffers");
+	}
+
+	BX_TRACE("Vulkan command buffers created.");
+
 	for (u8 i = 0; i < backend->config.frames_in_flight; ++i) {
 		VkSemaphoreCreateInfo semaphore_create_info = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
-		vkCreateSemaphore(context->device.logical_device, &semaphore_create_info, context->allocator, &context->image_available_semaphores[i]);
-		vkCreateSemaphore(context->device.logical_device, &semaphore_create_info, context->allocator, &context->queue_complete_semaphores[i]);
+		CHECK_VKRESULT(
+			vkCreateSemaphore(
+				context->device.logical_device, 
+				&semaphore_create_info, 
+				context->allocator,
+				&context->image_available_semaphores[i]),
+			"Failed to create Vulkan sync objects");
+
+		CHECK_VKRESULT(
+			vkCreateSemaphore(
+				context->device.logical_device, 
+				&semaphore_create_info, 
+				context->allocator, 
+				&context->queue_complete_semaphores[i]),
+			"Failed to create Vulkan sync objects");
 
 		// Create the fence in a signaled state, indicating that the first frame has already been "rendered".
 		// This will prevent the application from waiting indefinitely for the first frame to render since it
 		// cannot be rendered until a frame is "rendered" before it.
-		vulkan_fence_create(context, TRUE, &context->in_flight_fences[i]);
+		CHECK_VKRESULT(
+			vulkan_fence_create(
+				context, 
+				TRUE, 
+				&context->in_flight_fences[i]),
+			"Failed to create Vulkan sync objects");
 	}
-
-	// In flight fences should not yet exist at this point, so clear the list. These are stored in pointers
-	// because the initial state should be 0, and will be 0 when not in use. Acutal fences are not owned
-	// by this list.
-	context->images_in_flight = darray_reserve(vulkan_fence, context->swapchain.image_count, MEMORY_TAG_RENDERER);
 
 	BX_INFO("Vulkan renderer initialized successfully.");
 	return TRUE;
@@ -179,51 +208,54 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, uvec2 start
 
 void vulkan_renderer_backend_shutdown(box_renderer_backend* backend) {
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
-	if (context->device.logical_device) vkDeviceWaitIdle(context->device.logical_device);
+	vulkan_renderer_backend_wait_until_idle(backend, UINT64_MAX);
 
 	// Destroy in the opposite order of creation.
 
-	// Sync objects
-	for (u8 i = 0; i < backend->config.frames_in_flight; ++i) {
-		vulkan_fence_destroy(context, &context->in_flight_fences[i]);
+	// Create framebuffers & command buffers.
+	for (u32 i = 0; i < context->swapchain.image_count; ++i) {
+		vulkan_framebuffer_destroy(
+			context, 
+			&context->swapchain.framebuffers[i]);
 
+		vulkan_command_buffer_free(
+			context, 
+			&context->graphics_command_buffers[i]);
+	}
+
+	for (u8 i = 0; i < backend->config.frames_in_flight; ++i) {
 		if (context->image_available_semaphores[i]) {
 			vkDestroySemaphore(
 				context->device.logical_device,
 				context->image_available_semaphores[i],
 				context->allocator);
 		}
-
+		
 		if (context->queue_complete_semaphores[i]) {
 			vkDestroySemaphore(
 				context->device.logical_device,
 				context->queue_complete_semaphores[i],
 				context->allocator);
 		}
-	}
 
-	// Command buffers
-	for (u32 i = 0; i < context->swapchain.image_count; ++i) {
-		vulkan_command_buffer_free(
+		vulkan_fence_destroy(
 			context,
-			context->device.graphics_command_pool,
-			&context->graphics_command_buffers[i]);
-
-		vulkan_framebuffer_destroy(context, &context->swapchain.framebuffers[i]);
+			&context->in_flight_fences[i]);
 	}
 
+
+	darray_destroy(context->swapchain.framebuffers);
+	darray_destroy(context->graphics_command_buffers);
+	darray_destroy(context->images_in_flight);
 	darray_destroy(context->image_available_semaphores);
 	darray_destroy(context->queue_complete_semaphores);
 	darray_destroy(context->in_flight_fences);
-	darray_destroy(context->images_in_flight);
-	darray_destroy(context->graphics_command_buffers);
-	darray_destroy(context->swapchain.framebuffers);
 
 	vulkan_renderpass_destroy(context, &context->main_renderpass);
 
-	vulkan_swapchain_destroy(context, &context->swapchain);
+	vulkan_swapchain_destroy(backend, &context->swapchain);
 
-	vulkan_device_destroy(context);
+	vulkan_device_destroy(backend);
 
 	if (context->surface) vkDestroySurfaceKHR(context->instance, context->surface, context->allocator);
 
@@ -255,17 +287,20 @@ b8 vulkan_renderer_backend_begin_frame(box_renderer_backend* backend, f32 delta_
 	vulkan_fence_reset(context, &context->in_flight_fences[context->current_frame]);
 
 	// Acquire next swapchain image
-	if (!vulkan_swapchain_acquire_next_image_index(
-		context, &context->swapchain, UINT64_MAX,
-		context->image_available_semaphores[context->current_frame],
-		0, &context->image_index)) {
-		return FALSE;
-	}
+	CHECK_VKRESULT(
+		vulkan_swapchain_acquire_next_image_index(
+			context,
+			&context->swapchain,
+			UINT64_MAX,
+			context->image_available_semaphores[context->current_frame],
+			0,
+			&context->image_index),
+		"Failed to acquire next Vulkan swapchain image");
 
 	// If this swapchain image is still in flight, wait for it
-	if (context->images_in_flight[context->image_index] != VK_NULL_HANDLE) {
+	if (context->images_in_flight[context->image_index] != VK_NULL_HANDLE)
 		vulkan_fence_wait(context, context->images_in_flight[context->image_index], UINT64_MAX);
-	}
+
 	context->images_in_flight[context->image_index] = &context->in_flight_fences[context->current_frame];
 
 	vulkan_command_buffer* cmd = &context->graphics_command_buffers[context->current_frame];
@@ -289,7 +324,7 @@ b8 vulkan_renderer_backend_begin_frame(box_renderer_backend* backend, f32 delta_
 
 	vkCmdSetViewport(cmd->handle, 0, 1, &viewport);
 	vkCmdSetScissor(cmd->handle, 0, 1, &scissor);
-	
+
 	context->main_renderpass.size = context->framebuffer_size;
 	return TRUE;
 }
@@ -298,11 +333,6 @@ b8 vulkan_renderer_backend_begin_frame(box_renderer_backend* backend, f32 delta_
 //       in render thread so Vulkan doesn't have too.
 b8 vulkan_renderer_playback_rendercmd(box_renderer_backend* backend, box_rendercmd* rendercmd) {
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
-	if ((backend->config.modes & rendercmd->required_modes) != rendercmd->required_modes) {
-		BX_ERROR("Did not configure renderer with selected mode on render command.");
-		return FALSE;
-	}
-
 	vulkan_command_buffer* cmd = &context->graphics_command_buffers[context->current_frame];
 
 	vulkan_renderpass* current_renderpass = &context->main_renderpass;
@@ -364,7 +394,7 @@ b8 vulkan_renderer_backend_end_frame(box_renderer_backend* backend) {
 
 	// Submit into queues
 	VkSemaphore wait_semaphores[] = { context->image_available_semaphores[context->current_frame] };
-	VkPipelineStageFlags wait_stages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+	VkPipelineStageFlags wait_stages[] = { VK_PIPELINE_STAGE_ALL_COMMANDS_BIT };
 	VkSemaphore signal_semaphores[] = { context->queue_complete_semaphores[context->current_frame] };
 
 	VkSubmitInfo submit_info = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
@@ -376,24 +406,31 @@ b8 vulkan_renderer_backend_end_frame(box_renderer_backend* backend) {
 	submit_info.signalSemaphoreCount = BX_ARRAYSIZE(signal_semaphores);
 	submit_info.pSignalSemaphores = signal_semaphores;
 
-	if (!vulkan_result_is_success(
-		vkQueueSubmit(context->device.graphics_queue, 1, &submit_info,
-		context->in_flight_fences[context->current_frame].handle))) {
-		BX_ERROR("vkQueueSubmit failed execution.");
-		return FALSE;
-	}
+	CHECK_VKRESULT(
+		vkQueueSubmit(
+			context->device.mode_queues[VULKAN_QUEUE_TYPE_GRAPHICS].handle,
+			1, 
+			&submit_info, 
+			context->in_flight_fences[context->current_frame].handle),
+		"Failed to submit Vulkan command buffers to driver"
+	);
 
 	vulkan_command_buffer_update_submitted(cmd);
 
 	// Present
-	vulkan_swapchain_present(
-		context, &context->swapchain,
-		context->device.graphics_queue, context->device.present_queue,
-		context->queue_complete_semaphores[context->current_frame],
-		context->image_index);
+	CHECK_VKRESULT(
+		vulkan_swapchain_present(
+			context,
+			&context->swapchain,
+			context->device.mode_queues[VULKAN_QUEUE_TYPE_GRAPHICS].handle,
+			context->device.mode_queues[VULKAN_QUEUE_TYPE_PRESENT].handle,
+			context->queue_complete_semaphores[context->current_frame],
+			context->image_index),
+		"Failed to present Vulkan swapchain"
+	);
 
 	// Advance frame index
- 	context->current_frame = (context->current_frame + 1) % backend->config.frames_in_flight;
+	context->current_frame = (context->current_frame + 1) % backend->config.frames_in_flight;
 	return TRUE;
 }
 
@@ -420,8 +457,19 @@ b8 vulkan_renderer_create_renderbuffer(box_renderer_backend* backend, box_render
 		BX_WARN("Attempting to transfer data between CPU and GPU without enabling, falling back to graphics queue.");
 	}
 
-	// TODO: Make configurable
-	VkBufferUsageFlagBits buffer_usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+	VkBufferUsageFlagBits buffer_usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+	switch (out_buffer->usage) {
+	case BOX_RENDERBUFFER_USAGE_VERTEX:
+		buffer_usage |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+		break;
+	case BOX_RENDERBUFFER_USAGE_INDEX:
+		buffer_usage |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+		break;
+	case BOX_RENDERBUFFER_USAGE_STORAGE:
+		buffer_usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+		break;
+	}
 
 	out_buffer->internal_data = ballocate(sizeof(vulkan_buffer), MEMORY_TAG_RENDERER);
 	vulkan_buffer* buffer = (vulkan_buffer*)out_buffer->internal_data;
@@ -442,13 +490,17 @@ b8 vulkan_renderer_create_renderbuffer(box_renderer_backend* backend, box_render
 		vulkan_buffer_create(
 			context,
 			out_buffer->temp_user_size,
-			VK_BUFFER_USAGE_TRANSFER_DST_BIT | buffer_usage,
+			buffer_usage,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 			buffer),
 		"Failed to create internal Vulkan renderbuffer");
 
+	vulkan_queue* selected_mode = backend->config.modes & RENDERER_MODE_TRANSFER ?
+		&context->device.mode_queues[VULKAN_QUEUE_TYPE_TRANSFER] :
+		&context->device.mode_queues[VULKAN_QUEUE_TYPE_GRAPHICS];
+
 	vulkan_command_buffer command_buffer;
-	vulkan_command_buffer_allocate_and_begin_single_use(context, context->device.graphics_command_pool, &command_buffer);
+	vulkan_command_buffer_allocate_and_begin_single_use(context, selected_mode->pool, &command_buffer);
 	
 	VkBufferCopy copy_info = { 0 };
 	copy_info.size = out_buffer->temp_user_size;
@@ -457,15 +509,14 @@ b8 vulkan_renderer_create_renderbuffer(box_renderer_backend* backend, box_render
 	CHECK_VKRESULT(
 		vulkan_command_buffer_end_single_use(
 			context,
-			context->device.graphics_command_pool,
 			&command_buffer,
-			backend->config.modes & RENDERER_MODE_TRANSFER ?
-				context->device.transfer_queue :
-				context->device.graphics_queue),
-		"Failed to transfer Vulkan renderbuffer to GPU"
-	);
+			selected_mode->handle),
+		"Failed to transfer Vulkan renderbuffer to GPU");
 	
 	vulkan_buffer_destroy(context, &staging_buffer);
+
+	out_buffer->temp_user_data = NULL;
+	out_buffer->temp_user_size = 0;
 	return TRUE;
 }
 
@@ -477,50 +528,4 @@ void vulkan_renderer_destroy_renderbuffer(box_renderer_backend* backend, box_ren
 		vulkan_buffer_destroy(context, buffer);
 		bfree(buffer, sizeof(vulkan_buffer), MEMORY_TAG_RENDERER);
 	}
-}
-
-VkResult vulkan_regenerate_framebuffer(vulkan_context* context) {
-	for (u32 i = 0; i < context->swapchain.image_count; ++i) {
-		// TODO: make this dynamic based on the currently configured attachments
-		VkImageView attachments[] = { context->swapchain.views[i] };
-
-		VkResult result = vulkan_framebuffer_create(
-			context,
-			&context->main_renderpass,
-			context->framebuffer_size.width,
-			context->framebuffer_size.height,
-			BX_ARRAYSIZE(attachments),
-			attachments,
-			&context->swapchain.framebuffers[i]);
-		if (!vulkan_result_is_success(result)) return result;
-	}
-
-	return VK_SUCCESS;
-}
-
-VkResult vulkan_create_command_buffers(vulkan_context* context) {
-	if (!context->graphics_command_buffers) {
-		context->graphics_command_buffers = darray_reserve(vulkan_command_buffer, context->swapchain.image_count, MEMORY_TAG_RENDERER);
-	}
-
-	for (u32 i = 0; i < context->swapchain.image_count; ++i) {
-		if (context->graphics_command_buffers[i].handle) {
-			vulkan_command_buffer_free(
-				context,
-				context->device.graphics_command_pool,
-				&context->graphics_command_buffers[i]);
-		}
-
-		bzero_memory(&context->graphics_command_buffers[i], sizeof(vulkan_command_buffer));
-
-		VkResult result = vulkan_command_buffer_allocate(
-			context,
-			context->device.graphics_command_pool,
-			TRUE,
-			&context->graphics_command_buffers[i]);
-		if (!vulkan_result_is_success(result)) return result;
-	}
-
-	BX_TRACE("Vulkan command buffers created.");
-	return VK_SUCCESS;
 }

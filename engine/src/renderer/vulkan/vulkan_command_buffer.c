@@ -13,6 +13,7 @@ VkResult vulkan_command_buffer_allocate(
     allocate_info.commandPool = pool;
     allocate_info.commandBufferCount = 1;
 
+    out_command_buffer->owner = pool;
     out_command_buffer->state = COMMAND_BUFFER_STATE_NOT_ALLOCATED;
 
     VkResult result = vkAllocateCommandBuffers(context->device.logical_device, &allocate_info, &out_command_buffer->handle);
@@ -24,10 +25,9 @@ VkResult vulkan_command_buffer_allocate(
 
 void vulkan_command_buffer_free(
     vulkan_context* context,
-    VkCommandPool pool,
     vulkan_command_buffer* command_buffer) {
     if (command_buffer && command_buffer->handle) {
-        vkFreeCommandBuffers(context->device.logical_device, pool, 1, &command_buffer->handle);
+        vkFreeCommandBuffers(context->device.logical_device, command_buffer->owner, 1, &command_buffer->handle);
 
         command_buffer->handle = 0;
         command_buffer->state = COMMAND_BUFFER_STATE_NOT_ALLOCATED;
@@ -79,7 +79,6 @@ VkResult vulkan_command_buffer_allocate_and_begin_single_use(
 
 VkResult vulkan_command_buffer_end_single_use(
     vulkan_context* context,
-    VkCommandPool pool,
     vulkan_command_buffer* command_buffer,
     VkQueue queue) {
 
@@ -99,6 +98,6 @@ VkResult vulkan_command_buffer_end_single_use(
     if (!vulkan_result_is_success(result)) return result;
 
     // Free the command buffer.
-    vulkan_command_buffer_free(context, pool, command_buffer);
+    vulkan_command_buffer_free(context, command_buffer);
     return VK_SUCCESS;
 }

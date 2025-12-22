@@ -7,7 +7,7 @@
 VkResult vulkan_framebuffer_create(
     vulkan_context* context,
     vulkan_renderpass* renderpass,
-    u32 width, u32 height,
+    vec2 size,
     u32 attachment_count,
     VkImageView* attachments,
     vulkan_framebuffer* out_framebuffer);

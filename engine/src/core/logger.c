@@ -1,27 +1,24 @@
 #include "defines.h"
 
 #include "utils/string_utils.h"
+#include "platform/platform.h"
 
 #include <stdarg.h>
 
 void log_output(log_level level, const char* message, ...) {
     const char* level_strings[] = { "[FATAL]: ", "[ERROR]: ", "[WARN]:  ", "[INFO]:  ", "[TRACE]: " };
 
-    u64 formatted_length, message_length;
+    va_list args;
+    va_start(args, message);
+    char* formatted = string_format_v(message, args);
+    va_end(args);
 
-    // Format the user message first
-    va_list arg_ptr;
-    va_start(arg_ptr, message);
-    char* formatted = string_format_v(message, &formatted_length, arg_ptr);
-    va_end(arg_ptr);
-    
-    char* out_message = string_format("%s%s\n", &message_length, level_strings[level], formatted);
-    bfree(formatted, formatted_length, MEMORY_TAG_CORE);
+    char* out_message = string_format("%s%s\n", level_strings[level], formatted);
 
+    platform_free(formatted, FALSE);
     platform_console_write(level, out_message);
-    bfree(out_message, message_length, MEMORY_TAG_CORE);
+    platform_free(out_message, FALSE);
 
-    // Trigger a "debug break" for fatal errors.
     if (level == LOG_LEVEL_FATAL)
         bxdebug_break();
 }

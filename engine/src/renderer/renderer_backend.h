@@ -28,7 +28,7 @@ typedef enum renderer_mode {
 } renderer_mode;
 
 typedef struct renderer_capabilities {
-    char device_name[256];
+    const char* device_name;
     renderer_device_type device_type;
 } renderer_capabilities;
 

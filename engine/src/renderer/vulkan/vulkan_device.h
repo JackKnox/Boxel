@@ -4,7 +4,7 @@
 
 VkResult vulkan_device_create(box_renderer_backend* backend);
 
-void vulkan_device_destroy(vulkan_context* context);
+void vulkan_device_destroy(box_renderer_backend* backend);
 
 void vulkan_device_query_swapchain_support(
     VkPhysicalDevice physical_device,

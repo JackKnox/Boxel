@@ -15,36 +15,35 @@
         if (!vulkan_result_is_success(r)) BX_FATAL("VK_CHECK failed: (Line = %i) "  __FILE__ "  (Error code: %s) ", __LINE__, vulkan_result_string(r, 1)); \
     }
 
-typedef struct vulkan_queue_support_info {
-    i32 graphics_queue_index;
-    i32 present_queue_index;
-    i32 transfer_queue_index;
-    i32 compute_queue_index;
-} vulkan_queue_support_info;
+typedef enum vulkan_queue_type {
+    VULKAN_QUEUE_TYPE_GRAPHICS, 
+    VULKAN_QUEUE_TYPE_COMPUTE,
+    VULKAN_QUEUE_TYPE_TRANSFER,
+    VULKAN_QUEUE_TYPE_PRESENT,
+    VULKAN_QUEUE_TYPE_MAX,
+} vulkan_queue_type;
 
 typedef struct vulkan_swapchain_support_info {
     VkSurfaceCapabilitiesKHR capabilities;
-    u32 format_count;
+    // darray
     VkSurfaceFormatKHR* formats;
-    u32 present_mode_count;
+    // darray
     VkPresentModeKHR* present_modes;
 } vulkan_swapchain_support_info;
+
+typedef struct vulkan_queue {
+    VkQueue handle;
+    VkCommandPool pool;
+    renderer_mode supported_modes;
+    i32 family_index;
+} vulkan_queue;
 
 typedef struct vulkan_device {
     VkPhysicalDevice physical_device;
     VkDevice logical_device;
     vulkan_swapchain_support_info swapchain_support;
-    vulkan_queue_support_info queue_support;
 
-    VkQueue graphics_queue;
-    VkQueue present_queue;
-    VkQueue transfer_queue;
-    VkQueue compute_queue;
-
-    VkCommandPool graphics_command_pool;
-    VkCommandPool present_command_pool;
-    VkCommandPool transfer_command_pool;
-    VkCommandPool compute_command_pool;
+    vulkan_queue mode_queues[VULKAN_QUEUE_TYPE_MAX];
 } vulkan_device;
 
 typedef struct vulkan_image {
@@ -117,6 +116,7 @@ typedef enum vulkan_command_buffer_state {
 
 typedef struct vulkan_command_buffer {
     VkCommandBuffer handle;
+    VkCommandPool owner;
 
     // Command buffer state.
     vulkan_command_buffer_state state;
@@ -128,13 +128,9 @@ typedef struct vulkan_fence {
 } vulkan_fence;
 
 typedef struct vulkan_context {
-    // Current generation of framebuffer size. If it does not match framebuffer_size_last_generation,
-    // a new one should be generated.
-    u64 framebuffer_size_generation;
-
-    // The generation of the framebuffer when it was last created. Set to framebuffer_size_generation
-    // when updated.
-    u64 framebuffer_size_last_generation;
+    vec2 framebuffer_size;
+    u32 image_index;
+    u32 current_frame;
 
     VkInstance instance;
     VkAllocationCallbacks* allocator;
@@ -148,24 +144,14 @@ typedef struct vulkan_context {
 
     // darray
     vulkan_command_buffer* graphics_command_buffers;
-
     // darray
     VkSemaphore* image_available_semaphores;
-
     // darray
     VkSemaphore* queue_complete_semaphores;
-
-    u32 in_flight_fence_count;
+    // darray
     vulkan_fence* in_flight_fences;
-
-    // Holds pointers to fences which exist and are owned elsewhere.
+    // darray - Holds pointers to fences which exist and are owned elsewhere.
     vulkan_fence** images_in_flight;
-
-    u32 image_index;
-    u32 current_frame;
-
-    b8 recreating_swapchain;
-    vec2 framebuffer_size;
 } vulkan_context;
 
 i32 find_memory_index(vulkan_context* context, u32 type_filter, u32 property_flags);

@@ -30,15 +30,12 @@ b8 event_initialize() {
     }
 
     bzero_memory(&state, sizeof(state));
-    breport(sizeof(state), MEMORY_TAG_CORE);
-
     is_initialized = TRUE;
     return TRUE;
 }
 
 void event_shutdown() {
     if (!is_initialized) return;
-    breport_free(sizeof(state), MEMORY_TAG_CORE);
 
     // Free the events arrays. And objects pointed to should be destroyed on their own.
     for (u16 i = 0; i < MAX_MESSAGE_CODES; ++i) {

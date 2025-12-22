@@ -29,9 +29,7 @@ int main(int argc, char** argv) {
 	box_renderstage* renderstage = box_engine_create_renderstage(
 		engine, 
 		graphics_shaders, BX_ARRAYSIZE(graphics_shaders), 
-		NULL, /* box_engine_create_renderbuffer(engine, BOX_RENDERBUFFER_USAGE_VERTEX, vertices, sizeof(vertices)), */
-		NULL, /* box_engine_create_renderbuffer(engine, BOX_RENDERBUFFER_USAGE_INDEX, vertices, sizeof(vertices)), */
-		&layout,
+		NULL,
 		FALSE, FALSE);
 
 	box_engine_prepare_resources(engine);

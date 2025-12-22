@@ -18,7 +18,7 @@ b8 strings_equal(const char* str0, const char* str1);
 b8 strings_nequal(const char* str0, const char* str1, u32 max_len);
 
 // Performs string formatting against the given format string and parameters. NOTE: This performs a dynamic allocation and should be freed by the caller.
-char* string_format(const char* format, u64* out_length, ...);
+char* string_format(const char* format, ...);
 
 // Performs variadic string formatting against the given format string and va_list. NOTE: This performs a dynamic allocation and should be freed by the caller.
-char* string_format_v(const char* format, u64* out_length, void* va_list);
+char* string_format_v(const char* format, void* va_list);
