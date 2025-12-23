@@ -44,6 +44,15 @@ void box_vertex_layout_set_topology(box_vertex_layout* layout, box_vertex_topolo
 	layout->topology_type = topology;
 }
 
+void box_vertex_layout_set_index_type(box_vertex_layout* layout, box_vertex_attrib_type type) {
+	if (layout->initialized) {
+		BX_WARN("Cannot set index type after ending vertex layout.");
+		return;
+	}
+
+	layout->index_type = type;
+}
+
 void box_vertex_layout_end(box_vertex_layout* layout) {
 	layout->stride = 0;
 	for (u32 i = 0; i < layout->attrib_count; ++i) {

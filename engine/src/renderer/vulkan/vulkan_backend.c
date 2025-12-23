@@ -338,6 +338,7 @@ b8 vulkan_renderer_playback_rendercmd(box_renderer_backend* backend, box_renderc
 	vulkan_renderpass* current_renderpass = &context->main_renderpass;
 	vulkan_framebuffer* current_framebuffer = &context->swapchain.framebuffers[context->image_index];
 	box_renderstage* current_shader = NULL;
+	b8 render_indexed = FALSE;
 
 	u8* cursor = 0;
 	while (freelist_next_block(&rendercmd->buffer, &cursor)) {
@@ -360,21 +361,45 @@ b8 vulkan_renderer_playback_rendercmd(box_renderer_backend* backend, box_renderc
 			break;
 		
 		case RENDERCMD_BIND_BUFFER:
-			VkBuffer handle = ((vulkan_buffer*)payload->bind_buffer.renderbuffer->internal_data)->handle;
+			box_renderbuffer* buffer = payload->bind_buffer.renderbuffer;
+
+			VkBuffer handle = ((vulkan_buffer*)buffer->internal_data)->handle;
 			VkDeviceSize offset = 0;
 			
-			vkCmdBindVertexBuffers(
-				cmd->handle, 
-				payload->bind_buffer.binding, 
-				1, &handle, &offset);
+			switch (payload->bind_buffer.renderbuffer->usage) {
+			case BOX_RENDERBUFFER_USAGE_VERTEX:
+				vkCmdBindVertexBuffers(
+					cmd->handle,
+					payload->bind_buffer.binding,
+					1, &handle, &offset);
+				break;
+
+			case BOX_RENDERBUFFER_USAGE_INDEX:
+				vkCmdBindIndexBuffer(
+					cmd->handle,
+					handle,
+					offset,
+					VK_INDEX_TYPE_UINT16);
+				render_indexed = TRUE;
+			}
 			break;
 
 		case RENDERCMD_DRAW:
-			vkCmdDraw(
-				cmd->handle,
-				payload->draw.vertex_count,
-				payload->draw.instance_count,
-				0, 0);
+			if (render_indexed) {
+				vkCmdDrawIndexed(
+					cmd->handle,
+					payload->draw.vertex_count,
+					payload->draw.instance_count,
+					0, 0, 0);
+			}
+			else {
+				vkCmdDraw(
+					cmd->handle,
+					payload->draw.vertex_count,
+					payload->draw.instance_count,
+					0, 0);
+			}
+			render_indexed = FALSE;
 			break;
 		}
 	}

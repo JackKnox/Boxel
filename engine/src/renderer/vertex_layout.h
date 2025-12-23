@@ -40,6 +40,7 @@ typedef struct box_vertex_layout {
 	u32 attrib_count;
 	u64 stride;
 
+	box_vertex_attrib_type index_type;
 	box_vertex_topology_type topology_type;
 	b8 initialized;
 } box_vertex_layout;
@@ -52,6 +53,9 @@ void box_vertex_layout_add(box_vertex_layout* layout, box_vertex_attrib_type att
 
 // Set the topology of the layout to be applied to connected buffers.
 void box_vertex_layout_set_topology(box_vertex_layout* layout, box_vertex_topology_type topology);
+
+// Set the index type of the later applied index buffer.
+void box_vertex_layout_set_index_type(box_vertex_layout* layout, box_vertex_attrib_type type);
 
 // Finalizes the vertex layout after all attributes have been added. After calling this function, the layout becomes immutable.
 void box_vertex_layout_end(box_vertex_layout* layout);
