@@ -2,6 +2,8 @@
 
 #include "defines.h"
 
+#include "renderer/vertex_layout.h"
+
 #include "resource_system.h"
 
 // Hitchbacks on resource system
@@ -40,7 +42,7 @@ typedef struct box_renderbuffer {
 typedef struct box_renderstage {
     box_resource_header header;
     shader_stage stages[BOX_SHADER_STAGE_TYPE_MAX];
-    struct box_vertex_layout* layout;
+    box_vertex_layout layout;
     b8 depth_test, blending;
 
     void* internal_data;

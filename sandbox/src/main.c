@@ -7,6 +7,7 @@
 int main(int argc, char** argv) {
 	// Sets default config for box_engine.
 	box_config app_config = box_default_config();
+	app_config.render_config.modes = RENDERER_MODE_GRAPHICS  | RENDERER_MODE_TRANSFER;
 	box_engine* engine = box_create_engine(&app_config);
 
 	if (engine == NULL)
@@ -14,8 +15,8 @@ int main(int argc, char** argv) {
 
 	f32 vertices[] = {
 		 0.0,  0.5, 1.0, 0.0, 0.0,
-		 0.5, -0.5, 0.0, 1.0, 0.0,
-		-0.5, -0.5, 0.0, 0.0, 1.0,
+		-0.5, -0.5, 0.0, 1.0, 0.0,
+		 0.5, -0.5, 0.0, 0.0, 1.0,
 	};
 
 	box_vertex_layout layout = {0};
@@ -26,11 +27,13 @@ int main(int argc, char** argv) {
 	 
 	const char* graphics_shaders[] = { "assets/shader_base.vert.spv", "assets/shader_base.frag.spv" };
 
+	box_renderbuffer* vert_buffer = box_engine_create_renderbuffer(engine, BOX_RENDERBUFFER_USAGE_VERTEX, vertices, sizeof(vertices));
+
 	box_renderstage* renderstage = box_engine_create_renderstage(
 		engine, 
 		graphics_shaders, BX_ARRAYSIZE(graphics_shaders), 
-		NULL,
-		FALSE, FALSE);
+		&layout,
+		FALSE, TRUE);
 
 	box_engine_prepare_resources(engine);
 
@@ -43,6 +46,7 @@ int main(int argc, char** argv) {
 		box_rendercmd_set_clear_colour(cmd, 0.1f, 0.1f, 0.1f);
 
 		box_rendercmd_begin_renderstage(cmd, renderstage);
+		box_rendercmd_bind_buffer(cmd, vert_buffer, 0, 0);
 		box_rendercmd_draw(cmd, 3, 1);
 		box_rendercmd_end_renderstage(cmd);
 

@@ -360,17 +360,18 @@ b8 vulkan_renderer_playback_rendercmd(box_renderer_backend* backend, box_renderc
 			break;
 		
 		case RENDERCMD_BIND_BUFFER:
-			box_renderbuffer* buf = payload->bind_buffer.renderbuffer;
-			VkDeviceSize offsets[] = { 0 };
+			VkBuffer handle = ((vulkan_buffer*)payload->bind_buffer.renderbuffer->internal_data)->handle;
+			VkDeviceSize offset = 0;
 			
-			vkCmdBindVertexBuffers(cmd->handle, 
-				payload->bind_buffer.binding, 1, 
-				&((vulkan_buffer*)buf->internal_data)->handle, 
-				offsets);
+			vkCmdBindVertexBuffers(
+				cmd->handle, 
+				payload->bind_buffer.binding, 
+				1, &handle, &offset);
 			break;
 
 		case RENDERCMD_DRAW:
-			vkCmdDraw(cmd->handle,
+			vkCmdDraw(
+				cmd->handle,
 				payload->draw.vertex_count,
 				payload->draw.instance_count,
 				0, 0);
@@ -514,6 +515,7 @@ b8 vulkan_renderer_create_renderbuffer(box_renderer_backend* backend, box_render
 		"Failed to transfer Vulkan renderbuffer to GPU");
 	
 	vulkan_buffer_destroy(context, &staging_buffer);
+	bfree(out_buffer->temp_user_data, out_buffer->temp_user_size, MEMORY_TAG_RESOURCES);
 
 	out_buffer->temp_user_data = NULL;
 	out_buffer->temp_user_size = 0;

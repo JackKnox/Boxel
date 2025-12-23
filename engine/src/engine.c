@@ -21,7 +21,7 @@ box_config box_default_config() {
 	return configuration;
 }
 
-int render_thread_loop(void* arg) {
+b8 render_thread_loop(void* arg) {
 	if (!arg) return FALSE;
 	box_engine* engine = (box_engine*)arg; 
 
@@ -77,7 +77,7 @@ box_engine* box_create_engine(box_config* app_config) {
 	engine->command_ring_length = (u32)ring_length;
 	engine->config = *app_config;
 
-	if (!resource_system_init(&engine->resource_system, 0)) {
+	if (!resource_system_init(&engine->resource_system, 1024)) {
 		BX_ERROR("Failed to initialize resource system.");
 		goto failed_init;
 	}

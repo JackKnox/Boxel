@@ -43,17 +43,8 @@
 #if defined(BX_PLATFORM_WINDOWS)
 #   define TSS_DTOR_ITERATIONS (4)
 #else
-#   define TSS_DTOR_ITERATIONS PTHREAD_DESTRUCTOR_ITERATIONS
+#   define TSS_DTOR_ITERATIONS (PTHREAD_DESTRUCTOR_ITERATIONS)
 #endif
-
-enum {
-    thrd_error    = 0,
-    thrd_success  = 1,
-    thrd_timedout = 2,
-    thrd_busy     = 3,
-    thrd_nomem    = 4,
-};
-typedef u32 box_threading_err;
 
 /* Mutex types */
 #define mtx_plain     0
@@ -85,7 +76,7 @@ typedef pthread_mutex_t mtx_t;
 * @return @ref thrd_success on success, or @ref thrd_error if the request could
 * not be honored.
 */
-int mtx_init(mtx_t* mtx, int type);
+b8 mtx_init(mtx_t* mtx, int type);
 
 /** Release any resources used by the given mutex.
 * @param mtx A mutex object.
@@ -100,7 +91,7 @@ void mtx_destroy(mtx_t* mtx);
 * @return @ref thrd_success on success, or @ref thrd_error if the request could
 * not be honored.
 */
-int mtx_lock(mtx_t* mtx);
+b8 mtx_lock(mtx_t* mtx);
 
 /** Lock the given mutex, or block until a specific point in time.
 * Blocks until either the given mutex can be locked, or the specified TIME_UTC
@@ -111,7 +102,7 @@ int mtx_lock(mtx_t* mtx);
 * thrd_timedout if the time specified was reached without acquiring the
 * requested resource, or thrd_error if the request could not be honored.
 */
-int mtx_timedlock(mtx_t* mtx, const struct timespec* ts);
+b8 mtx_timedlock(mtx_t* mtx, const struct timespec* ts);
 
 /** Try to lock the given mutex.
 * The specified mutex shall support either test and return or timeout. If the
@@ -121,14 +112,14 @@ int mtx_timedlock(mtx_t* mtx, const struct timespec* ts);
 * requested is already in use, or @ref thrd_error if the request could not be
 * honored.
 */
-int mtx_trylock(mtx_t* mtx);
+b8 mtx_trylock(mtx_t* mtx);
 
 /** Unlock the given mutex.
 * @param mtx A mutex object.
 * @return @ref thrd_success on success, or @ref thrd_error if the request could
 * not be honored.
 */
-int mtx_unlock(mtx_t* mtx);
+b8 mtx_unlock(mtx_t* mtx);
 
     /* Condition variable */
 #if defined(BX_PLATFORM_WINDOWS)
@@ -146,7 +137,7 @@ typedef pthread_cond_t cnd_t;
 * @return @ref thrd_success on success, or @ref thrd_error if the request could
 * not be honored.
 */
-int cnd_init(cnd_t* cond);
+b8 cnd_init(cnd_t* cond);
 
 /** Release any resources used by the given condition variable.
 * @param cond A condition variable object.
@@ -161,7 +152,7 @@ void cnd_destroy(cnd_t* cond);
 * @return @ref thrd_success on success, or @ref thrd_error if the request could
 * not be honored.
 */
-int cnd_signal(cnd_t* cond);
+b8 cnd_signal(cnd_t* cond);
 
 /** Broadcast a condition variable.
 * Unblocks all of the threads that are blocked on the given condition variable
@@ -171,7 +162,7 @@ int cnd_signal(cnd_t* cond);
 * @return @ref thrd_success on success, or @ref thrd_error if the request could
 * not be honored.
 */
-int cnd_broadcast(cnd_t* cond);
+b8 cnd_broadcast(cnd_t* cond);
 
 /** Wait for a condition variable to become signaled.
 * The function atomically unlocks the given mutex and endeavors to block until
@@ -183,7 +174,7 @@ int cnd_broadcast(cnd_t* cond);
 * @return @ref thrd_success on success, or @ref thrd_error if the request could
 * not be honored.
 */
-int cnd_wait(cnd_t* cond, mtx_t* mtx);
+b8 cnd_wait(cnd_t* cond, mtx_t* mtx);
 
 /** Wait for a condition variable to become signaled.
 * The function atomically unlocks the given mutex and endeavors to block until
@@ -197,7 +188,7 @@ int cnd_wait(cnd_t* cond, mtx_t* mtx);
 * specified in the call was reached without acquiring the requested resource, or
 * @ref thrd_error if the request could not be honored.
 */
-int cnd_timedwait(cnd_t* cond, mtx_t* mtx, const struct timespec* ts);
+b8 cnd_timedwait(cnd_t* cond, mtx_t* mtx, const struct timespec* ts);
 
     /* Thread */
 #if defined(BX_PLATFORM_WINDOWS)
@@ -214,7 +205,7 @@ typedef pthread_t thrd_t;
 * @return The thread return value, which can be obtained by another thread
 * by using the @ref thrd_join() function.
 */
-typedef int (*thrd_start_t)(void* arg);
+typedef b8 (*thrd_start_t)(void* arg);
 
 /** Create a new thread.
 * @param thr Identifier of the newly created thread.
@@ -228,7 +219,7 @@ typedef int (*thrd_start_t)(void* arg);
 * original thread has exited and either been detached or joined to another
 * thread.
 */
-int thrd_create(thrd_t* thr, thrd_start_t func, void* arg);
+b8 thrd_create(thrd_t* thr, thrd_start_t func, void* arg);
 
 /** Identify the calling thread.
 * @return The identifier of the calling thread.
@@ -238,14 +229,14 @@ thrd_t thrd_current(void);
 /** Dispose of any resources allocated to the thread when that thread exits.
     * @return thrd_success, or thrd_error on error
 */
-int thrd_detach(thrd_t thr);
+b8 thrd_detach(thrd_t thr);
 
 /** Compare two thread identifiers.
 * The function determines if two thread identifiers refer to the same thread.
 * @return Zero if the two thread identifiers refer to different threads.
 * Otherwise a nonzero value is returned.
 */
-int thrd_equal(thrd_t thr0, thrd_t thr1);
+b8 thrd_equal(thrd_t thr0, thrd_t thr1);
 
 /** Terminate execution of the calling thread.
 * @param res Result code of the calling thread.
@@ -261,7 +252,7 @@ BX_NORETURN void thrd_exit(int res);
 * @return @ref thrd_success on success, or @ref thrd_error if the request could
 * not be honored.
 */
-int thrd_join(thrd_t thr, int* res);
+b8 thrd_join(thrd_t thr, int* res);
 
 /** Put the calling thread to sleep.
 * Suspend execution of the calling thread.
@@ -274,7 +265,7 @@ int thrd_join(thrd_t thr, int* res);
 * @return 0 (zero) on successful sleep, -1 if an interrupt occurred,
 *         or a negative value if the operation fails.
 */
-int thrd_sleep(const struct timespec* duration, struct timespec* remaining);
+b8 thrd_sleep(const struct timespec* duration, struct timespec* remaining);
 
 /** Yield execution to another thread.
 * Permit other threads to run, even if the current thread would ordinarily

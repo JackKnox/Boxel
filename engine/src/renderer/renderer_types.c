@@ -58,7 +58,7 @@ box_renderstage* box_engine_create_renderstage(
 	}
 
 	// Fill static data
-	renderstage->layout = layout;
+	if (layout) renderstage->layout = *layout;
 	renderstage->depth_test = depth_test;
 	renderstage->blending = blending;
 
@@ -89,9 +89,11 @@ box_renderbuffer* box_engine_create_renderbuffer(
 	}
 
 	// Fill static data
-	renderbuffer->temp_user_data = data_to_send;
-	renderbuffer->temp_user_size = data_size;
 	renderbuffer->usage = usage;
+
+	renderbuffer->temp_user_size = data_size;
+	renderbuffer->temp_user_data = ballocate(renderbuffer->temp_user_size, MEMORY_TAG_RESOURCES);
+	bcopy_memory(renderbuffer->temp_user_data, data_to_send, renderbuffer->temp_user_size);
 
 	renderbuffer->header.vtable.create_local = internal_create_renderbuffer;
 	renderbuffer->header.vtable.destroy_local = internal_destroy_renderbuffer;

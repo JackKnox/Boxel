@@ -78,25 +78,30 @@ VkResult vulkan_device_create(box_renderer_backend* backend) {
 
     // Get queues.
     for (u32 i = 0; i < VULKAN_QUEUE_TYPE_MAX; ++i) {
+        vulkan_queue* mode = &context->device.mode_queues[i];
+        if (!(backend->config.modes & mode->supported_modes))
+            continue;
+
         vkGetDeviceQueue(
             context->device.logical_device,
-            context->device.mode_queues[i].family_index,
+            mode->family_index,
             0,
-            &context->device.mode_queues[i].handle);
+            &mode->handle);
     }
 
     BX_INFO("Queues obtained.");
 
     // Create command pool for necessary queue.
     for (u32 i = 0; i < VULKAN_QUEUE_TYPE_MAX; ++i) {
-        if (i == VULKAN_QUEUE_TYPE_PRESENT)
+        vulkan_queue* mode = &context->device.mode_queues[i];
+        if (!(backend->config.modes & mode->supported_modes) || i == VULKAN_QUEUE_TYPE_PRESENT)
             continue;
         
         VkCommandPoolCreateInfo pool_create_info = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
-        pool_create_info.queueFamilyIndex = context->device.mode_queues[i].family_index;
+        pool_create_info.queueFamilyIndex = mode->family_index;
         pool_create_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
-        VkResult result = vkCreateCommandPool(context->device.logical_device, &pool_create_info, context->allocator, &context->device.mode_queues[i].pool);
+        VkResult result = vkCreateCommandPool(context->device.logical_device, &pool_create_info, context->allocator, &mode->pool);
         if (!vulkan_result_is_success(result)) return result;
     }
 

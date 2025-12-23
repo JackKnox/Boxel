@@ -31,7 +31,7 @@ void create_resource(box_resource_system* system, box_resource_header* resource)
     }
 }
 
-int resource_thread_func(void* arg) {
+b8 resource_thread_func(void* arg) {
     box_resource_system* system = (box_resource_system*)arg;
 
     for (;;) {
@@ -110,6 +110,11 @@ b8 resource_system_init(box_resource_system* system, u64 start_mem) {
 }
 
 b8 resource_system_allocate_resource(box_resource_system* system, u64 size, void** out_resource) {
+    if (system->resources.size + size > system->resources.capacity) {
+        BX_ERROR("Ran out of resource system memory");
+        return FALSE;
+    }
+
     *out_resource = freelist_push(&system->resources, size, NULL);
     if (!*out_resource) return FALSE;
 

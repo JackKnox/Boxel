@@ -144,15 +144,15 @@ VkResult vulkan_graphics_pipeline_create(
 	multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
 	// Depth and stencil testing.
-	depth_stencil.depthTestEnable = VK_TRUE;
-	depth_stencil.depthWriteEnable = VK_TRUE;
+	depth_stencil.depthTestEnable = shader->depth_test;
+	depth_stencil.depthWriteEnable = shader->depth_test;
 	depth_stencil.depthCompareOp = VK_COMPARE_OP_LESS;
 	depth_stencil.depthBoundsTestEnable = VK_FALSE;
 	depth_stencil.stencilTestEnable = VK_FALSE;
 
 	// Colour attachments 
 	VkPipelineColorBlendAttachmentState colorBlendAttachment = { 0 };
-	colorBlendAttachment.blendEnable = VK_TRUE;
+	colorBlendAttachment.blendEnable = shader->blending;
 	colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
 	colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 	colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
@@ -170,25 +170,22 @@ VkResult vulkan_graphics_pipeline_create(
 	color_blending.pAttachments = &colorBlendAttachment;
 
 	// Dynamic state
-	VkDynamicState dynamicStates[] = {
-		VK_DYNAMIC_STATE_VIEWPORT,
-		VK_DYNAMIC_STATE_SCISSOR,
-		VK_DYNAMIC_STATE_LINE_WIDTH };
+	VkDynamicState dynamicStates[] = { VK_DYNAMIC_STATE_LINE_WIDTH };
 
-	dynamic_state.dynamicStateCount = 3;
+	dynamic_state.dynamicStateCount = BX_ARRAYSIZE(dynamicStates);
 	dynamic_state.pDynamicStates = dynamicStates;
 
 	// Attributes
 	VkVertexInputAttributeDescription* attributes = darray_create(VkVertexInputAttributeDescription, MEMORY_TAG_RENDERER);
+	VkVertexInputBindingDescription binding_desc = { 0 };
 
-	if (shader->layout) {
-		VkVertexInputBindingDescription binding_desc = { 0 };
+	if (shader->layout.initialized) {
 		binding_desc.binding = 0;
-		binding_desc.stride = box_vertex_layout_stride(shader->layout);
+		binding_desc.stride = box_vertex_layout_stride(&shader->layout);
 		binding_desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-		for (u32 i = 0; i < box_vertex_layout_count(shader->layout); ++i) {
-			box_vertex_attrib_desc* attribute = &shader->layout->attribs[i];
+		for (u32 i = 0; i < box_vertex_layout_count(&shader->layout); ++i) {
+			box_vertex_attrib_desc* attribute = &shader->layout.attribs[i];
 
 			VkVertexInputAttributeDescription descriptor = { 0 };
 			descriptor.binding = 0;
@@ -197,13 +194,13 @@ VkResult vulkan_graphics_pipeline_create(
 			descriptor.offset = attribute->offset;
 			attributes = _darray_push(attributes, &descriptor);
 		}
-
-		vertex_input_info.vertexBindingDescriptionCount = 1;
-		vertex_input_info.pVertexBindingDescriptions = &binding_desc;
-
-		vertex_input_info.vertexAttributeDescriptionCount = darray_length(attributes);
-		vertex_input_info.pVertexAttributeDescriptions = attributes;
 	}
+	
+	vertex_input_info.vertexBindingDescriptionCount = 1;
+	vertex_input_info.pVertexBindingDescriptions = &binding_desc;
+
+	vertex_input_info.vertexAttributeDescriptionCount = darray_length(attributes);
+	vertex_input_info.pVertexAttributeDescriptions = attributes;
 
 	// Input assembly
 	input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;

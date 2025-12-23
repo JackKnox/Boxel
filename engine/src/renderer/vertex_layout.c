@@ -37,7 +37,7 @@ void box_vertex_layout_add(box_vertex_layout* layout, box_vertex_attrib_type att
 
 void box_vertex_layout_set_topology(box_vertex_layout* layout, box_vertex_topology_type topology) {
 	if (layout->initialized) {
-		BX_WARN("Cannot change vertex layout after ending.");
+		BX_WARN("Cannot set topology after ending vertex layout.");
 		return;
 	}
 
@@ -45,12 +45,12 @@ void box_vertex_layout_set_topology(box_vertex_layout* layout, box_vertex_topolo
 }
 
 void box_vertex_layout_end(box_vertex_layout* layout) {
-	u64 stride = 0;
+	layout->stride = 0;
 	for (u32 i = 0; i < layout->attrib_count; ++i) {
 		box_vertex_attrib_desc* desc = &layout->attribs[i];
 
-		desc->offset = stride;
-		stride += box_vertex_attrib_type_size(desc->type);
+		desc->offset = layout->stride;
+		layout->stride += box_vertex_attrib_type_size(desc->type) * desc->count;
 	}
 
 	layout->initialized = TRUE;

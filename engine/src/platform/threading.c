@@ -15,7 +15,7 @@
 #   include <sys/timeb.h>
 #endif
 
-int mtx_init(mtx_t* mtx, int type)
+b8 mtx_init(mtx_t* mtx, int type)
 {
 #if defined(BX_PLATFORM_WINDOWS)
     mtx->mAlreadyLocked = FALSE;
@@ -30,10 +30,10 @@ int mtx_init(mtx_t* mtx, int type)
         mtx->mHandle.mut = CreateMutex(NULL, FALSE, NULL);
         if (mtx->mHandle.mut == NULL)
         {
-            return thrd_error;
+            return FALSE;
         }
     }
-    return thrd_success;
+    return TRUE;
 #else
     int ret;
     pthread_mutexattr_t attr;
@@ -44,7 +44,7 @@ int mtx_init(mtx_t* mtx, int type)
     }
     ret = pthread_mutex_init(mtx, &attr);
     pthread_mutexattr_destroy(&attr);
-    return ret == 0 ? thrd_success : thrd_error;
+    return ret == 0 ? TRUE : FALSE;
 #endif
 }
 
@@ -64,7 +64,7 @@ void mtx_destroy(mtx_t* mtx)
 #endif
 }
 
-int mtx_lock(mtx_t* mtx)
+b8 mtx_lock(mtx_t* mtx)
 {
 #if defined(BX_PLATFORM_WINDOWS)
     if (!mtx->mTimed)
@@ -79,7 +79,7 @@ int mtx_lock(mtx_t* mtx)
             break;
         case WAIT_ABANDONED:
         default:
-            return thrd_error;
+            return FALSE;
         }
     }
 
@@ -88,13 +88,13 @@ int mtx_lock(mtx_t* mtx)
         while (mtx->mAlreadyLocked) Sleep(1); /* Simulate deadlock... */
         mtx->mAlreadyLocked = TRUE;
     }
-    return thrd_success;
+    return TRUE;
 #else
-    return pthread_mutex_lock(mtx) == 0 ? thrd_success : thrd_error;
+    return pthread_mutex_lock(mtx) == 0 ? TRUE : FALSE;
 #endif
 }
 
-int mtx_timedlock(mtx_t* mtx, const struct timespec* ts)
+b8 mtx_timedlock(mtx_t* mtx, const struct timespec* ts)
 {
 #if defined(BX_PLATFORM_WINDOWS)
     struct timespec current_ts;
@@ -102,7 +102,7 @@ int mtx_timedlock(mtx_t* mtx, const struct timespec* ts)
 
     if (!mtx->mTimed)
     {
-        return thrd_error;
+        return FALSE;
     }
 
     timespec_get(&current_ts, TIME_UTC);
@@ -125,10 +125,9 @@ int mtx_timedlock(mtx_t* mtx, const struct timespec* ts)
     case WAIT_OBJECT_0:
         break;
     case WAIT_TIMEOUT:
-        return thrd_timedout;
     case WAIT_ABANDONED:
     default:
-        return thrd_error;
+        return FALSE;
     }
 
     if (!mtx->mRecursive)
@@ -137,15 +136,14 @@ int mtx_timedlock(mtx_t* mtx, const struct timespec* ts)
         mtx->mAlreadyLocked = TRUE;
     }
 
-    return thrd_success;
+    return TRUE;
 #elif defined(_POSIX_TIMEOUTS) && (_POSIX_TIMEOUTS >= 200112L) && defined(_POSIX_THREADS) && (_POSIX_THREADS >= 200112L)
     switch (pthread_mutex_timedlock(mtx, ts)) {
     case 0:
-        return thrd_success;
+        return TRUE;
     case ETIMEDOUT:
-        return thrd_timedout;
     default:
-        return thrd_error;
+        return FALSE;
     }
 #else
     int rc;
@@ -179,36 +177,35 @@ int mtx_timedlock(mtx_t* mtx, const struct timespec* ts)
 
     switch (rc) {
     case 0:
-        return thrd_success;
+        return TRUE;
     case ETIMEDOUT:
     case EBUSY:
-        return thrd_timedout;
     default:
-        return thrd_error;
+        return FALSE;
     }
 #endif
 }
 
-int mtx_trylock(mtx_t* mtx)
+b8 mtx_trylock(mtx_t* mtx)
 {
 #if defined(BX_PLATFORM_WINDOWS)
     int ret;
 
     if (!mtx->mTimed)
     {
-        ret = TryEnterCriticalSection(&(mtx->mHandle.cs)) ? thrd_success : thrd_busy;
+        ret = TryEnterCriticalSection(&(mtx->mHandle.cs)) ? TRUE : FALSE;
     }
     else
     {
-        ret = (WaitForSingleObject(mtx->mHandle.mut, 0) == WAIT_OBJECT_0) ? thrd_success : thrd_busy;
+        ret = (WaitForSingleObject(mtx->mHandle.mut, 0) == WAIT_OBJECT_0) ? TRUE : FALSE;
     }
 
-    if ((!mtx->mRecursive) && (ret == thrd_success))
+    if ((!mtx->mRecursive) && (ret == TRUE))
     {
         if (mtx->mAlreadyLocked)
         {
             LeaveCriticalSection(&(mtx->mHandle.cs));
-            ret = thrd_busy;
+            ret = FALSE;
         }
         else
         {
@@ -221,7 +218,7 @@ int mtx_trylock(mtx_t* mtx)
 #endif
 }
 
-int mtx_unlock(mtx_t* mtx)
+b8 mtx_unlock(mtx_t* mtx)
 {
 #if defined(BX_PLATFORM_WINDOWS)
     mtx->mAlreadyLocked = FALSE;
@@ -233,12 +230,12 @@ int mtx_unlock(mtx_t* mtx)
     {
         if (!ReleaseMutex(mtx->mHandle.mut))
         {
-            return thrd_error;
+            return FALSE;
         }
     }
-    return thrd_success;
+    return TRUE;
 #else
-    return pthread_mutex_unlock(mtx) == 0 ? thrd_success : thrd_error;;
+    return pthread_mutex_unlock(mtx) == 0 ? TRUE : FALSE;
 #endif
 }
 
@@ -247,7 +244,7 @@ int mtx_unlock(mtx_t* mtx)
 #define _CONDITION_EVENT_ALL 1
 #endif
 
-int cnd_init(cnd_t* cond)
+b8 cnd_init(cnd_t* cond)
 {
 #if defined(BX_PLATFORM_WINDOWS)
     cond->mWaitersCount = 0;
@@ -260,19 +257,19 @@ int cnd_init(cnd_t* cond)
     if (cond->mEvents[_CONDITION_EVENT_ONE] == NULL)
     {
         cond->mEvents[_CONDITION_EVENT_ALL] = NULL;
-        return thrd_error;
+        return FALSE;
     }
     cond->mEvents[_CONDITION_EVENT_ALL] = CreateEvent(NULL, TRUE, FALSE, NULL);
     if (cond->mEvents[_CONDITION_EVENT_ALL] == NULL)
     {
         CloseHandle(cond->mEvents[_CONDITION_EVENT_ONE]);
         cond->mEvents[_CONDITION_EVENT_ONE] = NULL;
-        return thrd_error;
+        return FALSE;
     }
 
-    return thrd_success;
+    return TRUE;
 #else
-    return pthread_cond_init(cond, NULL) == 0 ? thrd_success : thrd_error;
+    return pthread_cond_init(cond, NULL) == 0 ? TRUE : FALSE;
 #endif
 }
 
@@ -293,7 +290,7 @@ void cnd_destroy(cnd_t* cond)
 #endif
 }
 
-int cnd_signal(cnd_t* cond)
+b8 cnd_signal(cnd_t* cond)
 {
 #if defined(BX_PLATFORM_WINDOWS)
     int haveWaiters;
@@ -308,17 +305,17 @@ int cnd_signal(cnd_t* cond)
     {
         if (SetEvent(cond->mEvents[_CONDITION_EVENT_ONE]) == 0)
         {
-            return thrd_error;
+            return FALSE;
         }
     }
 
-    return thrd_success;
+    return TRUE;
 #else
-    return pthread_cond_signal(cond) == 0 ? thrd_success : thrd_error;
+    return pthread_cond_signal(cond) == 0 ? TRUE : FALSE;
 #endif
 }
 
-int cnd_broadcast(cnd_t* cond)
+b8 cnd_broadcast(cnd_t* cond)
 {
 #if defined(BX_PLATFORM_WINDOWS)
     int haveWaiters;
@@ -333,18 +330,18 @@ int cnd_broadcast(cnd_t* cond)
     {
         if (SetEvent(cond->mEvents[_CONDITION_EVENT_ALL]) == 0)
         {
-            return thrd_error;
+            return FALSE;
         }
     }
 
-    return thrd_success;
+    return TRUE;
 #else
-    return pthread_cond_broadcast(cond) == 0 ? thrd_success : thrd_error;
+    return pthread_cond_broadcast(cond) == 0 ? TRUE : FALSE;
 #endif
 }
 
 #if defined(BX_PLATFORM_WINDOWS)
-static int _cnd_timedwait_win32(cnd_t* cond, mtx_t* mtx, DWORD timeout)
+static b8 _cnd_timedwait_win32(cnd_t* cond, mtx_t* mtx, DWORD timeout)
 {
     DWORD result;
     int lastWaiter;
@@ -365,13 +362,13 @@ static int _cnd_timedwait_win32(cnd_t* cond, mtx_t* mtx, DWORD timeout)
     {
         /* The mutex is locked again before the function returns, even if an error occurred */
         mtx_lock(mtx);
-        return thrd_timedout;
+        return FALSE;
     }
     else if (result == WAIT_FAILED)
     {
         /* The mutex is locked again before the function returns, even if an error occurred */
         mtx_lock(mtx);
-        return thrd_error;
+        return FALSE;
     }
 
     /* Check if we are the last waiter */
@@ -388,27 +385,27 @@ static int _cnd_timedwait_win32(cnd_t* cond, mtx_t* mtx, DWORD timeout)
         {
             /* The mutex is locked again before the function returns, even if an error occurred */
             mtx_lock(mtx);
-            return thrd_error;
+            return FALSE;
         }
     }
 
     /* Re-acquire the mutex */
     mtx_lock(mtx);
 
-    return thrd_success;
+    return TRUE;
 }
 #endif
 
-int cnd_wait(cnd_t* cond, mtx_t* mtx)
+b8 cnd_wait(cnd_t* cond, mtx_t* mtx)
 {
 #if defined(BX_PLATFORM_WINDOWS)
     return _cnd_timedwait_win32(cond, mtx, INFINITE);
 #else
-    return pthread_cond_wait(cond, mtx) == 0 ? thrd_success : thrd_error;
+    return pthread_cond_wait(cond, mtx) == 0 ? TRUE : FALSE;
 #endif
 }
 
-int cnd_timedwait(cnd_t* cond, mtx_t* mtx, const struct timespec* ts)
+b8 cnd_timedwait(cnd_t* cond, mtx_t* mtx, const struct timespec* ts)
 {
 #if defined(BX_PLATFORM_WINDOWS)
     struct timespec now;
@@ -421,7 +418,7 @@ int cnd_timedwait(cnd_t* cond, mtx_t* mtx, const struct timespec* ts)
         return _cnd_timedwait_win32(cond, mtx, delta);
     }
     else
-        return thrd_error;
+        return FALSE;
 #else
     int ret;
     ret = pthread_cond_timedwait(cond, mtx, ts);
@@ -429,7 +426,7 @@ int cnd_timedwait(cnd_t* cond, mtx_t* mtx, const struct timespec* ts)
     {
         return thrd_timedout;
     }
-    return ret == 0 ? thrd_success : thrd_error;
+    return ret == 0 ? TRUE : FALSE;
 #endif
 }
 
@@ -448,7 +445,7 @@ static void* _thrd_wrapper_function(void* aArg)
 {
     thrd_start_t fun;
     void* arg;
-    int  res;
+    b8  res;
 
     /* Get thread startup information */
     _thread_start_info* ti = (_thread_start_info*)aArg;
@@ -468,14 +465,14 @@ static void* _thrd_wrapper_function(void* aArg)
 #endif
 }
 
-int thrd_create(thrd_t* thr, thrd_start_t func, void* arg)
+b8 thrd_create(thrd_t* thr, thrd_start_t func, void* arg)
 {
     /* Fill out the thread startup information (passed to the thread wrapper,
         which will eventually free it) */
     _thread_start_info* ti = (_thread_start_info*)malloc(sizeof(_thread_start_info));
     if (ti == NULL)
     {
-        return thrd_nomem;
+        return FALSE;
     }
     ti->mFunction = func;
     ti->mArg = arg;
@@ -494,10 +491,10 @@ int thrd_create(thrd_t* thr, thrd_start_t func, void* arg)
     if (!*thr)
     {
         free(ti);
-        return thrd_error;
+        return FALSE;
     }
 
-    return thrd_success;
+    return TRUE;
 }
 
 thrd_t thrd_current(void)
@@ -509,17 +506,17 @@ thrd_t thrd_current(void)
 #endif
 }
 
-int thrd_detach(thrd_t thr)
+b8 thrd_detach(thrd_t thr)
 {
 #if defined(BX_PLATFORM_WINDOWS)
     /* https://stackoverflow.com/questions/12744324/how-to-detach-a-thread-on-windows-c#answer-12746081 */
-    return CloseHandle(thr) != 0 ? thrd_success : thrd_error;
+    return CloseHandle(thr) != 0 ? TRUE : FALSE;
 #else
-    return pthread_detach(thr) == 0 ? thrd_success : thrd_error;
+    return pthread_detach(thr) == 0 ? TRUE : FALSE;
 #endif
 }
 
-int thrd_equal(thrd_t thr0, thrd_t thr1)
+b8 thrd_equal(thrd_t thr0, thrd_t thr1)
 {
 #if defined(BX_PLATFORM_WINDOWS)
     return GetThreadId(thr0) == GetThreadId(thr1);
@@ -537,14 +534,14 @@ void thrd_exit(int res)
 #endif
 }
 
-int thrd_join(thrd_t thr, int* res)
+b8 thrd_join(thrd_t thr, int* res)
 {
 #if defined(BX_PLATFORM_WINDOWS)
     DWORD dwRes;
 
     if (WaitForSingleObject(thr, INFINITE) == WAIT_FAILED)
     {
-        return thrd_error;
+        return FALSE;
     }
     if (res != NULL)
     {
@@ -554,11 +551,11 @@ int thrd_join(thrd_t thr, int* res)
         }
         else
         {
-            return thrd_error;
+            return FALSE;
         }
     }
     CloseHandle(thr);
-#elif defined(_TTHREAD_POSIX_)
+#else
     void* pres;
     if (pthread_join(thr, &pres) != 0)
     {
@@ -569,21 +566,21 @@ int thrd_join(thrd_t thr, int* res)
         *res = (int)(intptr_t)pres;
     }
 #endif
-    return thrd_success;
+    return TRUE;
 }
 
-int thrd_sleep(const struct timespec* duration, struct timespec* remaining)
+b8 thrd_sleep(const struct timespec* duration, struct timespec* remaining)
 {
 #if !defined(BX_PLATFORM_WINDOWS)
     int res = nanosleep(duration, remaining);
     if (res == 0) {
-        return 0;
+        return TRUE;
     }
     else if (errno == EINTR) {
-        return -1;
+        return FALSE;
     }
     else {
-        return -2;
+        return FALSE;
     }
 #else
     struct timespec start;
@@ -597,7 +594,7 @@ int thrd_sleep(const struct timespec* duration, struct timespec* remaining)
         TRUE);
 
     if (t == 0) {
-        return 0;
+        return TRUE;
     }
     else {
         if (remaining != NULL) {
