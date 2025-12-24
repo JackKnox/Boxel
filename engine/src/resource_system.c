@@ -19,16 +19,15 @@ b8 resource_system_on_application_quit(u16 code, void* sender, void* listener_in
 }
 
 void create_resource(box_resource_system* system, box_resource_header* resource) {
+    for (u32 i = 0; i < resource->dependent_count; ++i) {
+        create_resource(system, resource->dependents[i]);
+    }
+    
     resource->state = BOX_RESOURCE_STATE_UPLOADING;
-
+    
     // Perform the create (does its own GPU/local allocations)
     b8 created = resource->vtable.create_local(system, resource, resource->resource_arg);
-    if (!created) {
-        resource->state = BOX_RESOURCE_STATE_FAILED;
-    }
-    else {
-        resource->state = BOX_RESOURCE_STATE_READY;
-    }
+    resource->state = created ? BOX_RESOURCE_STATE_READY: BOX_RESOURCE_STATE_FAILED;
 }
 
 b8 resource_thread_func(void* arg) {
@@ -63,10 +62,7 @@ b8 resource_thread_func(void* arg) {
         if (resource->state != BOX_RESOURCE_STATE_NEEDS_UPLOAD) {
             goto continue_thread;
         }
-
-        for (u32 i = 0; i < resource->dependent_count; ++i) {
-            create_resource(system, resource->dependents[i]);
-        }
+        
         create_resource(system, resource);
 
     continue_thread:
