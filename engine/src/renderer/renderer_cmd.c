@@ -57,8 +57,6 @@ void box_rendercmd_begin_renderstage(box_rendercmd* cmd, box_renderstage* render
     rendercmd_payload* payload;
     payload = add_command(cmd, RENDERCMD_BEGIN_RENDERSTAGE, sizeof(payload->begin_renderstage));
     payload->begin_renderstage.renderstage = renderstage;
-
-    cmd->required_modes |= RENDERER_MODE_GRAPHICS;
 }
 
 void box_rendercmd_bind_buffer(box_rendercmd* cmd, box_renderbuffer* renderbuffer, u32 set, u32 binding) {
@@ -67,8 +65,6 @@ void box_rendercmd_bind_buffer(box_rendercmd* cmd, box_renderbuffer* renderbuffe
     payload->bind_buffer.renderbuffer = renderbuffer;
     payload->bind_buffer.set = set;
     payload->bind_buffer.binding = binding;
-
-    cmd->required_modes |= RENDERER_MODE_GRAPHICS;
 }
 
 void box_rendercmd_draw(box_rendercmd* cmd, u32 vertex_count, u32 instance_count) {
@@ -80,8 +76,25 @@ void box_rendercmd_draw(box_rendercmd* cmd, u32 vertex_count, u32 instance_count
     cmd->required_modes |= RENDERER_MODE_GRAPHICS;
 }
 
-void box_rendercmd_end_renderstage(box_rendercmd* cmd) {
-    add_command(cmd, RENDERCMD_END_RENDERSTAGE, 0);
+void box_rendercmd_draw_indexed(box_rendercmd* cmd, u32 index_count, u32 instance_count) {
+    rendercmd_payload* payload;
+    payload = add_command(cmd, RENDERCMD_DRAW_INDEXED, sizeof(payload->draw_indexed));
+    payload->draw_indexed.index_count = index_count;
+    payload->draw_indexed.instance_count = instance_count;
 
     cmd->required_modes |= RENDERER_MODE_GRAPHICS;
+}
+
+void box_rendercmd_dispatch(box_rendercmd* cmd, u32 group_size_x, u32 group_size_y, u32 group_size_z) {
+    rendercmd_payload* payload;
+    payload = add_command(cmd, RENDERCMD_DISPATCH, sizeof(payload->draw));
+    payload->dispatch.group_size.x = group_size_x;
+    payload->dispatch.group_size.y = group_size_y;
+    payload->dispatch.group_size.z = group_size_z;
+
+    cmd->required_modes |= RENDERER_MODE_COMPUTE;
+}
+
+void box_rendercmd_end_renderstage(box_rendercmd* cmd) {
+    add_command(cmd, RENDERCMD_END_RENDERSTAGE, 0);
 }

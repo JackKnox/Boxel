@@ -72,7 +72,7 @@ typedef struct box_renderer_backend {
     void (*resized)(struct box_renderer_backend* backend, u32 width, u32 height);
 
     b8 (*begin_frame)(struct box_renderer_backend* backend, f32 delta_time);
-    b8 (*playback_rendercmd)(struct box_renderer_backend* backend, struct box_rendercmd* rendercmd);
+    void (*playback_rendercmd)(struct box_renderer_backend* backend, struct box_rendercmd_context* rendercmd_context, u32 type, union rendercmd_payload* payload);
     b8 (*end_frame)(struct box_renderer_backend* backend);
 
     // Renderer resources.

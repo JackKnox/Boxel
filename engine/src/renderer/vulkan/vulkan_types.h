@@ -63,12 +63,10 @@ typedef struct vulkan_buffer {
 } vulkan_buffer;
 
 typedef enum vulkan_render_pass_state {
+    RENDER_PASS_STATE_NOT_ALLOCATED,
     RENDER_PASS_STATE_READY,
     RENDER_PASS_STATE_RECORDING,
-    RENDER_PASS_STATE_IN_RENDER_PASS,
     RENDER_PASS_STATE_RECORDING_ENDED,
-    RENDER_PASS_STATE_SUBMITTED,
-    RENDER_PASS_STATE_NOT_ALLOCATED
 } vulkan_render_pass_state;
 
 typedef struct vulkan_renderpass {
@@ -88,10 +86,11 @@ typedef struct vulkan_framebuffer {
     vulkan_renderpass* renderpass;
 } vulkan_framebuffer;
 
-typedef struct vulkan_graphics_pipeline {
+typedef struct vulkan_pipeline {
     VkPipeline handle;
     VkPipelineLayout layout;
-} vulkan_graphics_pipeline;
+    VkPipelineBindPoint bind_point;
+} vulkan_pipeline;
 
 typedef struct vulkan_swapchain {
     VkSurfaceFormatKHR image_format;
@@ -144,6 +143,8 @@ typedef struct vulkan_context {
 
     // darray
     vulkan_command_buffer* graphics_command_buffers;
+    // darray
+    vulkan_command_buffer* compute_command_buffers;
     // darray
     VkSemaphore* image_available_semaphores;
     // darray

@@ -8,8 +8,13 @@
 box_renderer_backend_config renderer_backend_default_config() {
     box_renderer_backend_config configuration = {0}; // fill with zeros
     configuration.modes = RENDERER_MODE_GRAPHICS /* | RENDERER_MODE_COMPUTE */;
-    configuration.enable_validation = TRUE;
 	configuration.frames_in_flight = 3;
+
+#if BOX_ENABLE_VALIDATION
+    configuration.enable_validation = TRUE;
+#else
+    configuration.enable_validation = FALSE;
+#endif
     return configuration;
 }
 

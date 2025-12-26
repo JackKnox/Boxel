@@ -3,7 +3,7 @@
 
 #include "renderer/vertex_layout.h"
 
-VkShaderStageFlagBits box_shader_type_to_vulkan_type(box_shader_stage_type type) {
+VkShaderStageFlags box_shader_type_to_vulkan_type(box_shader_stage_type type) {
 	switch (type) {
 	case BOX_SHADER_STAGE_TYPE_VERTEX:  return VK_SHADER_STAGE_VERTEX_BIT;
 	case BOX_SHADER_STAGE_TYPE_GEOMETRY: return VK_SHADER_STAGE_GEOMETRY_BIT;
@@ -70,7 +70,7 @@ VkFormat box_attribute_to_vulkan_type(box_vertex_attrib_type type, u64 count) {
 
 VkResult vulkan_graphics_pipeline_create(
 	vulkan_context* context, 
-	vulkan_graphics_pipeline* out_pipeline, 
+	vulkan_pipeline* out_pipeline, 
 	vulkan_renderpass* renderpass, 
 	box_renderstage* shader) {
 	// Fill shader stages with data from shader array
@@ -243,19 +243,68 @@ VkResult vulkan_graphics_pipeline_create(
 		vkDestroyShaderModule(context->device.logical_device, shader_stages[i].module, context->allocator);
 	}
 
+	out_pipeline->bind_point = VK_PIPELINE_BIND_POINT_GRAPHICS;
+
 	darray_destroy(attributes);
 	darray_destroy(shader_stages);
-	return TRUE;
+	return VK_SUCCESS;
 }
 
-void vulkan_graphics_pipeline_destroy(vulkan_context* context, vulkan_graphics_pipeline* pipeline) {
-	if (pipeline->handle) 
+VkResult vulkan_compute_pipeline_create(
+	vulkan_context* context, 
+	vulkan_pipeline* out_pipeline, 
+	vulkan_renderpass* renderpass, 
+	box_renderstage* shader) {
+	// Fill shader stages with data from shader array
+	shader_stage* stage = &shader->stages[BOX_SHADER_STAGE_TYPE_COMPUTE];
+	if (stage->file_size == 0 || stage->file_data == NULL) {
+		BX_ERROR("Renderstage does not has connected compute shader stage");
+		return VK_ERROR_UNKNOWN;
+	}
+
+	VkShaderModule shader_module;
+	VkShaderModuleCreateInfo create_info = { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
+	create_info.pCode = stage->file_data;
+	create_info.codeSize = stage->file_size;
+	VkResult result = vkCreateShaderModule(context->device.logical_device, &create_info, context->allocator, &shader_module);
+	if (!vulkan_result_is_success(result)) return result;
+
+	VkPipelineShaderStageCreateInfo stage_info = { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
+	stage_info.stage = box_shader_type_to_vulkan_type(BOX_SHADER_STAGE_TYPE_COMPUTE);
+	stage_info.module = shader_module;
+	stage_info.pName = "main";
+
+	bfree(stage->file_data, stage->file_size, MEMORY_TAG_CORE); // Comes from filesystem_read_entire_binary_file
+
+	VkPipelineLayoutCreateInfo layout_info = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
+	layout_info.setLayoutCount = 0;
+	layout_info.pSetLayouts = NULL;
+
+	result = vkCreatePipelineLayout(context->device.logical_device, &layout_info, context->allocator, &out_pipeline->layout);
+	if (!vulkan_result_is_success(result)) return result;
+
+	VkComputePipelineCreateInfo pipelineInfo = { VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO };
+	pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+	pipelineInfo.layout = out_pipeline->layout;
+	pipelineInfo.stage = stage_info;
+
+	result = vkCreateComputePipelines(context->device.logical_device, VK_NULL_HANDLE, 1, &pipelineInfo, context->allocator, &out_pipeline->handle);
+	if (!vulkan_result_is_success(result)) return result;
+
+	vkDestroyShaderModule(context->device.logical_device, shader_module, context->allocator);
+
+	out_pipeline->bind_point = VK_PIPELINE_BIND_POINT_COMPUTE;
+	return VK_SUCCESS;
+}
+
+void vulkan_pipeline_destroy(vulkan_context* context, vulkan_pipeline* pipeline) {
+	if (pipeline->handle)
 		vkDestroyPipeline(context->device.logical_device, pipeline->handle, context->allocator);
 
 	if (pipeline->layout)
 		vkDestroyPipelineLayout(context->device.logical_device, pipeline->layout, context->allocator);
 }
 
-void vulkan_graphics_pipeline_bind(vulkan_command_buffer* command_buffer, vulkan_graphics_pipeline* pipeline) {
-	vkCmdBindPipeline(command_buffer->handle, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->handle);
+void vulkan_pipeline_bind(vulkan_command_buffer* command_buffer, vulkan_pipeline* pipeline) {
+	vkCmdBindPipeline(command_buffer->handle, pipeline->bind_point, pipeline->handle);
 }

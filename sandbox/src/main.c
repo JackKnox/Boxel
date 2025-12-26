@@ -54,7 +54,7 @@ int main(int argc, char** argv) {
 		box_rendercmd_bind_buffer(cmd, vert_buffer, 0, 0);
 		box_rendercmd_bind_buffer(cmd, index_buffer, 0, 0);
 
-		box_rendercmd_draw(cmd, 6, 1);
+		box_rendercmd_draw_indexed(cmd, 6, 1);
 		box_rendercmd_end_renderstage(cmd);
 
 		box_engine_render_frame(engine, cmd);

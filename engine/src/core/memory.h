@@ -1,4 +1,5 @@
 #pragma once
+
 #include "defines.h"
 
 typedef enum memory_tag {
@@ -16,7 +17,7 @@ void memory_shutdown();
 
 void* ballocate(u64 size, memory_tag tag);
 
-void bfree(void* block, u64 size, memory_tag tag);
+void bfree(const void* block, u64 size, memory_tag tag);
 
 void breport(u64 size, memory_tag tag);
 

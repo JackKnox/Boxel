@@ -18,9 +18,9 @@ typedef enum box_shader_stage_type {
 } box_shader_stage_type;
 
 typedef enum box_renderbuffer_usage {
-    BOX_RENDERBUFFER_USAGE_VERTEX,
-    BOX_RENDERBUFFER_USAGE_INDEX,
-    BOX_RENDERBUFFER_USAGE_STORAGE,
+    BOX_RENDERBUFFER_USAGE_VERTEX = 1 << 0,
+    BOX_RENDERBUFFER_USAGE_INDEX = 1 << 1,
+    BOX_RENDERBUFFER_USAGE_STORAGE = 1 << 2,
 } box_renderbuffer_usage;
 
 typedef struct shader_stage {

@@ -63,4 +63,4 @@ void resource_system_add_dependency(box_resource_system* system, void* parent, v
 void resource_system_wait(box_resource_system* system);
 
 // Calls destruction function on all managed resources within specified system and deallocates memory.
-void resource_system_destroy_resources(box_resource_system* system);
+void resource_system_shutdown(box_resource_system* system);

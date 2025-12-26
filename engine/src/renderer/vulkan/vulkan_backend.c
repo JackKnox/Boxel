@@ -142,6 +142,7 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, uvec2 start
 	// Create intermediate objects.
 	context->swapchain.framebuffers = darray_reserve(vulkan_framebuffer, context->swapchain.image_count, MEMORY_TAG_RENDERER);
 	context->graphics_command_buffers = darray_reserve(vulkan_command_buffer, context->swapchain.image_count, MEMORY_TAG_RENDERER);
+	context->compute_command_buffers = darray_reserve(vulkan_command_buffer, context->swapchain.image_count, MEMORY_TAG_RENDERER);
 	context->images_in_flight = darray_reserve(vulkan_fence*, context->swapchain.image_count, MEMORY_TAG_RENDERER);
 
 	context->image_available_semaphores = darray_reserve(VkSemaphore, backend->config.frames_in_flight, MEMORY_TAG_RENDERER);
@@ -162,13 +163,25 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, uvec2 start
 				&context->swapchain.framebuffers[i]),
 			"Failed to create Vulkan framebuffers");
 
-		CHECK_VKRESULT(
-			vulkan_command_buffer_allocate(
-				context,
-				context->device.mode_queues[VULKAN_QUEUE_TYPE_GRAPHICS].pool,
-				TRUE,
-				&context->graphics_command_buffers[i]),
-			"Failed to create Vulkan command buffers");
+		if (backend->config.modes & RENDERER_MODE_GRAPHICS) {
+			CHECK_VKRESULT(
+				vulkan_command_buffer_allocate(
+					context,
+					context->device.mode_queues[VULKAN_QUEUE_TYPE_GRAPHICS].pool,
+					TRUE,
+					&context->graphics_command_buffers[i]),
+				"Failed to create Vulkan command buffers");
+		}
+
+		if (backend->config.modes & RENDERER_MODE_COMPUTE) {
+			CHECK_VKRESULT(
+				vulkan_command_buffer_allocate(
+					context,
+					context->device.mode_queues[RENDERER_MODE_COMPUTE].pool,
+					TRUE,
+					&context->compute_command_buffers[i]),
+				"Failed to create Vulkan command buffers");
+		}
 	}
 
 	BX_TRACE("Vulkan command buffers created.");
@@ -221,6 +234,10 @@ void vulkan_renderer_backend_shutdown(box_renderer_backend* backend) {
 		vulkan_command_buffer_free(
 			context, 
 			&context->graphics_command_buffers[i]);
+
+		vulkan_command_buffer_free(
+			context,
+			&context->compute_command_buffers[i]);
 	}
 
 	for (u8 i = 0; i < backend->config.frames_in_flight; ++i) {
@@ -246,6 +263,7 @@ void vulkan_renderer_backend_shutdown(box_renderer_backend* backend) {
 
 	darray_destroy(context->swapchain.framebuffers);
 	darray_destroy(context->graphics_command_buffers);
+	darray_destroy(context->compute_command_buffers);
 	darray_destroy(context->images_in_flight);
 	darray_destroy(context->image_available_semaphores);
 	darray_destroy(context->queue_complete_semaphores);
@@ -329,93 +347,78 @@ b8 vulkan_renderer_backend_begin_frame(box_renderer_backend* backend, f32 delta_
 	return TRUE;
 }
 
-// TODO: Validate command buffer (box_rendercmd) and put it 
-//       in render thread so Vulkan doesn't have too.
-b8 vulkan_renderer_playback_rendercmd(box_renderer_backend* backend, box_rendercmd* rendercmd) {
+void vulkan_renderer_playback_rendercmd(box_renderer_backend* backend, box_rendercmd_context* rendercmd_context, rendercmd_payload_type type, rendercmd_payload* payload) {
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 	vulkan_command_buffer* cmd = &context->graphics_command_buffers[context->current_frame];
 
-	vulkan_renderpass* current_renderpass = &context->main_renderpass;
-	vulkan_framebuffer* current_framebuffer = &context->swapchain.framebuffers[context->image_index];
-	box_renderstage* current_shader = NULL;
-	b8 render_indexed = FALSE;
+	vulkan_renderpass* renderpass = &context->main_renderpass;
+	vulkan_framebuffer* framebuffer = &context->swapchain.framebuffers[context->image_index];
 
-	u8* cursor = 0;
-	while (freelist_next_block(&rendercmd->buffer, &cursor)) {
-		rendercmd_header* hdr = (rendercmd_header*)cursor;
-		rendercmd_payload* payload = (rendercmd_payload*)(cursor + sizeof(rendercmd_header));
+	switch (type) {
+	case RENDERCMD_SET_CLEAR_COLOUR:
+		renderpass->clear_colour = payload->set_clear_colour.clear_colour;
+		vulkan_renderpass_begin(cmd, renderpass, framebuffer);
+		break;
 
-		switch (hdr->type) {
-		case RENDERCMD_SET_CLEAR_COLOUR:
-			current_renderpass->clear_colour = payload->set_clear_colour.clear_colour;
-			vulkan_renderpass_begin(cmd, current_renderpass, current_framebuffer);
+	case RENDERCMD_BEGIN_RENDERSTAGE:
+		vulkan_pipeline_bind(cmd, (vulkan_pipeline*)rendercmd_context->current_shader->internal_data);
+		break;
+
+	case RENDERCMD_BIND_BUFFER:
+		box_renderbuffer* buffer = payload->bind_buffer.renderbuffer;
+		VkBuffer handle = ((vulkan_buffer*)buffer->internal_data)->handle;
+
+		VkDeviceSize offset = 0;
+
+		switch (payload->bind_buffer.renderbuffer->usage) {
+		case BOX_RENDERBUFFER_USAGE_VERTEX:
+			vkCmdBindVertexBuffers(
+				cmd->handle,
+				payload->bind_buffer.binding,
+				1, &handle, &offset);
 			break;
 
-		case RENDERCMD_BEGIN_RENDERSTAGE:
-			current_shader = payload->begin_renderstage.renderstage;
-			vulkan_graphics_pipeline_bind(cmd, (vulkan_graphics_pipeline*)current_shader->internal_data);
-			break;
-		
-		case RENDERCMD_END_RENDERSTAGE:
-			current_shader = NULL;
-			break;
-		
-		case RENDERCMD_BIND_BUFFER:
-			box_renderbuffer* buffer = payload->bind_buffer.renderbuffer;
-
-			VkBuffer handle = ((vulkan_buffer*)buffer->internal_data)->handle;
-			VkDeviceSize offset = 0;
-			
-			switch (payload->bind_buffer.renderbuffer->usage) {
-			case BOX_RENDERBUFFER_USAGE_VERTEX:
-				vkCmdBindVertexBuffers(
-					cmd->handle,
-					payload->bind_buffer.binding,
-					1, &handle, &offset);
-				break;
-
-			case BOX_RENDERBUFFER_USAGE_INDEX:
-				vkCmdBindIndexBuffer(
-					cmd->handle,
-					handle,
-					offset,
-					VK_INDEX_TYPE_UINT16);
-				render_indexed = TRUE;
-			}
-			break;
-
-		case RENDERCMD_DRAW:
-			if (render_indexed) {
-				vkCmdDrawIndexed(
-					cmd->handle,
-					payload->draw.vertex_count,
-					payload->draw.instance_count,
-					0, 0, 0);
-			}
-			else {
-				vkCmdDraw(
-					cmd->handle,
-					payload->draw.vertex_count,
-					payload->draw.instance_count,
-					0, 0);
-			}
-			render_indexed = FALSE;
-			break;
+		case BOX_RENDERBUFFER_USAGE_INDEX:
+			vkCmdBindIndexBuffer(
+				cmd->handle,
+				handle,
+				offset,
+				VK_INDEX_TYPE_UINT16);
 		}
-	}
+		break;
 
-	if (current_renderpass != NULL &&
-		current_renderpass == &context->main_renderpass) {
-		vulkan_renderpass_end(cmd, current_renderpass);
-	}
+	case RENDERCMD_DRAW:
+		vkCmdDraw(
+			cmd->handle,
+			payload->draw.vertex_count,
+			payload->draw.instance_count,
+			0, 0);
+		break;
 
-	return TRUE; // NOTE: Properaly doesn't need bool (vkCmdXXX doesn't has result either).
+	case RENDERCMD_DRAW_INDEXED:
+		vkCmdDrawIndexed(
+			cmd->handle,
+			payload->draw_indexed.index_count,
+			payload->draw_indexed.instance_count,
+			0, 0, 0);
+		break;
+
+	case RENDERCMD_DISPATCH:
+		vkCmdDispatch(
+			cmd->handle,
+			payload->dispatch.group_size.x,
+			payload->dispatch.group_size.y,
+			payload->dispatch.group_size.z);
+		break;
+	}
 }
 
 b8 vulkan_renderer_backend_end_frame(box_renderer_backend* backend) {
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 	vulkan_command_buffer* cmd = &context->graphics_command_buffers[context->current_frame];
 
+	if (context->main_renderpass.state == RENDER_PASS_STATE_RECORDING)
+		vulkan_renderpass_end(cmd, &context->main_renderpass);
 	vulkan_command_buffer_end(cmd);
 
 	// Submit into queues
@@ -438,8 +441,7 @@ b8 vulkan_renderer_backend_end_frame(box_renderer_backend* backend) {
 			1, 
 			&submit_info, 
 			context->in_flight_fences[context->current_frame].handle),
-		"Failed to submit Vulkan command buffers to driver"
-	);
+		"Failed to submit Vulkan command buffers to driver");
 
 	vulkan_command_buffer_update_submitted(cmd);
 
@@ -448,12 +450,10 @@ b8 vulkan_renderer_backend_end_frame(box_renderer_backend* backend) {
 		vulkan_swapchain_present(
 			context,
 			&context->swapchain,
-			context->device.mode_queues[VULKAN_QUEUE_TYPE_GRAPHICS].handle,
 			context->device.mode_queues[VULKAN_QUEUE_TYPE_PRESENT].handle,
 			context->queue_complete_semaphores[context->current_frame],
 			context->image_index),
-		"Failed to present Vulkan swapchain"
-	);
+		"Failed to present Vulkan swapchain");
 
 	// Advance frame index
 	context->current_frame = (context->current_frame + 1) % backend->config.frames_in_flight;
@@ -463,17 +463,37 @@ b8 vulkan_renderer_backend_end_frame(box_renderer_backend* backend) {
 b8 vulkan_renderer_create_renderstage(box_renderer_backend* backend, box_renderstage* out_stage) {
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 
-	out_stage->internal_data = ballocate(sizeof(vulkan_graphics_pipeline), MEMORY_TAG_RENDERER);
-	return vulkan_graphics_pipeline_create(context, out_stage->internal_data, &context->main_renderpass, out_stage);
+	out_stage->internal_data = ballocate(sizeof(vulkan_pipeline), MEMORY_TAG_RENDERER);
+
+	if (out_stage->stages[BOX_SHADER_STAGE_TYPE_COMPUTE].file_size != 0) {
+		CHECK_VKRESULT(
+			vulkan_compute_pipeline_create(
+				context, 
+				out_stage->internal_data,
+				&context->main_renderpass, 
+				out_stage),
+			"Failed to create Vulkan compute pipeline");
+	}
+	else {
+		CHECK_VKRESULT(
+			vulkan_graphics_pipeline_create(
+				context,
+				out_stage->internal_data,
+				&context->main_renderpass,
+				out_stage),
+			"Failed to create Vulkan graphics pipeline");
+	}
+
+	return TRUE;
 }
 
 void vulkan_renderer_destroy_renderstage(box_renderer_backend* backend, box_renderstage* out_stage) {
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 
 	if (out_stage->internal_data != NULL) {
-		vulkan_graphics_pipeline* pipeline = (vulkan_graphics_pipeline*)out_stage->internal_data;
-		vulkan_graphics_pipeline_destroy(context, pipeline);
- 		bfree(pipeline, sizeof(vulkan_graphics_pipeline), MEMORY_TAG_RENDERER);
+		vulkan_pipeline* pipeline = (vulkan_pipeline*)out_stage->internal_data;
+		vulkan_pipeline_destroy(context, pipeline);
+ 		bfree(pipeline, sizeof(vulkan_pipeline), MEMORY_TAG_RENDERER);
 	}
 }
 
@@ -485,17 +505,12 @@ b8 vulkan_renderer_create_renderbuffer(box_renderer_backend* backend, box_render
 
 	VkBufferUsageFlagBits buffer_usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
-	switch (out_buffer->usage) {
-	case BOX_RENDERBUFFER_USAGE_VERTEX:
+	if (out_buffer->usage & BOX_RENDERBUFFER_USAGE_VERTEX)
 		buffer_usage |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-		break;
-	case BOX_RENDERBUFFER_USAGE_INDEX:
+	if (out_buffer->usage & BOX_RENDERBUFFER_USAGE_INDEX)
 		buffer_usage |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-		break;
-	case BOX_RENDERBUFFER_USAGE_STORAGE:
+	if (out_buffer->usage & BOX_RENDERBUFFER_USAGE_STORAGE)
 		buffer_usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-		break;
-	}
 
 	out_buffer->internal_data = ballocate(sizeof(vulkan_buffer), MEMORY_TAG_RENDERER);
 	vulkan_buffer* buffer = (vulkan_buffer*)out_buffer->internal_data;

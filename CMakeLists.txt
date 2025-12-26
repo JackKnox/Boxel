@@ -3,9 +3,14 @@ project(Boxel VERSION 0.1 LANGUAGES C)
 
 include(FetchContent)
 set(CMAKE_C_STANDARD 11)
-set(CMAKE_CXX_COMPILER 11)
 
-set(TINYCTHREAD_DISABLE_TESTS ON CACHE BOOL "" FORCE)
+# Allow custom build types
+set(CMAKE_CONFIGURATION_TYPES "Debug;Release;Dist" CACHE STRING "" FORCE)
+
+# Single-config generators (Ninja, Makefiles)
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
+endif()
 
 add_subdirectory(engine)
 add_subdirectory(sandbox)

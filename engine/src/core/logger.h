@@ -10,6 +10,11 @@ typedef enum log_level {
 
 void log_output(log_level level, const char* message, ...);
 
+#if !BOX_ENABLE_LOGGING
+#   define BX_INFO()
+#   define BX_TRACE()
+#endif
+
 #ifndef BX_FATAL
 // Logs an fatal-level message.
 #define BX_FATAL(message, ...) log_output(LOG_LEVEL_FATAL, message, ##__VA_ARGS__)
@@ -33,4 +38,10 @@ void log_output(log_level level, const char* message, ...);
 #ifndef BX_TRACE
 // Logs a trace-level message.
 #define BX_TRACE(message, ...) log_output(LOG_LEVEL_TRACE, message, ##__VA_ARGS__)
+#endif
+
+#if BOX_ENABLE_ASSERTS
+#   define BOX_ASSERT(x) do { if (!(x)) BX_FATAL(#x, __FILE__, __LINE__); } while (0)
+#else
+#   define BOX_ASSERT(x) ((void)0)
 #endif

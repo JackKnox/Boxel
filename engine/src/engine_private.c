@@ -8,7 +8,7 @@
 //       use "engine->should_quit = TRUE" and return to notify main thread to destroy
 //       at a time which is safe for the program (see tag "exit_and_cleanup").
 
-b8 get_next_rendercmd(box_engine* engine, box_rendercmd** out_rendercmd) {	
+box_rendercmd* get_next_rendercmd(box_engine* engine) {
 	// Get next read index reliably
 	mtx_lock(&engine->rendercmd_mutex);
 
@@ -19,11 +19,61 @@ b8 get_next_rendercmd(box_engine* engine, box_rendercmd** out_rendercmd) {
 		cnd_wait(&engine->rendercmd_cnd, &engine->rendercmd_mutex);
 
 	// Grab a snapshot of the command->finished under the lock and then unlock
-	*out_rendercmd = &engine->command_ring[engine->render_read_idx];
-	b8 has_finished = (*out_rendercmd)->finished;
+	box_rendercmd* rendercmd = &engine->command_ring[engine->render_read_idx];
 	mtx_unlock(&engine->rendercmd_mutex);
 
-	return has_finished;
+	if (!rendercmd->finished) return NULL;
+	return rendercmd;
+}
+
+b8 playback_rendercmd(box_engine* engine, box_rendercmd* rendercmd) {
+	box_rendercmd_context context = { 0 };
+
+	u8* cursor = 0;
+	while (freelist_next_block(&rendercmd->buffer, &cursor)) {
+		rendercmd_header* hdr = (rendercmd_header*)cursor;
+		rendercmd_payload* payload = (rendercmd_payload*)(cursor + sizeof(rendercmd_header));
+
+		switch (hdr->type) {
+		case RENDERCMD_BEGIN_RENDERSTAGE:
+#if BOX_ENABLE_VALIDATION
+			if (context.current_shader != NULL) {
+				BX_ERROR("Tried to begin renderstage twice in box_rendercmd.");
+				return FALSE;
+			}
+#endif
+
+			context.current_shader = payload->begin_renderstage.renderstage;
+			break;
+
+		case RENDERCMD_END_RENDERSTAGE:
+#if BOX_ENABLE_VALIDATION
+			if (context.current_shader == NULL) {
+				BX_ERROR("Tried to end renderstage twice in box_rendercmd.");
+				return FALSE;
+			}
+#endif
+
+			context.current_shader = NULL;
+			break;
+
+		case RENDERCMD_BIND_BUFFER:
+		case RENDERCMD_DRAW:
+		case RENDERCMD_DRAW_INDEXED:
+		case RENDERCMD_DISPATCH:
+#if BOX_ENABLE_VALIDATION
+			if (context.current_shader == NULL) {
+				BX_ERROR("Tried to dispatch draw call without a renderstage in box_rendercmd.");
+				return FALSE;
+			}
+#endif
+			break;
+		}
+
+		engine->renderer.playback_rendercmd(&engine->renderer, &context, hdr->type, payload);
+	}
+
+	return TRUE;
 }
 
 b8 engine_thread_init(box_engine* engine) {
@@ -32,8 +82,8 @@ b8 engine_thread_init(box_engine* engine) {
 		goto exit_and_cleanup;
 	}
 
-	if (!renderer_backend_create(engine->config.render_config.api_type, &engine->platform_state, &engine->config.render_config, &engine->renderer)
-		|| !engine->renderer.initialize(&engine->renderer, engine->config.window_size, engine->config.title)) {
+	if (!renderer_backend_create(engine->config.render_config.api_type, &engine->platform_state, &engine->config.render_config, &engine->renderer) || 
+		!engine->renderer.initialize(&engine->renderer, engine->config.window_size, engine->config.title)) {
 		BX_ERROR("Failed to init renderer backend.");
 		goto exit_and_cleanup;
 	}
@@ -65,13 +115,11 @@ b8 engine_thread_init(box_engine* engine) {
 		engine->delta_time = delta_ms;
 
 		box_renderer_backend* backend = &engine->renderer;
+		box_rendercmd* command = get_next_rendercmd(engine);
 
-		box_rendercmd* command = NULL;
-		b8 has_finished = get_next_rendercmd(engine, &command);
-
-		if (has_finished && backend->begin_frame(backend, engine->delta_time)) {
+		if (command != NULL && backend->begin_frame(backend, engine->delta_time)) {
 			// Grab a snapshot of the command->finished under the lock and then unlock
-			b8 succeceded = backend->playback_rendercmd(backend, command);
+			b8 succeceded = playback_rendercmd(engine, command);
 			if (!succeceded) {
 				BX_WARN("Could not playback render command.");
 			}
@@ -124,7 +172,7 @@ void engine_thread_shutdown(box_engine* engine) {
 	engine->renderer.wait_until_idle(&engine->renderer, UINT64_MAX);
 
 	BX_INFO("Destroying engine resources...");
-	resource_system_destroy_resources(&engine->resource_system);
+	resource_system_shutdown(&engine->resource_system);
 
 	BX_INFO("Shutting down renderer backend...");
 	if (engine->renderer.internal_context != NULL) {

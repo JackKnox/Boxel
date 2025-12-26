@@ -3,6 +3,8 @@
 
 #include "platform/platform.h"
 
+#if BOX_ENABLE_MEMORY_TRACKING
+
 typedef struct memory_stats {
 	u64 total_allocated;
 	u64 tagged_allocations[MEMORY_TAG_MAX_TAGS];
@@ -17,19 +19,23 @@ static const char* tag_strings[] = {
 	"RENDERER  ",
 	"TOTAL     "};
 
-static memory_stats stats;
+static memory_stats stats = { 0 };
+
+#endif
 
 b8 memory_initialize() {
-	bzero_memory(&stats, sizeof(stats));
 	return TRUE;
 }
 
 void memory_shutdown() {
+#if BOX_ENABLE_MEMORY_TRACKING
 	if (stats.total_allocated == 0) return;
 	for (u32 i = 0; i < MEMORY_TAG_MAX_TAGS; ++i) {
 		if (stats.tagged_allocations[i] == 0) continue;
 		BX_ERROR("Unfreed %llu bytes on MEMORY_TAG_%s", stats.tagged_allocations[i], tag_strings[i]);
 	}
+
+#endif
 }
 
 void* ballocate(u64 size, memory_tag tag) {
@@ -37,19 +43,23 @@ void* ballocate(u64 size, memory_tag tag) {
 	return bzero_memory(platform_allocate(size, FALSE), size);
 }
 
-void bfree(void* block, u64 size, memory_tag tag) {
+void bfree(const void* block, u64 size, memory_tag tag) {
 	breport_free(size, tag);
 	platform_free(block, FALSE);
 }
 
 void breport(u64 size, memory_tag tag) {
+#if BOX_ENABLE_MEMORY_TRACKING
 	stats.total_allocated += size;
 	stats.tagged_allocations[tag] += size;
+#endif
 }
 
 void breport_free(u64 size, memory_tag tag) {
+#if BOX_ENABLE_MEMORY_TRACKING
 	stats.total_allocated -= size;
 	stats.tagged_allocations[tag] -= size;
+#endif
 }
 
 void* bzero_memory(void* block, u64 size) {
@@ -65,6 +75,7 @@ void* bset_memory(void* dest, i32 value, u64 size) {
 }
 
 void print_memory_usage() {
+#if BOX_ENABLE_MEMORY_TRACKING
 	u64 total = 0;
 
 	const u64 gib = 1024 * 1024 * 1024;
@@ -94,4 +105,5 @@ void print_memory_usage() {
 
 		BX_TRACE("  %s | %.2f%s", tag_strings[i], amount, unit);
 	}
+#endif
 }

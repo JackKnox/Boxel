@@ -20,7 +20,7 @@ VkResult vulkan_command_buffer_allocate(
     if (!vulkan_result_is_success(result)) return result;
 
     out_command_buffer->state = COMMAND_BUFFER_STATE_READY;
-    return TRUE;
+    return VK_SUCCESS;
 }
 
 void vulkan_command_buffer_free(

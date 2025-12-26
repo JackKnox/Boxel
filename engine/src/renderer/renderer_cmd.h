@@ -24,6 +24,8 @@ enum {
     RENDERCMD_END_RENDERSTAGE,
     RENDERCMD_BIND_BUFFER,
     RENDERCMD_DRAW,
+    RENDERCMD_DRAW_INDEXED,
+    RENDERCMD_DISPATCH,
 };
 typedef u32 rendercmd_payload_type;
 
@@ -33,6 +35,11 @@ typedef struct box_rendercmd {
     freelist buffer;
     b8 finished;
 } box_rendercmd;
+
+// Holds the current render state during playback.
+typedef struct box_rendercmd_context {
+    struct box_renderstage* current_shader;
+} box_rendercmd_context;
 
 #pragma pack(push, 1)
 typedef struct rendercmd_header {
@@ -52,6 +59,11 @@ typedef union rendercmd_payload {
     } draw;
 
     struct {
+        u32 index_count;
+        u32 instance_count;
+    } draw_indexed;
+
+    struct {
         struct box_renderstage* renderstage;
     } begin_renderstage;
 
@@ -59,6 +71,10 @@ typedef union rendercmd_payload {
         struct box_renderbuffer* renderbuffer;
         u32 set, binding;
     } bind_buffer;
+
+    struct {
+        uvec3 group_size;
+    } dispatch;
 
 } rendercmd_payload;
 #pragma pack(pop)
@@ -80,6 +96,12 @@ void box_rendercmd_bind_buffer(box_rendercmd* cmd, struct box_renderbuffer* rend
 
 // Issue a draw call with current bound state.
 void box_rendercmd_draw(box_rendercmd* cmd, u32 vertex_count, u32 instance_count);
+
+// Issue a indexed draw call with current bound state.
+void box_rendercmd_draw_indexed(box_rendercmd* cmd, u32 index_count, u32 instance_count);
+
+// Issue a compute dispatch with current bound state.
+void box_rendercmd_dispatch(box_rendercmd* cmd, u32 group_size_x, u32 group_size_y, u32 group_size_z);
 
 // End the current render stage and finalizes state.
 void box_rendercmd_end_renderstage(box_rendercmd* cmd);

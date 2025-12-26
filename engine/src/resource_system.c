@@ -162,7 +162,7 @@ void resource_system_wait(box_resource_system* system) {
     mtx_unlock(&system->mutex);
 }
 
-void resource_system_destroy_resources(box_resource_system* system) {
+void resource_system_shutdown(box_resource_system* system) {
     // Stop the thread and wake it up 
     mtx_lock(&system->mutex);
     system->is_running = FALSE;

@@ -70,13 +70,17 @@ VkResult vulkan_renderpass_create(
     render_pass_create_info.pNext = 0;
     render_pass_create_info.flags = 0;
 
-    return vkCreateRenderPass(context->device.logical_device, &render_pass_create_info,
-        context->allocator, &out_renderpass->handle);
+    VkResult result = vkCreateRenderPass(context->device.logical_device, &render_pass_create_info, context->allocator, &out_renderpass->handle);
+    if (!vulkan_result_is_success(result)) return result;
+
+    out_renderpass->state = RENDER_PASS_STATE_READY;
+    return VK_SUCCESS;
 }
 
 void vulkan_renderpass_destroy(vulkan_context* context, vulkan_renderpass* renderpass) {
     if (renderpass && renderpass->handle) {
         vkDestroyRenderPass(context->device.logical_device, renderpass->handle, context->allocator);
+        renderpass->state = RENDER_PASS_STATE_NOT_ALLOCATED;
         renderpass->handle = 0;
     }
 }
@@ -105,10 +109,12 @@ void vulkan_renderpass_begin(
     begin_info.pClearValues = clear_values;
 
     vkCmdBeginRenderPass(command_buffer->handle, &begin_info, VK_SUBPASS_CONTENTS_INLINE);
+    renderpass->state = RENDER_PASS_STATE_RECORDING;
     command_buffer->state = COMMAND_BUFFER_STATE_IN_RENDER_PASS;
 }
 
 void vulkan_renderpass_end(vulkan_command_buffer* command_buffer, vulkan_renderpass* renderpass) {
     vkCmdEndRenderPass(command_buffer->handle);
+    renderpass->state = RENDER_PASS_STATE_RECORDING_ENDED;
     command_buffer->state = COMMAND_BUFFER_STATE_RECORDING;
 }
