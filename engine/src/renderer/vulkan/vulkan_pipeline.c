@@ -1,71 +1,72 @@
 #include "defines.h"
 #include "vulkan_pipeline.h"
 
-#include "renderer/vertex_layout.h"
+#include "renderer/render_layout.h"
 
-VkShaderStageFlags box_shader_type_to_vulkan_type(box_shader_stage_type type) {
-	switch (type) {
-	case BOX_SHADER_STAGE_TYPE_VERTEX:  return VK_SHADER_STAGE_VERTEX_BIT;
-	case BOX_SHADER_STAGE_TYPE_GEOMETRY: return VK_SHADER_STAGE_GEOMETRY_BIT;
-	case BOX_SHADER_STAGE_TYPE_FRAGMENT: return VK_SHADER_STAGE_FRAGMENT_BIT;
-	case BOX_SHADER_STAGE_TYPE_COMPUTE:  return VK_SHADER_STAGE_COMPUTE_BIT;
+VkResult create_pipeline_layout(vulkan_context* context, box_renderstage* shader, vulkan_pipeline* out_pipeline) {
+	if (shader->layout.descriptor_count > 0) {
+		VkDescriptorSetLayoutBinding* descriptor_bindings = darray_reserve(VkDescriptorSetLayoutBinding, shader->layout.descriptor_count, MEMORY_TAG_RENDERER);
+		VkDescriptorPoolSize* descriptor_pools = darray_reserve(VkDescriptorPoolSize, shader->layout.descriptor_count, MEMORY_TAG_RENDERER);
+
+		for (u32 i = 0; i < shader->layout.descriptor_count; ++i) {
+			VkDescriptorSetLayoutBinding binding = { 0 };
+			binding.binding = i;
+			binding.descriptorCount = 1;
+			binding.descriptorType = box_renderbuffer_usage_to_vulkan_type(shader->layout.descriptors[i]);
+			binding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT; // TODO: Make configurable.
+			descriptor_bindings = _darray_push(descriptor_bindings, &binding);
+
+			VkDescriptorPoolSize pool_size = { 0 };
+			pool_size.descriptorCount = context->swapchain.image_count;
+			pool_size.type = binding.descriptorType;
+			descriptor_pools = _darray_push(descriptor_pools, &pool_size);
+		}
+
+		VkDescriptorSetLayoutCreateInfo layoutInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
+		layoutInfo.bindingCount = darray_length(descriptor_bindings);
+		layoutInfo.pBindings = descriptor_bindings;
+
+		VkResult result = vkCreateDescriptorSetLayout(context->device.logical_device, &layoutInfo, context->allocator, &out_pipeline->descriptor);
+		if (!vulkan_result_is_success(result)) return result;
+
+		VkDescriptorPoolCreateInfo pool_info = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
+		pool_info.poolSizeCount = darray_length(descriptor_pools);
+		pool_info.pPoolSizes = descriptor_pools;
+		pool_info.maxSets = context->swapchain.image_count;
+
+		result = vkCreateDescriptorPool(context->device.logical_device, &pool_info, context->allocator, &out_pipeline->descriptor_pool);
+		if (!vulkan_result_is_success(result)) return result;
+
+		darray_destroy(descriptor_pools);
+		darray_destroy(descriptor_bindings);
+
+		out_pipeline->descriptor_sets = darray_reserve(VkDescriptorSet, context->swapchain.image_count, MEMORY_TAG_RENDERER);
+
+		VkDescriptorSetLayout* layouts = darray_reserve(VkDescriptorSetLayout, context->swapchain.image_count, MEMORY_TAG_RENDERER);
+		for (u32 i = 0; i < context->swapchain.image_count; ++i)
+			darray_push(layouts, out_pipeline->descriptor);
+
+		VkDescriptorSetAllocateInfo alloc_info = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
+		alloc_info.descriptorPool = out_pipeline->descriptor_pool;
+		alloc_info.descriptorSetCount = darray_length(layouts);
+		alloc_info.pSetLayouts = layouts;
+		result = vkAllocateDescriptorSets(context->device.logical_device, &alloc_info, out_pipeline->descriptor_sets);
+		if (!vulkan_result_is_success(result)) return result;
+
+		darray_destroy(layouts);
 	}
 
-	return 0;
-}
-
-VkFormat box_attribute_to_vulkan_type(box_vertex_attrib_type type, u64 count) {
-	// Vulkan supports 1-4 components only
-	if (count < 1 || count > 4) {
-		return VK_FORMAT_UNDEFINED;
+	VkPipelineLayoutCreateInfo create_info = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
+	if (shader->layout.descriptor_count > 0) {
+		create_info.setLayoutCount = 1;
+		create_info.pSetLayouts = &out_pipeline->descriptor;
 	}
 
-	switch (type) {
-	case BOX_VERTEX_ATTRIB_SINT8:
-		if (count == 1) return VK_FORMAT_R8_SINT;
-		if (count == 2) return VK_FORMAT_R8G8_SINT;
-		if (count == 3) return VK_FORMAT_R8G8B8_SINT;
-		if (count == 4) return VK_FORMAT_R8G8B8A8_SINT;
-
-	case BOX_VERTEX_ATTRIB_SINT16:
-		if (count == 1) return VK_FORMAT_R16_SINT;
-		if (count == 2) return VK_FORMAT_R16G16_SINT;
-		if (count == 3) return VK_FORMAT_R16G16B16_SINT;
-		if (count == 4) return VK_FORMAT_R16G16B16A16_SINT;
-
-	case BOX_VERTEX_ATTRIB_SINT32:
-		if (count == 1) return VK_FORMAT_R32_SINT;
-		if (count == 2) return VK_FORMAT_R32G32_SINT;
-		if (count == 3) return VK_FORMAT_R32G32B32_SINT;
-		if (count == 4) return VK_FORMAT_R32G32B32A32_SINT;
-
-	case BOX_VERTEX_ATTRIB_UINT8:
-		if (count == 1) return VK_FORMAT_R8_UINT;
-		if (count == 2) return VK_FORMAT_R8G8_UINT;
-		if (count == 3) return VK_FORMAT_R8G8B8_UINT;
-		if (count == 4) return VK_FORMAT_R8G8B8A8_UINT;
-
-	case BOX_VERTEX_ATTRIB_UINT16:
-		if (count == 1) return VK_FORMAT_R16_UINT;
-		if (count == 2) return VK_FORMAT_R16G16_UINT;
-		if (count == 3) return VK_FORMAT_R16G16B16_UINT;
-		if (count == 4) return VK_FORMAT_R16G16B16A16_UINT;
-
-	case BOX_VERTEX_ATTRIB_BOOL:
-	case BOX_VERTEX_ATTRIB_UINT32:
-		if (count == 1) return VK_FORMAT_R32_UINT;
-		if (count == 2) return VK_FORMAT_R32G32_UINT;
-		if (count == 3) return VK_FORMAT_R32G32B32_UINT;
-		if (count == 4) return VK_FORMAT_R32G32B32A32_UINT;
-
-	case BOX_VERTEX_ATTRIB_FLOAT32:
-		if (count == 1) return VK_FORMAT_R32_SFLOAT;
-		if (count == 2) return VK_FORMAT_R32G32_SFLOAT;
-		if (count == 3) return VK_FORMAT_R32G32B32_SFLOAT;
-		if (count == 4) return VK_FORMAT_R32G32B32A32_SFLOAT;
-	}
-
-	return VK_FORMAT_UNDEFINED;
+	return vkCreatePipelineLayout(
+		context->device.logical_device,
+		&create_info,
+		context->allocator,
+		&out_pipeline->layout);
 }
 
 VkResult vulkan_graphics_pipeline_create(
@@ -144,15 +145,15 @@ VkResult vulkan_graphics_pipeline_create(
 	multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
 	// Depth and stencil testing.
-	depth_stencil.depthTestEnable = shader->depth_test;
-	depth_stencil.depthWriteEnable = shader->depth_test;
+	depth_stencil.depthTestEnable = VK_FALSE;
+	depth_stencil.depthWriteEnable = VK_FALSE;
 	depth_stencil.depthCompareOp = VK_COMPARE_OP_LESS;
 	depth_stencil.depthBoundsTestEnable = VK_FALSE;
 	depth_stencil.stencilTestEnable = VK_FALSE;
 
 	// Colour attachments 
 	VkPipelineColorBlendAttachmentState colorBlendAttachment = { 0 };
-	colorBlendAttachment.blendEnable = shader->blending;
+	colorBlendAttachment.blendEnable = VK_FALSE;
 	colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
 	colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 	colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
@@ -179,12 +180,12 @@ VkResult vulkan_graphics_pipeline_create(
 	VkVertexInputAttributeDescription* attributes = darray_create(VkVertexInputAttributeDescription, MEMORY_TAG_RENDERER);
 	VkVertexInputBindingDescription binding_desc = { 0 };
 
-	if (shader->layout.initialized) {
+	if (shader->layout.attrib_count > 0 && shader->layout.initialized) {
 		binding_desc.binding = 0;
-		binding_desc.stride = box_vertex_layout_stride(&shader->layout);
+		binding_desc.stride = box_render_layout_stride(&shader->layout);
 		binding_desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-		for (u32 i = 0; i < box_vertex_layout_count(&shader->layout); ++i) {
+		for (u32 i = 0; i < box_render_layout_count(&shader->layout); ++i) {
 			box_vertex_attrib_desc* attribute = &shader->layout.attribs[i];
 
 			VkVertexInputAttributeDescription descriptor = { 0 };
@@ -207,11 +208,7 @@ VkResult vulkan_graphics_pipeline_create(
 	input_assembly.primitiveRestartEnable = VK_FALSE;
 
 	// Pipeline layout
-	VkPipelineLayoutCreateInfo layout_info = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
-	layout_info.setLayoutCount = 0;
-	layout_info.pushConstantRangeCount = 0;
-
-	VkResult result = vkCreatePipelineLayout(context->device.logical_device, &layout_info, context->allocator, &out_pipeline->layout);
+	VkResult result = create_pipeline_layout(context, shader, out_pipeline);
 	if (!vulkan_result_is_success(result)) return result;
 
 	// Pipeline create
@@ -276,11 +273,8 @@ VkResult vulkan_compute_pipeline_create(
 
 	bfree(stage->file_data, stage->file_size, MEMORY_TAG_CORE); // Comes from filesystem_read_entire_binary_file
 
-	VkPipelineLayoutCreateInfo layout_info = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
-	layout_info.setLayoutCount = 0;
-	layout_info.pSetLayouts = NULL;
-
-	result = vkCreatePipelineLayout(context->device.logical_device, &layout_info, context->allocator, &out_pipeline->layout);
+	// Pipeline layout
+	result = create_pipeline_layout(context, shader, out_pipeline);
 	if (!vulkan_result_is_success(result)) return result;
 
 	VkComputePipelineCreateInfo pipelineInfo = { VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO };
@@ -301,10 +295,24 @@ void vulkan_pipeline_destroy(vulkan_context* context, vulkan_pipeline* pipeline)
 	if (pipeline->handle)
 		vkDestroyPipeline(context->device.logical_device, pipeline->handle, context->allocator);
 
+	if (pipeline->descriptor_sets) {
+		vkFreeDescriptorSets(context->device.logical_device, pipeline->descriptor_pool, darray_length(pipeline->descriptor_sets), pipeline->descriptor_sets);
+		darray_destroy(pipeline->descriptor_sets);
+	}
+
+	if (pipeline->descriptor)
+		vkDestroyDescriptorSetLayout(context->device.logical_device, pipeline->descriptor, context->allocator);
+
+	if (pipeline->descriptor_pool)
+		vkDestroyDescriptorPool(context->device.logical_device, pipeline->descriptor_pool, context->allocator);
+
 	if (pipeline->layout)
 		vkDestroyPipelineLayout(context->device.logical_device, pipeline->layout, context->allocator);
 }
 
-void vulkan_pipeline_bind(vulkan_command_buffer* command_buffer, vulkan_pipeline* pipeline) {
+void vulkan_pipeline_bind(vulkan_command_buffer* command_buffer, vulkan_context* context, vulkan_pipeline* pipeline) {
 	vkCmdBindPipeline(command_buffer->handle, pipeline->bind_point, pipeline->handle);
+
+	if (pipeline->descriptor_sets)
+		vkCmdBindDescriptorSets(command_buffer->handle, pipeline->bind_point, pipeline->layout, 0, 1, &pipeline->descriptor_sets[context->image_index], 0, 0);
 }

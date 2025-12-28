@@ -90,6 +90,10 @@ typedef struct vulkan_pipeline {
     VkPipeline handle;
     VkPipelineLayout layout;
     VkPipelineBindPoint bind_point;
+
+    VkDescriptorSetLayout descriptor;
+    VkDescriptorPool descriptor_pool;
+    VkDescriptorSet* descriptor_sets;
 } vulkan_pipeline;
 
 typedef struct vulkan_swapchain {
@@ -156,6 +160,14 @@ typedef struct vulkan_context {
 } vulkan_context;
 
 i32 find_memory_index(vulkan_context* context, u32 type_filter, u32 property_flags);
+
+VkShaderStageFlags box_shader_type_to_vulkan_type(box_shader_stage_type type);
+
+VkDescriptorType box_renderbuffer_usage_to_vulkan_type(box_renderbuffer_usage usage);
+
+VkIndexType box_data_type_to_vulkan_index_type(box_render_data_type data_type);
+
+VkFormat box_attribute_to_vulkan_type(box_render_data_type type, u64 count);
 
 const char* vulkan_result_string(VkResult result, b8 get_extended);
 

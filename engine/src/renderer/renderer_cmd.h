@@ -26,6 +26,9 @@ enum {
     RENDERCMD_DRAW,
     RENDERCMD_DRAW_INDEXED,
     RENDERCMD_DISPATCH,
+
+    // Private command used for benefit of the renderer backend for ending state.
+    _RENDERCMD_END,
 };
 typedef u32 rendercmd_payload_type;
 
@@ -105,3 +108,6 @@ void box_rendercmd_dispatch(box_rendercmd* cmd, u32 group_size_x, u32 group_size
 
 // End the current render stage and finalizes state.
 void box_rendercmd_end_renderstage(box_rendercmd* cmd);
+
+// End the current render command and makes set render command immutable.
+void _box_rendercmd_end(box_rendercmd* cmd);

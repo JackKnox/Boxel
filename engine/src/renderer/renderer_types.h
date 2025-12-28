@@ -2,7 +2,7 @@
 
 #include "defines.h"
 
-#include "renderer/vertex_layout.h"
+#include "renderer/render_layout.h"
 
 #include "resource_system.h"
 
@@ -16,12 +16,6 @@ typedef enum box_shader_stage_type {
     BOX_SHADER_STAGE_TYPE_COMPUTE,
     BOX_SHADER_STAGE_TYPE_MAX,
 } box_shader_stage_type;
-
-typedef enum box_renderbuffer_usage {
-    BOX_RENDERBUFFER_USAGE_VERTEX = 1 << 0,
-    BOX_RENDERBUFFER_USAGE_INDEX = 1 << 1,
-    BOX_RENDERBUFFER_USAGE_STORAGE = 1 << 2,
-} box_renderbuffer_usage;
 
 typedef struct shader_stage {
     const void* file_data;
@@ -42,14 +36,13 @@ typedef struct box_renderbuffer {
 typedef struct box_renderstage {
     box_resource_header header;
     shader_stage stages[BOX_SHADER_STAGE_TYPE_MAX];
-    box_vertex_layout layout;
-    b8 depth_test, blending;
+    box_render_layout layout;
 
     void* internal_data;
 } box_renderstage;
 
 // Creates a renderstage asynchronously and logs it with the resource system attached to the specified box_engine.
-box_renderstage* box_engine_create_renderstage(struct box_engine* engine, const char* shader_stages[], u8 shader_stages_count, struct box_vertex_layout* layout, b8 depth_test, b8 blending);
+box_renderstage* box_engine_create_renderstage(struct box_engine* engine, box_render_layout* layout, u8 shader_stages_count, const char* shader_stages[]);
 
 // Create a buffer on the GPU asynchronously and logs it with the resource system attached to the specified box_engine.
 box_renderbuffer* box_engine_create_renderbuffer(struct box_engine* engine, box_renderbuffer_usage usage, void* data_to_send, u64 data_size);

@@ -164,6 +164,7 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, uvec2 start
 			"Failed to create Vulkan framebuffers");
 
 		if (backend->config.modes & RENDERER_MODE_GRAPHICS) {
+			// TODO: Allocate command buffer all at once.
 			CHECK_VKRESULT(
 				vulkan_command_buffer_allocate(
 					context,
@@ -174,10 +175,11 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, uvec2 start
 		}
 
 		if (backend->config.modes & RENDERER_MODE_COMPUTE) {
+			// TODO: Allocate command buffer all at once.
 			CHECK_VKRESULT(
 				vulkan_command_buffer_allocate(
 					context,
-					context->device.mode_queues[RENDERER_MODE_COMPUTE].pool,
+					context->device.mode_queues[VULKAN_QUEUE_TYPE_COMPUTE].pool,
 					TRUE,
 					&context->compute_command_buffers[i]),
 				"Failed to create Vulkan command buffers");
@@ -301,7 +303,7 @@ void vulkan_renderer_backend_on_resized(box_renderer_backend* backend, u32 width
 b8 vulkan_renderer_backend_begin_frame(box_renderer_backend* backend, f32 delta_time) {
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 
-	vulkan_fence_wait(context, &context->in_flight_fences[context->current_frame], delta_time * 10.0f);
+	vulkan_fence_wait(context, &context->in_flight_fences[context->current_frame], UINT64_MAX);
 	vulkan_fence_reset(context, &context->in_flight_fences[context->current_frame]);
 
 	// Acquire next swapchain image
@@ -361,29 +363,42 @@ void vulkan_renderer_playback_rendercmd(box_renderer_backend* backend, box_rende
 		break;
 
 	case RENDERCMD_BEGIN_RENDERSTAGE:
-		vulkan_pipeline_bind(cmd, (vulkan_pipeline*)rendercmd_context->current_shader->internal_data);
+		vulkan_pipeline_bind(cmd, context, (vulkan_pipeline*)rendercmd_context->current_shader->internal_data);
 		break;
 
 	case RENDERCMD_BIND_BUFFER:
 		box_renderbuffer* buffer = payload->bind_buffer.renderbuffer;
 		VkBuffer handle = ((vulkan_buffer*)buffer->internal_data)->handle;
 
-		VkDeviceSize offset = 0;
-
 		switch (payload->bind_buffer.renderbuffer->usage) {
 		case BOX_RENDERBUFFER_USAGE_VERTEX:
-			vkCmdBindVertexBuffers(
-				cmd->handle,
-				payload->bind_buffer.binding,
-				1, &handle, &offset);
+			VkDeviceSize offset = 0;
+			vkCmdBindVertexBuffers(cmd->handle, payload->bind_buffer.binding, 1, &handle, &offset);
 			break;
 
 		case BOX_RENDERBUFFER_USAGE_INDEX:
-			vkCmdBindIndexBuffer(
-				cmd->handle,
-				handle,
-				offset,
-				VK_INDEX_TYPE_UINT16);
+			vkCmdBindIndexBuffer(cmd->handle, handle, 0, box_data_type_to_vulkan_index_type(rendercmd_context->current_shader->layout.index_type));
+			break;
+		
+		case BOX_RENDERBUFFER_USAGE_STORAGE:
+			VkDescriptorBufferInfo bufferInfo = { 0 };
+			bufferInfo.buffer = handle;
+			bufferInfo.offset = 0;
+			bufferInfo.range = VK_WHOLE_SIZE;
+
+			vulkan_pipeline* bound_pipeline = (vulkan_pipeline*)rendercmd_context->current_shader->internal_data;
+
+			// Update descriptor sets.
+			VkWriteDescriptorSet descriptor_write = { VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+			descriptor_write.dstSet = bound_pipeline->descriptor_sets[context->image_index];
+			descriptor_write.dstBinding = payload->bind_buffer.binding;
+			descriptor_write.dstArrayElement = 0;
+			descriptor_write.descriptorType = box_renderbuffer_usage_to_vulkan_type(payload->bind_buffer.renderbuffer->usage);
+			descriptor_write.descriptorCount = 1;
+			descriptor_write.pBufferInfo = &bufferInfo;
+
+			vkUpdateDescriptorSets(context->device.logical_device, 1, &descriptor_write, 0, 0);
+			break;
 		}
 		break;
 

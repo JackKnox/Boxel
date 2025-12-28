@@ -133,7 +133,7 @@ void box_engine_render_frame(box_engine* engine, box_rendercmd* command) {
 		cnd_wait(&engine->rendercmd_cnd, &engine->rendercmd_mutex);
 
 	engine->game_write_idx = (engine->game_write_idx + 1) % engine->command_ring_length;
-	command->finished = TRUE;
+	_box_rendercmd_end(command);
 
 	// Notify the render thread there is something to play back
 	cnd_signal(&engine->rendercmd_cnd);

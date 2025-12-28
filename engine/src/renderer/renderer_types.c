@@ -3,9 +3,9 @@
 
 #include "platform/filesystem.h"
 #include "resource_system.h"
-#include "vertex_layout.h"
-
 #include "engine_private.h"
+
+#include "render_layout.h"
 
 box_shader_stage_type get_stage_type_from_filepath(const char* filepath) {
 	if (strstr(filepath, ".vert.spv"))
@@ -29,10 +29,10 @@ void internal_destroy_renderstage(box_resource_system* system, box_renderstage* 
 }
 
 box_renderstage* box_engine_create_renderstage(
-	box_engine* engine, 
-	const char* shader_stages[], u8 shader_stages_count,
-	box_vertex_layout* layout,
-	b8 depth_test, b8 blending) {
+	box_engine* engine,
+	box_render_layout* layout,
+	u8 shader_stages_count,
+	const char* shader_stages[]) {
 	box_renderstage* renderstage = NULL;
 	if (!resource_system_allocate_resource(&engine->resource_system, sizeof(box_renderstage), &renderstage)) {
 		// Error already printed...
@@ -52,15 +52,13 @@ box_renderstage* box_engine_create_renderstage(
 		++success_stages;
 	}
 	
-	if (success_stages <= 0) {
+	if (shader_stages_count > 0 && success_stages <= 0) {
 		BX_ERROR("No successfully loaded shaders attached to box_renderstage.");
 		return NULL;
 	}
 
 	// Fill static data
 	if (layout) renderstage->layout = *layout;
-	renderstage->depth_test = depth_test;
-	renderstage->blending = blending;
 
 	renderstage->header.vtable.create_local = internal_create_renderstage;
 	renderstage->header.vtable.destroy_local = internal_destroy_renderstage;
