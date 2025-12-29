@@ -41,7 +41,7 @@ void log_output(log_level level, const char* message, ...);
 #endif
 
 #if BOX_ENABLE_ASSERTS
-#   define BOX_ASSERT(x) do { if (!(x)) BX_FATAL(#x, __FILE__, __LINE__); } while (0)
+#   define BX_ASSERT(x) do { if (!(x)) BX_FATAL(#x, __FILE__, __LINE__); } while (0)
 #else
-#   define BOX_ASSERT(x) ((void)0)
+#   define BX_ASSERT(x) ((void)0)
 #endif

@@ -33,40 +33,19 @@ void vulkan_fence_destroy(vulkan_context* context, vulkan_fence* fence) {
 }
 
 b8 vulkan_fence_wait(vulkan_context* context, vulkan_fence* fence, u64 timeout_ns) {
-    if (!fence->is_signaled) {
-        VkResult result = vkWaitForFences(
+    if (fence->is_signaled) return TRUE;
+    
+    CHECK_VKRESULT(
+        vkWaitForFences(
             context->device.logical_device,
             1,
             &fence->handle,
             TRUE,
-            timeout_ns);
-        switch (result) {
-        case VK_SUCCESS:
-            fence->is_signaled = TRUE;
-            return TRUE;
-        case VK_TIMEOUT:
-            BX_WARN("vk_fence_wait - Timed out");
-            break;
-        case VK_ERROR_DEVICE_LOST:
-            BX_ERROR("vk_fence_wait - VK_ERROR_DEVICE_LOST.");
-            break;
-        case VK_ERROR_OUT_OF_HOST_MEMORY:
-            BX_ERROR("vk_fence_wait - VK_ERROR_OUT_OF_HOST_MEMORY.");
-            break;
-        case VK_ERROR_OUT_OF_DEVICE_MEMORY:
-            BX_ERROR("vk_fence_wait - VK_ERROR_OUT_OF_DEVICE_MEMORY.");
-            break;
-        default:
-            BX_ERROR("vk_fence_wait - An unknown error has occurred.");
-            break;
-        }
-    }
-    else {
-        // If already signaled, do not wait.
-        return TRUE;
-    }
+            timeout_ns),
+        "Failed to wait on Vulkan fence");
 
-    return FALSE;
+    fence->is_signaled = TRUE;
+    return TRUE;
 }
 
 void vulkan_fence_reset(vulkan_context* context, vulkan_fence* fence) {

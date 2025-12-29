@@ -121,10 +121,12 @@ box_rendercmd* box_engine_next_rendercmd(box_engine* engine) {
 }
 
 void box_engine_render_frame(box_engine* engine, box_rendercmd* command) {
+#if BOX_ENABLE_VALIDATION
 	if (&engine->command_ring[engine->game_write_idx] != command) {
 		BX_ERROR("Engine cannot take user-generated render commands (Use box_engine_next_rendercmd instead).");
 		return;
 	}
+#endif
 
 	mtx_lock(&engine->rendercmd_mutex);
 

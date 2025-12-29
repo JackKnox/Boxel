@@ -4,11 +4,9 @@
 VkResult vulkan_renderpass_create(
     vulkan_context* context,
     vulkan_renderpass* out_renderpass,
-    vec2 origin, vec2 size,
-    u32 stencil) {
+    vec2 origin, vec2 size) {
     out_renderpass->origin = origin;
     out_renderpass->size = size;
-    out_renderpass->stencil = stencil;
     out_renderpass->clear_colour = 0x191919FF;
 
     // Main subpass
@@ -103,7 +101,6 @@ void vulkan_renderpass_begin(
     clear_values[0].color.float32[1] = ((renderpass->clear_colour >> 16) & 0xFF) / 255.0f;
     clear_values[0].color.float32[2] = ((renderpass->clear_colour >> 8)  & 0xFF) / 255.0f;
     clear_values[0].color.float32[3] = ((renderpass->clear_colour)       & 0xFF) / 255.0f;
-    clear_values[1].depthStencil.stencil = renderpass->stencil;
 
     begin_info.clearValueCount = 2;
     begin_info.pClearValues = clear_values;

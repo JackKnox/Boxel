@@ -19,16 +19,16 @@ VkResult vulkan_buffer_create(
 	if (!vulkan_result_is_success(result)) return result;
 
 	vkGetBufferMemoryRequirements(context->device.logical_device, out_buffer->handle, &out_buffer->memory_requirements);
-	out_buffer->memory_index = find_memory_index(context, out_buffer->memory_requirements.memoryTypeBits, out_buffer->properties);
+	i32 memory_index = find_memory_index(context, out_buffer->memory_requirements.memoryTypeBits, out_buffer->properties);
 
-	if (out_buffer->memory_index == -1) {
+	if (memory_index == -1) {
 		BX_ERROR("Failed to create Vulkan buffer: Unable to find suitable memory type.");
 		return FALSE;
 	}
 
 	VkMemoryAllocateInfo alloc_info = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
 	alloc_info.allocationSize = out_buffer->memory_requirements.size;
-	alloc_info.memoryTypeIndex = out_buffer->memory_index;
+	alloc_info.memoryTypeIndex = memory_index;
 
 	result = vkAllocateMemory(context->device.logical_device, &alloc_info, context->allocator, &out_buffer->memory);
 	if (!vulkan_result_is_success(result)) return result;

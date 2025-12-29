@@ -5,6 +5,7 @@
 #include "utils/darray.h"
 
 #include "renderer/renderer_backend.h"
+#include "renderer/renderer_types.h"
 
 #include <vulkan/vulkan.h>
 
@@ -14,6 +15,8 @@
         VkResult r = expr;                                \
         if (!vulkan_result_is_success(r)) BX_FATAL("VK_CHECK failed: (Line = %i) "  __FILE__ "  (Error code: %s) ", __LINE__, vulkan_result_string(r, 1)); \
     }
+
+#define CHECK_VKRESULT(func, message) { VkResult result = func; if (!vulkan_result_is_success(result)) { BX_ERROR(message ": %s", vulkan_result_string(result, BOX_ENABLE_VALIDATION)); return FALSE; } }
 
 typedef enum vulkan_queue_type {
     VULKAN_QUEUE_TYPE_GRAPHICS, 
@@ -59,7 +62,6 @@ typedef struct vulkan_buffer {
     VkBufferUsageFlags usage;
     VkMemoryPropertyFlags properties;
     VkMemoryRequirements memory_requirements;
-    i32 memory_index;
 } vulkan_buffer;
 
 typedef enum vulkan_render_pass_state {
@@ -71,29 +73,27 @@ typedef enum vulkan_render_pass_state {
 
 typedef struct vulkan_renderpass {
     VkRenderPass handle;
-    vulkan_render_pass_state state;
-
     vec2 origin, size;
 
+    vulkan_render_pass_state state;
     u32 clear_colour;
-    u32 stencil;
 } vulkan_renderpass;
 
 typedef struct vulkan_framebuffer {
     VkFramebuffer handle;
-    u32 attachment_count;
     VkImageView* attachments;
     vulkan_renderpass* renderpass;
+    u32 attachment_count;
 } vulkan_framebuffer;
 
 typedef struct vulkan_pipeline {
     VkPipeline handle;
     VkPipelineLayout layout;
-    VkPipelineBindPoint bind_point;
 
     VkDescriptorSetLayout descriptor;
     VkDescriptorPool descriptor_pool;
     VkDescriptorSet* descriptor_sets;
+    VkPipelineBindPoint bind_point;
 } vulkan_pipeline;
 
 typedef struct vulkan_swapchain {
@@ -123,6 +123,7 @@ typedef struct vulkan_command_buffer {
 
     // Command buffer state.
     vulkan_command_buffer_state state;
+    b8 used;
 } vulkan_command_buffer;
 
 typedef struct vulkan_fence {
@@ -146,9 +147,7 @@ typedef struct vulkan_context {
     vulkan_renderpass main_renderpass;
 
     // darray
-    vulkan_command_buffer* graphics_command_buffers;
-    // darray
-    vulkan_command_buffer* compute_command_buffers;
+    vulkan_command_buffer* command_buffer_ring[2];
     // darray
     VkSemaphore* image_available_semaphores;
     // darray

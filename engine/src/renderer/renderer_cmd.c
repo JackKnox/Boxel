@@ -12,7 +12,7 @@
 #   define CHECK_FINISHED()
 #endif
 
-rendercmd_payload* add_command(box_rendercmd* cmd, rendercmd_payload_type type, u64 payload_size) {
+rendercmd_payload* add_command(box_rendercmd* cmd, renderer_mode mode, rendercmd_payload_type type, u64 payload_size) {
     if (!cmd) return NULL;
 
     // Our command layout inside user memory: [rendercmd_header][payload]
@@ -32,6 +32,7 @@ rendercmd_payload* add_command(box_rendercmd* cmd, rendercmd_payload_type type, 
     // user_memory points at rendercmd_header
     rendercmd_header* header = (rendercmd_header*)user_memory;
     header->type = type;
+    header->supported_mode = mode;
 
     return (rendercmd_payload*)((u8*)user_memory + sizeof(rendercmd_header));
 }
@@ -52,21 +53,19 @@ void box_rendercmd_set_clear_colour(box_rendercmd* cmd, f32 clear_r, f32 clear_g
     CHECK_FINISHED();
 
     rendercmd_payload* payload;
-    payload = add_command(cmd, RENDERCMD_SET_CLEAR_COLOUR, sizeof(payload->set_clear_colour));
+    payload = add_command(cmd, RENDERER_MODE_GRAPHICS, RENDERCMD_SET_CLEAR_COLOUR, sizeof(payload->set_clear_colour));
     payload->set_clear_colour.clear_colour =
         ((u32)(clear_r * 255.0f + 0.5f) << 24) |
         ((u32)(clear_g * 255.0f + 0.5f) << 16) |
         ((u32)(clear_b * 255.0f + 0.5f) << 8)  |
          (u32)(1.0f * 255.0f + 0.5f);
-
-    cmd->required_modes |= RENDERER_MODE_GRAPHICS;
 }
 
 void box_rendercmd_begin_renderstage(box_rendercmd* cmd, box_renderstage* renderstage) {
     CHECK_FINISHED();
 
     rendercmd_payload* payload;
-    payload = add_command(cmd, RENDERCMD_BEGIN_RENDERSTAGE, sizeof(payload->begin_renderstage));
+    payload = add_command(cmd, renderstage->mode, RENDERCMD_BEGIN_RENDERSTAGE, sizeof(payload->begin_renderstage));
     payload->begin_renderstage.renderstage = renderstage;
 }
 
@@ -74,7 +73,7 @@ void box_rendercmd_bind_buffer(box_rendercmd* cmd, box_renderbuffer* renderbuffe
     CHECK_FINISHED();
 
     rendercmd_payload* payload;
-    payload = add_command(cmd, RENDERCMD_BIND_BUFFER, sizeof(payload->bind_buffer));
+    payload = add_command(cmd, 0, RENDERCMD_BIND_BUFFER, sizeof(payload->bind_buffer));
     payload->bind_buffer.renderbuffer = renderbuffer;
     payload->bind_buffer.set = set;
     payload->bind_buffer.binding = binding;
@@ -84,43 +83,37 @@ void box_rendercmd_draw(box_rendercmd* cmd, u32 vertex_count, u32 instance_count
     CHECK_FINISHED();
 
     rendercmd_payload* payload;
-    payload = add_command(cmd, RENDERCMD_DRAW, sizeof(payload->draw));
+    payload = add_command(cmd, RENDERER_MODE_GRAPHICS, RENDERCMD_DRAW, sizeof(payload->draw));
     payload->draw.vertex_count = vertex_count;
     payload->draw.instance_count = instance_count;
-
-    cmd->required_modes |= RENDERER_MODE_GRAPHICS;
 }
 
 void box_rendercmd_draw_indexed(box_rendercmd* cmd, u32 index_count, u32 instance_count) {
     CHECK_FINISHED();
 
     rendercmd_payload* payload;
-    payload = add_command(cmd, RENDERCMD_DRAW_INDEXED, sizeof(payload->draw_indexed));
+    payload = add_command(cmd, RENDERER_MODE_GRAPHICS, RENDERCMD_DRAW_INDEXED, sizeof(payload->draw_indexed));
     payload->draw_indexed.index_count = index_count;
     payload->draw_indexed.instance_count = instance_count;
-
-    cmd->required_modes |= RENDERER_MODE_GRAPHICS;
 }
 
 void box_rendercmd_dispatch(box_rendercmd* cmd, u32 group_size_x, u32 group_size_y, u32 group_size_z) {
     CHECK_FINISHED();
 
     rendercmd_payload* payload;
-    payload = add_command(cmd, RENDERCMD_DISPATCH, sizeof(payload->draw));
+    payload = add_command(cmd, RENDERER_MODE_COMPUTE, RENDERCMD_DISPATCH, sizeof(payload->draw));
     payload->dispatch.group_size.x = group_size_x;
     payload->dispatch.group_size.y = group_size_y;
     payload->dispatch.group_size.z = group_size_z;
-
-    cmd->required_modes |= RENDERER_MODE_COMPUTE;
 }
 
 void box_rendercmd_end_renderstage(box_rendercmd* cmd) {
     CHECK_FINISHED();
 
-    add_command(cmd, RENDERCMD_END_RENDERSTAGE, 0);
+    add_command(cmd, 0, RENDERCMD_END_RENDERSTAGE, 0);
 }
 
 void _box_rendercmd_end(box_rendercmd* cmd) {
-    add_command(cmd, _RENDERCMD_END, 0);
+    add_command(cmd, 0, _RENDERCMD_END, 0);
     cmd->finished = TRUE;
 }

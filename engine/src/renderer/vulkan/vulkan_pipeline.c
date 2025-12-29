@@ -53,6 +53,8 @@ VkResult create_pipeline_layout(vulkan_context* context, box_renderstage* shader
 		result = vkAllocateDescriptorSets(context->device.logical_device, &alloc_info, out_pipeline->descriptor_sets);
 		if (!vulkan_result_is_success(result)) return result;
 
+		darray_length_set(out_pipeline->descriptor_sets, alloc_info.descriptorSetCount);
+
 		darray_destroy(layouts);
 	}
 
@@ -296,7 +298,6 @@ void vulkan_pipeline_destroy(vulkan_context* context, vulkan_pipeline* pipeline)
 		vkDestroyPipeline(context->device.logical_device, pipeline->handle, context->allocator);
 
 	if (pipeline->descriptor_sets) {
-		vkFreeDescriptorSets(context->device.logical_device, pipeline->descriptor_pool, darray_length(pipeline->descriptor_sets), pipeline->descriptor_sets);
 		darray_destroy(pipeline->descriptor_sets);
 	}
 

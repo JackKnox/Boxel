@@ -13,8 +13,8 @@ u64 capacity = capacity of rendercmd buffer
 u64 size = bytes used by rendercmd buffer
 
 -- per command --
-u32 command_type = type of render command
 u64 payload_size = size of data associated with command
+u32 command_type = type of render command
 ...rest is payload (size is payload_size)
 */
 
@@ -34,7 +34,6 @@ typedef u32 rendercmd_payload_type;
 
 // Async container of commands to send to the render backend.
 typedef struct box_rendercmd {
-    renderer_mode required_modes;
     freelist buffer;
     b8 finished;
 } box_rendercmd;
@@ -42,11 +41,15 @@ typedef struct box_rendercmd {
 // Holds the current render state during playback.
 typedef struct box_rendercmd_context {
     struct box_renderstage* current_shader;
+
+    // TODO: Remove!
+    struct vulkan_command_buffer* command_buffer;
 } box_rendercmd_context;
 
 #pragma pack(push, 1)
 typedef struct rendercmd_header {
     rendercmd_payload_type type;
+    renderer_mode supported_mode;
 } rendercmd_header;
 #pragma pack(pop)
 

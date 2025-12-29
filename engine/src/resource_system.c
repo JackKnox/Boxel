@@ -18,18 +18,6 @@ b8 resource_system_on_application_quit(u16 code, void* sender, void* listener_in
     return FALSE;
 }
 
-void create_resource(box_resource_system* system, box_resource_header* resource) {
-    for (u32 i = 0; i < resource->dependent_count; ++i) {
-        create_resource(system, resource->dependents[i]);
-    }
-    
-    resource->state = BOX_RESOURCE_STATE_UPLOADING;
-    
-    // Perform the create (does its own GPU/local allocations)
-    b8 created = resource->vtable.create_local(system, resource, resource->resource_arg);
-    resource->state = created ? BOX_RESOURCE_STATE_READY: BOX_RESOURCE_STATE_FAILED;
-}
-
 b8 resource_thread_func(void* arg) {
     box_resource_system* system = (box_resource_system*)arg;
 
@@ -63,7 +51,11 @@ b8 resource_thread_func(void* arg) {
             goto continue_thread;
         }
         
-        create_resource(system, resource);
+        resource->state = BOX_RESOURCE_STATE_UPLOADING;
+
+        // Perform the create (does its own GPU/local allocations)
+        b8 created = resource->vtable.create_local(system, resource, resource->resource_arg);
+        resource->state = created ? BOX_RESOURCE_STATE_READY : BOX_RESOURCE_STATE_FAILED;
 
     continue_thread:
         // Notify waiters that one resource finished
@@ -114,19 +106,10 @@ b8 resource_system_allocate_resource(box_resource_system* system, u64 size, void
     *out_resource = freelist_push(&system->resources, size, NULL);
     if (!*out_resource) return FALSE;
 
-    bzero_memory(*out_resource, size);
-
     box_resource_header* hdr = (box_resource_header*)*out_resource;
     hdr->magic = RESOURCE_MAGIC;
     hdr->state = BOX_RESOURCE_STATE_UNINITIALIZED;
     return TRUE;
-}
-
-void resource_system_add_dependency(box_resource_system* system, void* parent, void* dependency) {
-    if (!parent || !dependency) return;
-    box_resource_header* parent_hdr = (box_resource_header*)parent;
-
-    parent_hdr->dependents[++parent_hdr->dependent_count] = dependency;
 }
 
 void resource_system_signal_upload(box_resource_system* system, void* resource) {

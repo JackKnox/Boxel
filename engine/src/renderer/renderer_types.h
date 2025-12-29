@@ -3,6 +3,7 @@
 #include "defines.h"
 
 #include "renderer/render_layout.h"
+#include "renderer/renderer_backend.h"
 
 #include "resource_system.h"
 
@@ -36,6 +37,7 @@ typedef struct box_renderbuffer {
 typedef struct box_renderstage {
     box_resource_header header;
     shader_stage stages[BOX_SHADER_STAGE_TYPE_MAX];
+    renderer_mode mode;
     box_render_layout layout;
 
     void* internal_data;

@@ -2,8 +2,6 @@
 
 #include "defines.h"
 
-#include "renderer_types.h"
-
 // Type for Graphics API/Method.
 typedef enum box_renderer_backend_type {
     RENDERER_BACKEND_TYPE_VULKAN,
@@ -72,15 +70,15 @@ typedef struct box_renderer_backend {
     void (*resized)(struct box_renderer_backend* backend, u32 width, u32 height);
 
     b8 (*begin_frame)(struct box_renderer_backend* backend, f32 delta_time);
-    void (*playback_rendercmd)(struct box_renderer_backend* backend, struct box_rendercmd_context* rendercmd_context, u32 type, union rendercmd_payload* payload);
+    void (*playback_rendercmd)(struct box_renderer_backend* backend, struct box_rendercmd_context* rendercmd_context, struct rendercmd_header* header, union rendercmd_payload* payload);
     b8 (*end_frame)(struct box_renderer_backend* backend);
 
     // Renderer resources.
-    b8 (*create_internal_renderstage)(struct box_renderer_backend* backend, box_renderstage* out_stage);
-    void (*destroy_internal_renderstage)(struct box_renderer_backend* backend, box_renderstage* out_stage);
+    b8 (*create_internal_renderstage)(struct box_renderer_backend* backend, struct box_renderstage* out_stage);
+    void (*destroy_internal_renderstage)(struct box_renderer_backend* backend, struct box_renderstage* out_stage);
 
-    b8(*create_internal_renderbuffer)(struct box_renderer_backend* backend, box_renderbuffer* out_buffer);
-    void (*destroy_internal_renderbuffer)(struct box_renderer_backend* backend, box_renderbuffer* out_buffer);
+    b8(*create_internal_renderbuffer)(struct box_renderer_backend* backend, struct box_renderbuffer* out_buffer);
+    void (*destroy_internal_renderbuffer)(struct box_renderer_backend* backend, struct box_renderbuffer* out_buffer);
 } box_renderer_backend;
 
 b8 renderer_backend_create(box_renderer_backend_type type, struct box_platform* plat_state, box_renderer_backend_config* config, box_renderer_backend* out_renderer_backend);

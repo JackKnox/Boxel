@@ -3,7 +3,10 @@
 #include "defines.h"
 
 #include "platform/platform.h"
+
 #include "renderer/renderer_backend.h"
+
+#include "resource_system.h"
 
 // Application configuration
 typedef struct box_config {

@@ -34,6 +34,15 @@ b8 playback_rendercmd(box_engine* engine, box_rendercmd* rendercmd) {
 		rendercmd_header* hdr = (rendercmd_header*)cursor;
 		rendercmd_payload* payload = (rendercmd_payload*)(cursor + sizeof(rendercmd_header));
 
+#if BOX_ENABLE_VALIDATION
+		if (hdr->supported_mode != 0) {
+			if ((engine->renderer.config.modes & hdr->supported_mode) == 0) {
+				BX_ERROR("Render command in box_rendercmd isn't supported by renderer configuration");
+				return FALSE;
+			}
+		}
+#endif
+
 		switch (hdr->type) {
 		case RENDERCMD_BEGIN_RENDERSTAGE:
 #if BOX_ENABLE_VALIDATION
@@ -54,7 +63,6 @@ b8 playback_rendercmd(box_engine* engine, box_rendercmd* rendercmd) {
 			}
 #endif
 
-			context.current_shader = NULL;
 			break;
 
 		case RENDERCMD_BIND_BUFFER:
@@ -70,7 +78,7 @@ b8 playback_rendercmd(box_engine* engine, box_rendercmd* rendercmd) {
 			break;
 		}
 
-		engine->renderer.playback_rendercmd(&engine->renderer, &context, hdr->type, payload);
+		engine->renderer.playback_rendercmd(&engine->renderer, &context, hdr, payload);
 	}
 
 	return TRUE;

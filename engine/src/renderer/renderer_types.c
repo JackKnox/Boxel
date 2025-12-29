@@ -20,6 +20,17 @@ box_shader_stage_type get_stage_type_from_filepath(const char* filepath) {
 	return 0;
 }
 
+renderer_mode box_stage_type_to_renderer_mode(box_shader_stage_type stage_type) {
+	switch (stage_type) {
+	case BOX_SHADER_STAGE_TYPE_VERTEX:   return RENDERER_MODE_GRAPHICS;
+	case BOX_SHADER_STAGE_TYPE_FRAGMENT: return RENDERER_MODE_GRAPHICS;
+	case BOX_SHADER_STAGE_TYPE_COMPUTE:  return RENDERER_MODE_COMPUTE;
+	case BOX_SHADER_STAGE_TYPE_GEOMETRY: return RENDERER_MODE_GRAPHICS;
+	}
+
+	return 0;
+}
+
 b8 internal_create_renderstage(box_resource_system* system, box_renderstage* resource, box_engine* engine) {
 	return engine->renderer.create_internal_renderstage(&engine->renderer, resource);
 }
@@ -41,21 +52,34 @@ box_renderstage* box_engine_create_renderstage(
 
 	u32 success_stages = 0;
 	for (int i = 0; i < shader_stages_count; ++i) {
-		shader_stage* stage = &renderstage->stages[get_stage_type_from_filepath(shader_stages[i])];
-		
+		box_shader_stage_type stage_type = get_stage_type_from_filepath(shader_stages[i]);
+		shader_stage* stage = &renderstage->stages[stage_type];
+
 		stage->file_data = filesystem_read_entire_binary_file(shader_stages[i], &stage->file_size);
 		if (!stage->file_data) {
 			BX_WARN("Unable to read binary: %s.", shader_stages[i]);
 			continue;
 		}
 
+		renderer_mode mode = box_stage_type_to_renderer_mode(stage_type);
+
+		if (renderstage->mode == 0) renderstage->mode = mode;
+#if BOX_ENABLE_VALIDATION
+		else if (renderstage->mode != mode) {
+			BX_ERROR("Mixing GRAPHICS and COMPUTE shader stages in box_renderstage");
+			return NULL;
+		}
+
 		++success_stages;
+#endif
 	}
 	
+#if BOX_ENABLE_VALIDATION
 	if (shader_stages_count > 0 && success_stages <= 0) {
 		BX_ERROR("No successfully loaded shaders attached to box_renderstage.");
 		return NULL;
 	}
+#endif
 
 	// Fill static data
 	if (layout) renderstage->layout = *layout;
