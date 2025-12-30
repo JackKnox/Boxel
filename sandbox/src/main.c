@@ -24,9 +24,9 @@ int main(int argc, char** argv) {
 
 	box_render_layout layout = { 0 };
 	box_render_layout_set_topology(&layout, BOX_VERTEX_TOPOLOGY_TRIANGLES); // Triangle list
-	box_render_layout_set_index_type(&layout, BOX_RENDER_DATA_TYPE_UINT16);
-	box_render_layout_add(&layout, BOX_RENDER_DATA_TYPE_FLOAT32, 2); // Position
-	box_render_layout_add(&layout, BOX_RENDER_DATA_TYPE_FLOAT32, 3); // Colour
+	box_render_layout_set_index_type(&layout, BOX_RENDER_FORMAT_UINT16);    // Index type
+	box_render_layout_add(&layout, BOX_RENDER_FORMAT_FLOAT32, 2);           // Position
+	box_render_layout_add(&layout, BOX_RENDER_FORMAT_FLOAT32, 3);           // Colour
 	box_render_layout_end(&layout);
 
 	const char* graphics_shaders[] = { "assets/shader_base.vert.spv", "assets/shader_base.frag.spv" };
@@ -48,7 +48,7 @@ int main(int argc, char** argv) {
 
 		box_rendercmd_begin_renderstage(cmd, renderstage);
 		box_rendercmd_bind_buffer(cmd, vert_buffer, 0, 0);
-		box_rendercmd_bind_buffer(cmd, index_buffer, 0, 0);
+		box_rendercmd_bind_buffer(cmd, index_buffer, 0, 1);
 
 		box_rendercmd_draw_indexed(cmd, 6, 1);
 		box_rendercmd_end_renderstage(cmd);

@@ -2,8 +2,9 @@
 
 #include "defines.h"
 
-#include "platform/threading.h"
 #include "utils/freelist.h"
+
+#include "core/job_system.h"
 
 // State of valid resource through engine's lifetime.
 typedef enum box_resource_state {
@@ -21,8 +22,6 @@ typedef struct box_resource_vtable {
 	void (*destroy_local)(struct box_resource_system* system, void* resource, void* args);
 } box_resource_vtable;
 
-#define RESOURCE_MAX_DEPENDENTS 3
-
 // Start of every valid 'box_resource' in memory, holds private data when resource is fully initialized.
 typedef struct box_resource_header {
 	box_resource_vtable vtable;
@@ -35,14 +34,7 @@ typedef struct box_resource_header {
 // Opaque handle to true box_resource_system. TODO: Turn into private handle.
 typedef struct box_resource_system {
 	freelist resources;
-	u64* upload_queue; // darray
-
-	b8 is_running;
-	u32 waiting_index;
-
-	thrd_t resource_thread;
-	mtx_t mutex;
-	cnd_t cnd;
+	job_worker worker;
 } box_resource_system;
 
 // Creates and initializes the resource system, with allocating resource list with start_mem.

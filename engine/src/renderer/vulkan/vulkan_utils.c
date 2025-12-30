@@ -34,20 +34,20 @@ VkDescriptorType box_renderbuffer_usage_to_vulkan_type(box_renderbuffer_usage us
     return 0;
 }
 
-VkIndexType box_data_type_to_vulkan_index_type(box_render_data_type data_type) {
+VkIndexType box_data_type_to_vulkan_index_type(box_render_format data_type) {
     switch (data_type) {
-    case BOX_RENDER_DATA_TYPE_SINT8:
-    case BOX_RENDER_DATA_TYPE_UINT8:
+    case BOX_RENDER_FORMAT_SINT8:
+    case BOX_RENDER_FORMAT_UINT8:
         return VK_INDEX_TYPE_UINT8_KHR;
         break;
 
-    case BOX_RENDER_DATA_TYPE_SINT16:
-    case BOX_RENDER_DATA_TYPE_UINT16:
+    case BOX_RENDER_FORMAT_SINT16:
+    case BOX_RENDER_FORMAT_UINT16:
         return VK_INDEX_TYPE_UINT16;
         break;
 
-    case BOX_RENDER_DATA_TYPE_SINT32:
-    case BOX_RENDER_DATA_TYPE_UINT32:
+    case BOX_RENDER_FORMAT_SINT32:
+    case BOX_RENDER_FORMAT_UINT32:
         return VK_INDEX_TYPE_UINT32;
         break;
     }
@@ -55,51 +55,51 @@ VkIndexType box_data_type_to_vulkan_index_type(box_render_data_type data_type) {
     return VK_INDEX_TYPE_UINT16;
 }
 
-VkFormat box_attribute_to_vulkan_type(box_render_data_type type, u64 count) {
+VkFormat box_attribute_to_vulkan_type(box_render_format type, u64 count) {
     // Vulkan supports 1-4 components only
     if (count < 1 || count > 4) {
         return VK_FORMAT_UNDEFINED;
     }
 
     switch (type) {
-    case BOX_RENDER_DATA_TYPE_SINT8:
+    case BOX_RENDER_FORMAT_SINT8:
         if (count == 1) return VK_FORMAT_R8_SINT;
         if (count == 2) return VK_FORMAT_R8G8_SINT;
         if (count == 3) return VK_FORMAT_R8G8B8_SINT;
         if (count == 4) return VK_FORMAT_R8G8B8A8_SINT;
 
-    case BOX_RENDER_DATA_TYPE_SINT16:
+    case BOX_RENDER_FORMAT_SINT16:
         if (count == 1) return VK_FORMAT_R16_SINT;
         if (count == 2) return VK_FORMAT_R16G16_SINT;
         if (count == 3) return VK_FORMAT_R16G16B16_SINT;
         if (count == 4) return VK_FORMAT_R16G16B16A16_SINT;
 
-    case BOX_RENDER_DATA_TYPE_SINT32:
+    case BOX_RENDER_FORMAT_SINT32:
         if (count == 1) return VK_FORMAT_R32_SINT;
         if (count == 2) return VK_FORMAT_R32G32_SINT;
         if (count == 3) return VK_FORMAT_R32G32B32_SINT;
         if (count == 4) return VK_FORMAT_R32G32B32A32_SINT;
 
-    case BOX_RENDER_DATA_TYPE_UINT8:
+    case BOX_RENDER_FORMAT_UINT8:
         if (count == 1) return VK_FORMAT_R8_UINT;
         if (count == 2) return VK_FORMAT_R8G8_UINT;
         if (count == 3) return VK_FORMAT_R8G8B8_UINT;
         if (count == 4) return VK_FORMAT_R8G8B8A8_UINT;
 
-    case BOX_RENDER_DATA_TYPE_UINT16:
+    case BOX_RENDER_FORMAT_UINT16:
         if (count == 1) return VK_FORMAT_R16_UINT;
         if (count == 2) return VK_FORMAT_R16G16_UINT;
         if (count == 3) return VK_FORMAT_R16G16B16_UINT;
         if (count == 4) return VK_FORMAT_R16G16B16A16_UINT;
 
-    case BOX_RENDER_DATA_TYPE_BOOL:
-    case BOX_RENDER_DATA_TYPE_UINT32:
+    case BOX_RENDER_FORMAT_BOOL:
+    case BOX_RENDER_FORMAT_UINT32:
         if (count == 1) return VK_FORMAT_R32_UINT;
         if (count == 2) return VK_FORMAT_R32G32_UINT;
         if (count == 3) return VK_FORMAT_R32G32B32_UINT;
         if (count == 4) return VK_FORMAT_R32G32B32A32_UINT;
 
-    case BOX_RENDER_DATA_TYPE_FLOAT32:
+    case BOX_RENDER_FORMAT_FLOAT32:
         if (count == 1) return VK_FORMAT_R32_SFLOAT;
         if (count == 2) return VK_FORMAT_R32G32_SFLOAT;
         if (count == 3) return VK_FORMAT_R32G32B32_SFLOAT;

@@ -164,9 +164,9 @@ VkShaderStageFlags box_shader_type_to_vulkan_type(box_shader_stage_type type);
 
 VkDescriptorType box_renderbuffer_usage_to_vulkan_type(box_renderbuffer_usage usage);
 
-VkIndexType box_data_type_to_vulkan_index_type(box_render_data_type data_type);
+VkIndexType box_data_type_to_vulkan_index_type(box_render_format data_type);
 
-VkFormat box_attribute_to_vulkan_type(box_render_data_type type, u64 count);
+VkFormat box_attribute_to_vulkan_type(box_render_format type, u64 count);
 
 const char* vulkan_result_string(VkResult result, b8 get_extended);
 

@@ -77,7 +77,7 @@ void* _darray_pop_at(void* array, u64 index, void* dest) {
     }
 
     u64 addr = (u64)array;
-    bcopy_memory(dest, (void*)(addr + (index * stride)), stride);
+    if (dest) bcopy_memory(dest, (void*)(addr + (index * stride)), stride);
 
     // If not on the last element, snip out the entry and copy the rest inward.
     if (index != length - 1) {
