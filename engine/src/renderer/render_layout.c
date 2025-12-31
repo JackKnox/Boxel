@@ -1,25 +1,32 @@
 #include "defines.h"
 #include "render_layout.h"
 
-u64 box_render_format_size(box_render_format type) {
-    switch (type) {
-	case BOX_RENDER_FORMAT_SINT8:
-	case BOX_RENDER_FORMAT_UINT8:
-	case BOX_RENDER_FORMAT_BOOL:
-		return 1;
-	case BOX_RENDER_FORMAT_SINT16:
-	case BOX_RENDER_FORMAT_UINT16:
-		return 2;
-	case BOX_RENDER_FORMAT_SINT32:
-	case BOX_RENDER_FORMAT_UINT32:
-	case BOX_RENDER_FORMAT_FLOAT32:
-		return 4;
-	default:
-		return 1;
+u64 box_render_format_size(box_render_format format) {
+	u64 base_size = 1;
+	
+	switch (format.type) {
+	case BOX_FORMAT_TYPE_SINT8:
+	case BOX_FORMAT_TYPE_UINT8:
+	case BOX_FORMAT_TYPE_BOOL:
+		base_size = 1;
+		break;
+
+	case BOX_FORMAT_TYPE_SINT16:
+	case BOX_FORMAT_TYPE_UINT16:
+		base_size = 2;
+		break;
+
+	case BOX_FORMAT_TYPE_SINT32:
+	case BOX_FORMAT_TYPE_UINT32:
+	case BOX_FORMAT_TYPE_FLOAT32:
+		base_size = 4;
+		break;
     }
+
+	return base_size * format.channel_count;
 }
 
-void box_render_layout_add(box_render_layout* layout, box_render_format attrib_type, u32 num_count) {
+void box_render_layout_add(box_render_layout* layout, box_render_format attrib_type) {
 	if (layout->initialized) {
 		BX_WARN("Cannot add more attributes after ending render layout.");
 		return;
@@ -31,7 +38,6 @@ void box_render_layout_add(box_render_layout* layout, box_render_format attrib_t
 
 	box_vertex_attrib_desc* desc = &layout->attribs[layout->attrib_count];
 	desc->type = attrib_type;
-	desc->count = num_count;
 	++layout->attrib_count;
 }
 
@@ -54,7 +60,7 @@ void box_render_layout_set_topology(box_render_layout* layout, box_vertex_topolo
 	layout->topology_type = topology;
 }
 
-void box_render_layout_set_index_type(box_render_layout* layout, box_render_format type) {
+void box_render_layout_set_index_type(box_render_layout* layout, box_format_type type) {
 	if (layout->initialized) {
 		BX_WARN("Cannot set index type after ending render layout.");
 		return;
@@ -69,7 +75,7 @@ void box_render_layout_end(box_render_layout* layout) {
 		box_vertex_attrib_desc* desc = &layout->attribs[i];
 
 		desc->offset = layout->stride;
-		layout->stride += box_render_format_size(desc->type) * desc->count;
+		layout->stride += box_render_format_size(desc->type);
 	}
 
 	layout->initialized = TRUE;

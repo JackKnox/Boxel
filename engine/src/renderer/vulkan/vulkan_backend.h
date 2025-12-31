@@ -20,4 +20,8 @@ b8 vulkan_renderer_create_renderstage(box_renderer_backend* backend, box_renders
 void vulkan_renderer_destroy_renderstage(box_renderer_backend* backend, box_renderstage* out_stage);
 
 b8 vulkan_renderer_create_renderbuffer(box_renderer_backend* backend, box_renderbuffer* out_buffer);
-void vulkan_renderer_destroy_renderbuffer(box_renderer_backend* backend, box_renderbuffer* out_buffer);
+b8 vulkan_renderer_upload_to_renderbuffer(box_renderer_backend* backend, box_renderbuffer* buffer, void* data, u64 start_offset, u64 region);
+void vulkan_renderer_destroy_renderbuffer(box_renderer_backend* backend, box_renderbuffer* buffer);
+
+b8 vulkan_renderer_create_texture(box_renderer_backend* backend, box_texture* out_texture);
+void vulkan_renderer_destroy_texture(box_renderer_backend* backend, box_texture* texture);

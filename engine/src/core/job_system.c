@@ -9,19 +9,16 @@ b8 job_thread_func(void* arg) {
     for (;;) {
         mtx_lock(&worker->mutex);
 
-        // Wait for work or shutdown
-        while (worker->is_running && darray_length(worker->job_queue) == 0) {
+        while (worker->is_running && darray_length(worker->job_queue) == 0)
             cnd_wait(&worker->cnd, &worker->mutex);
-        }
 
-        // If we're shutting down and no work, break out
         if (!worker->is_running && darray_length(worker->job_queue) == 0) {
             mtx_unlock(&worker->mutex);
             break;
         }
 
-        // Pop one item (we're still holding the mutex)
-        void* job = worker->job_queue; // worker->job_queue == worker->job_queue[0] and already verifed size.
+        // worker->job_queue == worker->job_queue[0] and already verifed size.
+        void* job = worker->job_queue;
         mtx_unlock(&worker->mutex);
 
         b8 success = worker->user_func(worker, job, worker->worker_arg);
@@ -86,16 +83,15 @@ void job_worker_push(job_worker* worker, void* job) {
 void job_worker_wait_until_idle(job_worker* worker) {
     mtx_lock(&worker->mutex);
 
-    while (worker->is_running && darray_length(worker->job_queue) > 0) {
+    while (worker->is_running && darray_length(worker->job_queue) > 0)
         cnd_wait(&worker->cnd, &worker->mutex);
-    }
 
     mtx_unlock(&worker->mutex);
 }
 
 void job_worker_quit(job_worker* worker, b8 should_quit) {
     mtx_lock(&worker->mutex);
-
+    
     // Wake the resource thread so it can exit
     worker->is_running = FALSE;
     cnd_broadcast(&worker->cnd);

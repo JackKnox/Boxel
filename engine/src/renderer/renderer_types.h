@@ -27,8 +27,9 @@ typedef struct shader_stage {
 typedef struct box_renderbuffer {
     box_resource_header header;
     box_renderbuffer_usage usage;
+    u64 buffer_size;
+
     void* temp_user_data;
-    u64 temp_user_size;
 
     void* internal_data;
 } box_renderbuffer;
@@ -43,8 +44,21 @@ typedef struct box_renderstage {
     void* internal_data;
 } box_renderstage;
 
+typedef struct box_texture {
+    box_resource_header header;
+    box_render_format image_format;
+    uvec2 size;
+
+    void* temp_user_data;
+
+    void* internal_data;
+} box_texture;
+
 // Creates a renderstage asynchronously and logs it with the resource system attached to the specified box_engine.
 box_renderstage* box_engine_create_renderstage(struct box_engine* engine, box_render_layout* layout, u8 shader_stages_count, const char* shader_stages[]);
 
 // Create a buffer on the GPU asynchronously and logs it with the resource system attached to the specified box_engine.
-box_renderbuffer* box_engine_create_renderbuffer(struct box_engine* engine, box_renderbuffer_usage usage, void* data_to_send, u64 data_size);
+box_renderbuffer* box_engine_create_renderbuffer(struct box_engine* engine, box_renderbuffer_usage usage, u64 buffer_size, void* data_to_send);
+
+// Create a texture in the resource system attached to the specified box_engine on the GPU asynchronously.
+box_texture* box_engine_create_texture(struct box_engine* engine, uvec2 size, box_render_format image_format, const void* data);

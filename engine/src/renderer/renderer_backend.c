@@ -35,7 +35,10 @@ b8 renderer_backend_create(box_renderer_backend_type type, struct box_platform* 
         out_renderer_backend->create_internal_renderstage = vulkan_renderer_create_renderstage;
         out_renderer_backend->destroy_internal_renderstage = vulkan_renderer_destroy_renderstage;
         out_renderer_backend->create_internal_renderbuffer = vulkan_renderer_create_renderbuffer;
+        out_renderer_backend->upload_to_renderbuffer = vulkan_renderer_upload_to_renderbuffer;
         out_renderer_backend->destroy_internal_renderbuffer = vulkan_renderer_destroy_renderbuffer;
+        out_renderer_backend->create_internal_texture = vulkan_renderer_create_texture;
+        out_renderer_backend->destroy_internal_texture = vulkan_renderer_destroy_texture;
 
         return TRUE;
     }

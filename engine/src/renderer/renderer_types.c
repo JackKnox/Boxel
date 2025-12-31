@@ -92,7 +92,15 @@ box_renderstage* box_engine_create_renderstage(
 }
 
 b8 internal_create_renderbuffer(box_resource_system* system, box_renderbuffer* resource, box_engine* engine) {
-	return engine->renderer.create_internal_renderbuffer(&engine->renderer, resource);
+	b8 result = engine->renderer.create_internal_renderbuffer(&engine->renderer, resource);
+	
+	if (resource->temp_user_data != NULL) {
+		result = (result && engine->renderer.upload_to_renderbuffer(&engine->renderer, resource, resource->temp_user_data, 0, resource->buffer_size));
+
+		bfree(resource->temp_user_data, resource->buffer_size, MEMORY_TAG_RESOURCES);
+		resource->temp_user_data = NULL;
+	}
+	return result; 
 }
 
 void internal_destroy_renderbuffer(box_resource_system* system, box_renderbuffer* resource, box_engine* engine) {
@@ -102,8 +110,8 @@ void internal_destroy_renderbuffer(box_resource_system* system, box_renderbuffer
 box_renderbuffer* box_engine_create_renderbuffer(
 	box_engine* engine,
 	box_renderbuffer_usage usage,
-	void* data_to_send, 
-	u64 data_size) {
+	u64 buffer_size,
+	void* data_to_send) {
 	box_renderbuffer* renderbuffer = NULL;
 	if (!resource_system_allocate_resource(&engine->resource_system, sizeof(box_renderbuffer), &renderbuffer)) {
 		// Error already printed...
@@ -112,14 +120,53 @@ box_renderbuffer* box_engine_create_renderbuffer(
 
 	// Fill static data
 	renderbuffer->usage = usage;
+	renderbuffer->buffer_size = buffer_size;
 
-	renderbuffer->temp_user_size = data_size;
-	renderbuffer->temp_user_data = ballocate(renderbuffer->temp_user_size, MEMORY_TAG_RESOURCES);
-	bcopy_memory(renderbuffer->temp_user_data, data_to_send, renderbuffer->temp_user_size);
+	if (data_to_send) {
+		renderbuffer->temp_user_data = ballocate(renderbuffer->buffer_size, MEMORY_TAG_RESOURCES);
+		bcopy_memory(renderbuffer->temp_user_data, data_to_send, renderbuffer->buffer_size);
+	}
 
 	renderbuffer->header.vtable.create_local = internal_create_renderbuffer;
 	renderbuffer->header.vtable.destroy_local = internal_destroy_renderbuffer;
 	renderbuffer->header.resource_arg = (void*)engine;
 	resource_system_signal_upload(&engine->resource_system, renderbuffer);
 	return renderbuffer;
+}
+
+b8 internal_create_texture(box_resource_system* system, box_texture* resource, box_engine* engine) {
+	return engine->renderer.create_internal_texture(&engine->renderer, resource);
+}
+
+void internal_destroy_texture(box_resource_system* system, box_texture* resource, box_engine* engine) {
+	engine->renderer.destroy_internal_texture(&engine->renderer, resource);
+}
+
+box_texture* box_engine_create_texture(
+	box_engine* engine, 
+	uvec2 size, 
+	box_render_format image_format,
+	const void* data) {
+	box_texture* texture = NULL;
+	if (!resource_system_allocate_resource(&engine->resource_system, sizeof(box_texture), &texture)) {
+		// Error already printed...
+		return NULL;
+	}
+
+	// Fill static data
+	texture->image_format = image_format;
+	texture->size = size;
+
+	if (data) {
+		u64 total_size = texture->size.x * texture->size.y * texture->image_format.channel_count;
+
+		texture->temp_user_data = ballocate(total_size, MEMORY_TAG_RESOURCES);
+		bcopy_memory(texture->temp_user_data, data, total_size);
+	}
+
+	texture->header.vtable.create_local = internal_create_texture;
+	texture->header.vtable.destroy_local = internal_destroy_texture;
+	texture->header.resource_arg = (void*)engine;
+	resource_system_signal_upload(&engine->resource_system, texture);
+	return texture;
 }

@@ -10,6 +10,7 @@
 #include "vulkan_buffer.h"
 #include "vulkan_swapchain.h"
 #include "vulkan_renderpass.h"
+#include "vulkan_image.h"
 #include "vulkan_pipeline.h"
 #include "vulkan_framebuffer.h"
 #include "vulkan_command_buffer.h"
@@ -539,16 +540,8 @@ b8 vulkan_renderer_create_renderstage(box_renderer_backend* backend, box_renders
 
 	out_stage->internal_data = ballocate(sizeof(vulkan_pipeline), MEMORY_TAG_RENDERER);
 
-	if (out_stage->stages[BOX_SHADER_STAGE_TYPE_COMPUTE].file_size != 0) {
-		CHECK_VKRESULT(
-			vulkan_compute_pipeline_create(
-				context, 
-				out_stage->internal_data,
-				&context->main_renderpass, 
-				out_stage),
-			"Failed to create Vulkan compute pipeline");
-	}
-	else {
+	switch (out_stage->mode) {
+	case RENDERER_MODE_GRAPHICS:
 		CHECK_VKRESULT(
 			vulkan_graphics_pipeline_create(
 				context,
@@ -556,6 +549,17 @@ b8 vulkan_renderer_create_renderstage(box_renderer_backend* backend, box_renders
 				&context->main_renderpass,
 				out_stage),
 			"Failed to create Vulkan graphics pipeline");
+		break;
+
+	case RENDERER_MODE_COMPUTE:
+		CHECK_VKRESULT(
+			vulkan_compute_pipeline_create(
+				context,
+				out_stage->internal_data,
+				&context->main_renderpass,
+				out_stage),
+			"Failed to create Vulkan compute pipeline");
+		break;
 	}
 
 	return TRUE;
@@ -574,12 +578,8 @@ void vulkan_renderer_destroy_renderstage(box_renderer_backend* backend, box_rend
 b8 vulkan_renderer_create_renderbuffer(box_renderer_backend* backend, box_renderbuffer* out_buffer) {
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 
-#if BOX_ENABLE_VALIDATION
-	if (!(backend->config.modes & RENDERER_MODE_TRANSFER)) {
-		BX_ERROR("Attempting to transfer data without enabling transfer mode.");
-		return FALSE;
-	}
-#endif
+	out_buffer->internal_data = ballocate(sizeof(vulkan_buffer), MEMORY_TAG_RENDERER);
+	vulkan_buffer* buffer = (vulkan_buffer*)out_buffer->internal_data;
 
 	VkBufferUsageFlagBits buffer_usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
@@ -590,38 +590,51 @@ b8 vulkan_renderer_create_renderbuffer(box_renderer_backend* backend, box_render
 	if (out_buffer->usage & BOX_RENDERBUFFER_USAGE_STORAGE)
 		buffer_usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 
-	out_buffer->internal_data = ballocate(sizeof(vulkan_buffer), MEMORY_TAG_RENDERER);
-	vulkan_buffer* buffer = (vulkan_buffer*)out_buffer->internal_data;
-	
-	vulkan_buffer staging_buffer = { 0 };
 	CHECK_VKRESULT(
 		vulkan_buffer_create(
 			context,
-			out_buffer->temp_user_size,
-			VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-			&staging_buffer),
-		"Failed to create Vulkan staging buffer");
-
-	vulkan_buffer_map_data(context, &staging_buffer, out_buffer->temp_user_size, out_buffer->temp_user_data);
-
-	CHECK_VKRESULT(
-		vulkan_buffer_create(
-			context,
-			out_buffer->temp_user_size,
+			out_buffer->buffer_size,
 			buffer_usage,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 			buffer),
 		"Failed to create internal Vulkan renderbuffer");
 
+	return TRUE;
+}
+
+b8 vulkan_renderer_upload_to_renderbuffer(box_renderer_backend* backend, box_renderbuffer* buffer, void* data, u64 start_offset, u64 region) {
+	vulkan_context* context = (vulkan_context*)backend->internal_context;
+
+#if BOX_ENABLE_VALIDATION
+	if (!(backend->config.modes & RENDERER_MODE_TRANSFER)) {
+		BX_ERROR("Attempting to upload to box_renderbuffer without enabling transfer mode.");
+		return FALSE;
+	}
+#endif
+
+	vulkan_buffer* internal_buffer = (vulkan_buffer*)buffer->internal_data;
+
+	vulkan_buffer staging_buffer = { 0 };
+	CHECK_VKRESULT(
+		vulkan_buffer_create(
+			context,
+			buffer->buffer_size,
+			VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			&staging_buffer),
+		"Failed to create Vulkan staging buffer");
+
+	vulkan_buffer_map_data(context, &staging_buffer, buffer->buffer_size, data);
+
 	vulkan_queue* selected_mode = &context->device.mode_queues[VULKAN_QUEUE_TYPE_TRANSFER];
 
 	vulkan_command_buffer command_buffer;
 	vulkan_command_buffer_allocate_and_begin_single_use(context, selected_mode->pool, &command_buffer);
-	
+
 	VkBufferCopy copy_info = { 0 };
-	copy_info.size = out_buffer->temp_user_size;
-	vkCmdCopyBuffer(command_buffer.handle, staging_buffer.handle, buffer->handle, 1, &copy_info);
+	copy_info.size = region;
+	copy_info.dstOffset = start_offset;
+	vkCmdCopyBuffer(command_buffer.handle, staging_buffer.handle, internal_buffer->handle, 1, &copy_info);
 
 	CHECK_VKRESULT(
 		vulkan_command_buffer_end_single_use(
@@ -629,12 +642,8 @@ b8 vulkan_renderer_create_renderbuffer(box_renderer_backend* backend, box_render
 			&command_buffer,
 			selected_mode->handle),
 		"Failed to transfer Vulkan renderbuffer to GPU");
-	
-	vulkan_buffer_destroy(context, &staging_buffer);
-	bfree(out_buffer->temp_user_data, out_buffer->temp_user_size, MEMORY_TAG_RESOURCES);
 
-	out_buffer->temp_user_data = NULL;
-	out_buffer->temp_user_size = 0;
+	vulkan_buffer_destroy(context, &staging_buffer);
 	return TRUE;
 }
 
@@ -645,5 +654,86 @@ void vulkan_renderer_destroy_renderbuffer(box_renderer_backend* backend, box_ren
 		vulkan_buffer* buffer = (vulkan_buffer*)out_buffer->internal_data;
 		vulkan_buffer_destroy(context, buffer);
 		bfree(buffer, sizeof(vulkan_buffer), MEMORY_TAG_RENDERER);
+	}
+}
+
+b8 vulkan_renderer_create_texture(box_renderer_backend* backend, box_texture* out_texture) {
+	vulkan_context* context = (vulkan_context*)backend->internal_context;
+
+	out_texture->internal_data = ballocate(sizeof(vulkan_image), MEMORY_TAG_RENDERER);
+	vulkan_image* image = (vulkan_image*)out_texture->internal_data;
+
+	CHECK_VKRESULT(
+		vulkan_image_create(
+			context, 
+			VK_IMAGE_TYPE_2D, 
+			out_texture->size,
+			box_attribute_to_vulkan_type(out_texture->image_format),
+			VK_IMAGE_TILING_OPTIMAL,
+			VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
+			TRUE,
+			TRUE,
+			VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_ASPECT_COLOR_BIT,
+			(backend->config.sampler_anisotropy ? backend->config.capabilities.max_anisotropy : 0.0f),
+			image),
+		"Failed to create internal Vulkan image");
+
+	if (out_texture->temp_user_data != NULL) {
+#if BOX_ENABLE_VALIDATION
+		if (!(backend->config.modes & RENDERER_MODE_TRANSFER)) {
+			BX_ERROR("Attempting to upload to box_renderbuffer without enabling transfer mode.");
+			return FALSE;
+		}
+#endif
+		 
+		u64 image_size = out_texture->size.x * out_texture->size.y * out_texture->image_format.channel_count;
+
+		vulkan_buffer staging_buffer = { 0 };
+		CHECK_VKRESULT(
+			vulkan_buffer_create(
+				context,
+				image_size,
+				VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+				&staging_buffer),
+			"Failed to create Vulkan staging buffer");
+
+		vulkan_buffer_map_data(context, &staging_buffer, image_size, out_texture->temp_user_data);
+
+		vulkan_queue* selected_mode = &context->device.mode_queues[VULKAN_QUEUE_TYPE_TRANSFER];
+		vulkan_command_buffer command_buffer;
+		vulkan_command_buffer_allocate_and_begin_single_use(context, selected_mode->pool, &command_buffer);
+
+		vulkan_image_transition_format(&command_buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+		VkBufferImageCopy copy_info = { 0 };
+		copy_info.imageExtent = (VkExtent3D){ out_texture->size.x, out_texture->size.y, 1 };
+		copy_info.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		copy_info.imageSubresource.layerCount = 1;
+		vkCmdCopyBufferToImage(command_buffer.handle, staging_buffer.handle, image->handle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_info);
+
+		vulkan_image_transition_format(&command_buffer, image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+		CHECK_VKRESULT(
+			vulkan_command_buffer_end_single_use(
+				context,
+				&command_buffer,
+				selected_mode->handle),
+			"Failed to transfer Vulkan renderbuffer to GPU");
+
+		vulkan_buffer_destroy(context, &staging_buffer);
+	}
+	return TRUE;
+}
+
+void vulkan_renderer_destroy_texture(box_renderer_backend* backend, box_texture* texture) {
+	vulkan_context* context = (vulkan_context*)backend->internal_context;
+
+	if (texture->internal_data != NULL) {
+		vulkan_image* image = (vulkan_image*)texture->internal_data;
+		vulkan_image_destroy(context, image);
+		bfree(image, sizeof(vulkan_image), MEMORY_TAG_RENDERER);
 	}
 }

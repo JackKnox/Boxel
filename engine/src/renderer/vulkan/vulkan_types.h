@@ -51,8 +51,10 @@ typedef struct vulkan_device {
 
 typedef struct vulkan_image {
     VkImage handle;
+    VkImageLayout layout;
     VkDeviceMemory memory;
     VkImageView view;
+    VkSampler sampler;
     uvec2 size;
 } vulkan_image;
 
@@ -164,9 +166,9 @@ VkShaderStageFlags box_shader_type_to_vulkan_type(box_shader_stage_type type);
 
 VkDescriptorType box_renderbuffer_usage_to_vulkan_type(box_renderbuffer_usage usage);
 
-VkIndexType box_data_type_to_vulkan_index_type(box_render_format data_type);
+VkIndexType box_data_type_to_vulkan_index_type(box_format_type data_type);
 
-VkFormat box_attribute_to_vulkan_type(box_render_format type, u64 count);
+VkFormat box_attribute_to_vulkan_type(box_render_format format);
 
 const char* vulkan_result_string(VkResult result, b8 get_extended);
 

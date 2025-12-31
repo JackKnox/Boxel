@@ -28,6 +28,7 @@ typedef enum renderer_mode {
 typedef struct renderer_capabilities {
     const char* device_name;
     renderer_device_type device_type;
+    f32 max_anisotropy;
 } renderer_capabilities;
 
 // Configuration for render backend.
@@ -78,7 +79,11 @@ typedef struct box_renderer_backend {
     void (*destroy_internal_renderstage)(struct box_renderer_backend* backend, struct box_renderstage* out_stage);
 
     b8(*create_internal_renderbuffer)(struct box_renderer_backend* backend, struct box_renderbuffer* out_buffer);
-    void (*destroy_internal_renderbuffer)(struct box_renderer_backend* backend, struct box_renderbuffer* out_buffer);
+    b8(*upload_to_renderbuffer)(struct box_renderer_backend* backend, struct box_renderbuffer* buffer, void* data, u64 start_offset, u64 region);
+    void (*destroy_internal_renderbuffer)(struct box_renderer_backend* backend, struct box_renderbuffer* buffer);
+
+    b8(*create_internal_texture)(struct box_renderer_backend* backend, struct box_texture* out_texture);
+    void (*destroy_internal_texture)(struct box_renderer_backend* backend, struct box_texture* texture);
 } box_renderer_backend;
 
 b8 renderer_backend_create(box_renderer_backend_type type, struct box_platform* plat_state, box_renderer_backend_config* config, box_renderer_backend* out_renderer_backend);

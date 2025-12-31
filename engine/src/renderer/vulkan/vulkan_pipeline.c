@@ -193,7 +193,7 @@ VkResult vulkan_graphics_pipeline_create(
 			VkVertexInputAttributeDescription descriptor = { 0 };
 			descriptor.binding = 0;
 			descriptor.location = i;
-			descriptor.format = box_attribute_to_vulkan_type(attribute->type, attribute->count);
+			descriptor.format = box_attribute_to_vulkan_type(attribute->type);
 			descriptor.offset = attribute->offset;
 			attributes = _darray_push(attributes, &descriptor);
 		}

@@ -8,8 +8,9 @@ int main(int argc, char** argv) {
 	// Sets default config for box_engine.
 	box_config app_config = box_default_config();
 	app_config.render_config.modes = RENDERER_MODE_GRAPHICS | RENDERER_MODE_TRANSFER;
+	app_config.render_config.sampler_anisotropy = TRUE;
+	
 	box_engine* engine = box_create_engine(&app_config);
-
 	if (engine == NULL)
 		BX_FATAL("Failed to init Boxel engine!");
 
@@ -24,17 +25,19 @@ int main(int argc, char** argv) {
 
 	box_render_layout layout = { 0 };
 	box_render_layout_set_topology(&layout, BOX_VERTEX_TOPOLOGY_TRIANGLES); // Triangle list
-	box_render_layout_set_index_type(&layout, BOX_RENDER_FORMAT_UINT16);    // Index type
-	box_render_layout_add(&layout, BOX_RENDER_FORMAT_FLOAT32, 2);           // Position
-	box_render_layout_add(&layout, BOX_RENDER_FORMAT_FLOAT32, 3);           // Colour
+	box_render_layout_set_index_type(&layout, BOX_FORMAT_TYPE_UINT16);      // Index type
+	box_render_layout_add(&layout, (box_render_format) { .type = BOX_FORMAT_TYPE_FLOAT32, .channel_count = 2 }); // Position
+	box_render_layout_add(&layout, (box_render_format) { .type = BOX_FORMAT_TYPE_FLOAT32, .channel_count = 3 }); // Colour
 	box_render_layout_end(&layout);
 
 	const char* graphics_shaders[] = { "assets/shader_base.vert.spv", "assets/shader_base.frag.spv" };
 
-	box_renderbuffer* vert_buffer = box_engine_create_renderbuffer(engine, BOX_RENDERBUFFER_USAGE_VERTEX, vertices, sizeof(vertices));
-	box_renderbuffer* index_buffer = box_engine_create_renderbuffer(engine, BOX_RENDERBUFFER_USAGE_INDEX, indices, sizeof(indices));
+	box_renderbuffer* vert_buffer = box_engine_create_renderbuffer(engine, BOX_RENDERBUFFER_USAGE_VERTEX, sizeof(vertices), vertices);
+	box_renderbuffer* index_buffer = box_engine_create_renderbuffer(engine, BOX_RENDERBUFFER_USAGE_INDEX, sizeof(indices), indices);
 
 	box_renderstage* renderstage = box_engine_create_renderstage(engine, &layout, BX_ARRAYSIZE(graphics_shaders), graphics_shaders);
+
+	box_texture* texture = load_texture(engine, "assets/eyeball.png");
 
 	box_engine_prepare_resources(engine);
 

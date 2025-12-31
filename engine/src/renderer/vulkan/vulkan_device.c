@@ -276,6 +276,7 @@ b8 physical_device_meets_requirements(
     vkGetPhysicalDeviceMemoryProperties(device, &memory);
 
     out_capabilities->device_type = (renderer_device_type)properties.deviceType;
+    out_capabilities->max_anisotropy = features.samplerAnisotropy;
 
     if (out_capabilities->device_name)
         bfree(out_capabilities->device_name, string_length(out_capabilities->device_name) + 1, MEMORY_TAG_RENDERER);
