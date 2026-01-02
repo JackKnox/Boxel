@@ -10,14 +10,6 @@
 // Hitchbacks on resource system
 // 
 
-typedef enum box_shader_stage_type {
-    BOX_SHADER_STAGE_TYPE_VERTEX,
-    BOX_SHADER_STAGE_TYPE_GEOMETRY,
-    BOX_SHADER_STAGE_TYPE_FRAGMENT,
-    BOX_SHADER_STAGE_TYPE_COMPUTE,
-    BOX_SHADER_STAGE_TYPE_MAX,
-} box_shader_stage_type;
-
 typedef struct shader_stage {
     const void* file_data;
     u64 file_size;
@@ -38,16 +30,21 @@ typedef struct box_renderbuffer {
 typedef struct box_renderstage {
     box_resource_header header;
     shader_stage stages[BOX_SHADER_STAGE_TYPE_MAX];
-    renderer_mode mode;
     box_render_layout layout;
+    box_renderbuffer* vertex_buffer;
+    box_renderbuffer* index_buffer;
 
     void* internal_data;
+    renderer_mode mode;
 } box_renderstage;
 
+// Container for image data and sampling info to later be sent to renderer backend.
 typedef struct box_texture {
     box_resource_header header;
-    box_render_format image_format;
     uvec2 size;
+    box_render_format image_format;
+    box_filter_type filter_type;
+    box_address_mode address_mode;
 
     void* temp_user_data;
 
@@ -55,10 +52,13 @@ typedef struct box_texture {
 } box_texture;
 
 // Creates a renderstage asynchronously and logs it with the resource system attached to the specified box_engine.
-box_renderstage* box_engine_create_renderstage(struct box_engine* engine, box_render_layout* layout, u8 shader_stages_count, const char* shader_stages[]);
+box_renderstage* box_engine_create_renderstage(struct box_engine* engine, box_render_layout* layout, u8 shader_stages_count, const char* shader_stages[], box_renderbuffer* vertex_buffer, box_renderbuffer* index_buffer);
 
 // Create a buffer on the GPU asynchronously and logs it with the resource system attached to the specified box_engine.
 box_renderbuffer* box_engine_create_renderbuffer(struct box_engine* engine, box_renderbuffer_usage usage, u64 buffer_size, void* data_to_send);
 
 // Create a texture in the resource system attached to the specified box_engine on the GPU asynchronously.
-box_texture* box_engine_create_texture(struct box_engine* engine, uvec2 size, box_render_format image_format, const void* data);
+box_texture* box_engine_create_texture(struct box_engine* engine, uvec2 size, box_render_format image_format, box_filter_type filter_type, box_address_mode address_mode, const void* data);
+
+// Gets total size of bytes storing internal texture data
+u64 box_texture_get_total_size(box_texture* texture);

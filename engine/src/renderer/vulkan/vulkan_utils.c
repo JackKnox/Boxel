@@ -27,14 +27,17 @@ VkShaderStageFlags box_shader_type_to_vulkan_type(box_shader_stage_type type) {
     return 0;
 }
 
-VkDescriptorType box_renderbuffer_usage_to_vulkan_type(box_renderbuffer_usage usage) {
-    if (usage & BOX_RENDERBUFFER_USAGE_STORAGE)
-        return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+VkDescriptorType box_renderbuffer_usage_to_vulkan_type(box_descriptor_type descriptor_type) {
+    switch (descriptor_type) {
+    case BOX_DESCRIPTOR_TYPE_STORAGE_BUFFER: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    case BOX_DESCRIPTOR_TYPE_UNIFORM_BUFFER: return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    case BOX_DESCRIPTOR_TYPE_IMAGE_SAMPLER:  return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    }
 
     return 0;
 }
 
-VkIndexType box_data_type_to_vulkan_index_type(box_format_type data_type) {
+VkIndexType box_format_to_vulkan_index_type(box_format_type data_type) {
     switch (data_type) {
     case BOX_FORMAT_TYPE_SINT8:
     case BOX_FORMAT_TYPE_UINT8:
@@ -55,7 +58,28 @@ VkIndexType box_data_type_to_vulkan_index_type(box_format_type data_type) {
     return VK_INDEX_TYPE_UINT16;
 }
 
-VkFormat box_attribute_to_vulkan_type(box_render_format format) {
+VkFilter box_filter_to_vulkan_type(box_filter_type filter_type) {
+    switch (filter_type) {
+    case BOX_FILTER_TYPE_NEAREST: return VK_FILTER_NEAREST;
+    case BOX_FILTER_TYPE_LINEAR:  return VK_FILTER_LINEAR;
+    }
+
+    return 0;
+}
+
+VkSamplerAddressMode box_address_mode_to_vulkan_type(box_address_mode address) {
+    switch (address) {
+    case BOX_ADDRESS_MODE_REPEAT:               return VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    case BOX_ADDRESS_MODE_MIRRORED_REPEAT:      return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+    case BOX_ADDRESS_MODE_CLAMP_TO_EDGE:        return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    case BOX_ADDRESS_MODE_CLAMP_TO_BORDER:      return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+    case BOX_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE: return VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE;
+    }
+
+    return 0;
+}
+
+VkFormat box_format_to_vulkan_type(box_render_format format) {
     switch (format.type) {
     case BOX_FORMAT_TYPE_SINT8:
         if (format.channel_count == 1) return VK_FORMAT_R8_SINT;
@@ -99,6 +123,12 @@ VkFormat box_attribute_to_vulkan_type(box_render_format format) {
         if (format.channel_count == 2) return VK_FORMAT_R32G32_SFLOAT;
         if (format.channel_count == 3) return VK_FORMAT_R32G32B32_SFLOAT;
         if (format.channel_count == 4) return VK_FORMAT_R32G32B32A32_SFLOAT;
+
+    case BOX_FORMAT_TYPE_SRGB:
+        if (format.channel_count == 1) return VK_FORMAT_R8_SRGB;
+        if (format.channel_count == 2) return VK_FORMAT_R8G8_SRGB;
+        if (format.channel_count == 3) return VK_FORMAT_R8G8B8_SRGB;
+        if (format.channel_count == 4) return VK_FORMAT_R8G8B8A8_SRGB;
     }
 
     return VK_FORMAT_UNDEFINED;

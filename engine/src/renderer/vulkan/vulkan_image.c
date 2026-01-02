@@ -12,10 +12,8 @@ VkResult vulkan_image_create(
     VkImageUsageFlags usage,
     VkMemoryPropertyFlags memory_flags,
     b8 create_view,
-    b8 create_sampler,
     VkImageLayout start_layout,
     VkImageAspectFlags view_aspect_flags,
-    f32 max_anisotropy,
     vulkan_image* out_image) {
     // Copy params
     out_image->size = size;
@@ -64,10 +62,7 @@ VkResult vulkan_image_create(
 
     // Create view
     if (create_view)
-        result = vulkan_image_view_create(context, out_image, format, view_aspect_flags);
-
-    if (result == VK_SUCCESS && create_sampler)
-        result = vulkan_image_sampler_create(context, out_image, max_anisotropy);
+        result = vulkan_image_view_create(context, format, view_aspect_flags, out_image);
 
     return result;
 }
@@ -104,11 +99,11 @@ void vulkan_image_transition_format(vulkan_command_buffer* cmd, vulkan_image* im
 
 VkResult vulkan_image_view_create(
     vulkan_context* context,
-    vulkan_image* image,
     VkFormat format,
-    VkImageAspectFlags aspect_flags) {
+    VkImageAspectFlags aspect_flags,
+    vulkan_image* out_image) {
     VkImageViewCreateInfo view_create_info = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
-    view_create_info.image = image->handle;
+    view_create_info.image = out_image->handle;
     view_create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;  // TODO: Make configurable.
     view_create_info.format = format;
     view_create_info.subresourceRange.aspectMask = aspect_flags;
@@ -123,21 +118,23 @@ VkResult vulkan_image_view_create(
         context->device.logical_device,
         &view_create_info,
         context->allocator,
-        &image->view);
+        &out_image->view);
 }
 
 VkResult vulkan_image_sampler_create(
     vulkan_context* context, 
-    vulkan_image* out_image,
-    f32 max_anisotropy) {
+    f32 max_anisotropy,
+    box_filter_type filter_type,
+    box_address_mode address_mode,
+    vulkan_image* out_image) {
     VkSamplerCreateInfo sampler_info = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
-    sampler_info.magFilter = VK_FILTER_LINEAR;
-    sampler_info.minFilter = VK_FILTER_LINEAR;
-    sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sampler_info.magFilter = sampler_info.minFilter 
+        = box_filter_to_vulkan_type(filter_type);
 
-    sampler_info.anisotropyEnable = (max_anisotropy > 0);
+    sampler_info.addressModeU = sampler_info.addressModeV = sampler_info.addressModeW 
+        = box_address_mode_to_vulkan_type(address_mode);
+
+    sampler_info.anisotropyEnable = (max_anisotropy > 0.0f);
     sampler_info.maxAnisotropy = max_anisotropy;
     
     sampler_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;

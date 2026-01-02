@@ -13,10 +13,8 @@ VkResult vulkan_image_create(
     VkImageUsageFlags usage,
     VkMemoryPropertyFlags memory_flags,
     b8 create_view,
-    b8 create_sampler,
     VkImageLayout start_layout,
     VkImageAspectFlags view_aspect_flags,
-    f32 max_anisotropy,
     vulkan_image* out_image);
 
 void vulkan_image_transition_format(
@@ -26,13 +24,15 @@ void vulkan_image_transition_format(
 
 VkResult vulkan_image_view_create(
     vulkan_context* context,
-    vulkan_image* out_image,
     VkFormat format,
-    VkImageAspectFlags aspect_flags);
+    VkImageAspectFlags aspect_flags,
+    vulkan_image* out_image);
 
 VkResult vulkan_image_sampler_create(
     vulkan_context* context,
-    vulkan_image* out_image,
-    f32 max_anisotropy);
+    f32 max_anisotropy,
+    box_filter_type filter_type,
+    box_address_mode address_mode,
+    vulkan_image* out_image);
 
 void vulkan_image_destroy(vulkan_context* context, vulkan_image* image);

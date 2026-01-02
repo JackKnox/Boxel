@@ -69,14 +69,14 @@ void box_rendercmd_begin_renderstage(box_rendercmd* cmd, box_renderstage* render
     payload->begin_renderstage.renderstage = renderstage;
 }
 
-void box_rendercmd_bind_buffer(box_rendercmd* cmd, box_renderbuffer* renderbuffer, u32 set, u32 binding) {
+void box_rendercmd_set_descriptor(box_rendercmd* cmd, void* value, u32 size, u32 binding) {
     CHECK_FINISHED();
 
     rendercmd_payload* payload;
-    payload = add_command(cmd, 0, RENDERCMD_BIND_BUFFER, sizeof(payload->bind_buffer));
-    payload->bind_buffer.renderbuffer = renderbuffer;
-    payload->bind_buffer.set = set;
-    payload->bind_buffer.binding = binding;
+    payload = add_command(cmd, 0, RENDERCMD_SET_DESCRIPTOR, sizeof(payload->set_descriptor));
+    payload->set_descriptor.value = value;
+    payload->set_descriptor.size = size;
+    payload->set_descriptor.binding = binding;
 }
 
 void box_rendercmd_draw(box_rendercmd* cmd, u32 vertex_count, u32 instance_count) {

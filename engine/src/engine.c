@@ -113,40 +113,6 @@ failed_init:
 	return NULL;
 }
 
-box_rendercmd* box_engine_next_rendercmd(box_engine* engine) {
-	if (!engine) return NULL;
-	box_rendercmd_reset(&engine->command_ring[engine->game_write_idx]);
-
-	return &engine->command_ring[engine->game_write_idx];
-}
-
-void box_engine_render_frame(box_engine* engine, box_rendercmd* command) {
-#if BOX_ENABLE_VALIDATION
-	if (&engine->command_ring[engine->game_write_idx] != command) {
-		BX_ERROR("Engine cannot take user-generated render commands (Use box_engine_next_rendercmd instead).");
-		return;
-	}
-#endif
-
-	mtx_lock(&engine->rendercmd_mutex);
-
-	// If advancing write_idx would equal read_idx, wait until reader consumes
-	while (engine->render_read_idx == engine->game_write_idx && engine->is_running && !engine->should_quit)
-		cnd_wait(&engine->rendercmd_cnd, &engine->rendercmd_mutex);
-
-	engine->game_write_idx = (engine->game_write_idx + 1) % engine->command_ring_length;
-	_box_rendercmd_end(command);
-
-	// Notify the render thread there is something to play back
-	cnd_signal(&engine->rendercmd_cnd);
-	mtx_unlock(&engine->rendercmd_mutex);
-}
-
-const box_config* box_engine_get_config(box_engine* engine) {
-	if (!engine) return NULL;
-	return &engine->config;
-}
-
 b8 box_engine_is_running(box_engine* engine) {
 	if (!engine) return FALSE;
 	return engine->is_running;
@@ -171,6 +137,42 @@ box_resource_system* box_engine_get_resource_system(box_engine* engine) {
 void box_engine_prepare_resources(box_engine* engine) {
 	if (!engine) return;
 	resource_system_wait(&engine->resource_system);
+}
+
+const box_config* box_engine_get_config(box_engine* engine) {
+	if (!engine) return NULL;
+	return &engine->config;
+}
+
+box_rendercmd* box_engine_next_frame(box_engine* engine) {
+	if (!engine) return NULL;
+	mtx_lock(&engine->rendercmd_mutex);
+
+	// Finish previous frame (if any)
+	if (engine->has_open_frame) {
+		box_rendercmd* prev = &engine->command_ring[engine->game_write_idx];
+		_box_rendercmd_end(prev);
+
+		engine->game_write_idx = (engine->game_write_idx + 1) % engine->command_ring_length;
+		engine->has_open_frame = FALSE;
+
+		cnd_signal(&engine->rendercmd_cnd);
+	}
+
+	while (((engine->game_write_idx + 1) % engine->command_ring_length) == engine->render_read_idx 
+		&& engine->is_running && !engine->should_quit) {
+		// Wait for free slot
+		cnd_wait(&engine->rendercmd_cnd, &engine->rendercmd_mutex);
+	}
+
+	// Begin new frame
+	box_rendercmd* cmd = &engine->command_ring[engine->game_write_idx];
+	box_rendercmd_reset(cmd);
+
+	engine->has_open_frame = TRUE;
+
+	mtx_unlock(&engine->rendercmd_mutex);
+	return cmd;
 }
 
 void box_destroy_engine(box_engine* engine) {

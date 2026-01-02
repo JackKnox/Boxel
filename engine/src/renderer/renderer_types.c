@@ -43,7 +43,9 @@ box_renderstage* box_engine_create_renderstage(
 	box_engine* engine,
 	box_render_layout* layout,
 	u8 shader_stages_count,
-	const char* shader_stages[]) {
+	const char* shader_stages[], 
+	box_renderbuffer* vertex_buffer, 
+	box_renderbuffer* index_buffer) {
 	box_renderstage* renderstage = NULL;
 	if (!resource_system_allocate_resource(&engine->resource_system, sizeof(box_renderstage), &renderstage)) {
 		// Error already printed...
@@ -79,10 +81,17 @@ box_renderstage* box_engine_create_renderstage(
 		BX_ERROR("No successfully loaded shaders attached to box_renderstage.");
 		return NULL;
 	}
+
+	if ((vertex_buffer || index_buffer) && renderstage->mode != RENDERER_MODE_GRAPHICS) {
+		BX_ERROR("Cannot assign vertex / index buffers if not a GRAPHICS renderstage");
+		return NULL;
+	}
 #endif
 
 	// Fill static data
 	if (layout) renderstage->layout = *layout;
+	renderstage->vertex_buffer = vertex_buffer;
+	renderstage->index_buffer = index_buffer;
 
 	renderstage->header.vtable.create_local = internal_create_renderstage;
 	renderstage->header.vtable.destroy_local = internal_destroy_renderstage;
@@ -135,7 +144,13 @@ box_renderbuffer* box_engine_create_renderbuffer(
 }
 
 b8 internal_create_texture(box_resource_system* system, box_texture* resource, box_engine* engine) {
-	return engine->renderer.create_internal_texture(&engine->renderer, resource);
+	b8 result = engine->renderer.create_internal_texture(&engine->renderer, resource);
+
+	if (resource->temp_user_data != NULL) {
+		bfree(resource->temp_user_data, box_texture_get_total_size(resource), MEMORY_TAG_RESOURCES);
+		resource->temp_user_data = NULL;
+	}
+	return result;
 }
 
 void internal_destroy_texture(box_resource_system* system, box_texture* resource, box_engine* engine) {
@@ -146,6 +161,8 @@ box_texture* box_engine_create_texture(
 	box_engine* engine, 
 	uvec2 size, 
 	box_render_format image_format,
+	box_filter_type filter_type,
+	box_address_mode address_mode,
 	const void* data) {
 	box_texture* texture = NULL;
 	if (!resource_system_allocate_resource(&engine->resource_system, sizeof(box_texture), &texture)) {
@@ -154,11 +171,13 @@ box_texture* box_engine_create_texture(
 	}
 
 	// Fill static data
-	texture->image_format = image_format;
 	texture->size = size;
+	texture->image_format = image_format;
+	texture->filter_type = filter_type;
+	texture->address_mode = address_mode;
 
 	if (data) {
-		u64 total_size = texture->size.x * texture->size.y * texture->image_format.channel_count;
+		u64 total_size = box_texture_get_total_size(texture);
 
 		texture->temp_user_data = ballocate(total_size, MEMORY_TAG_RESOURCES);
 		bcopy_memory(texture->temp_user_data, data, total_size);
@@ -169,4 +188,8 @@ box_texture* box_engine_create_texture(
 	texture->header.resource_arg = (void*)engine;
 	resource_system_signal_upload(&engine->resource_system, texture);
 	return texture;
+}
+
+u64 box_texture_get_total_size(box_texture* texture) {
+	return texture->size.x * texture->size.y * texture->image_format.channel_count;;
 }

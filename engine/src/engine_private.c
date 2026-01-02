@@ -12,17 +12,18 @@ box_rendercmd* get_next_rendercmd(box_engine* engine) {
 	// Get next read index reliably
 	mtx_lock(&engine->rendercmd_mutex);
 
-	engine->render_read_idx = (engine->render_read_idx + 1) % engine->command_ring_length;
-
 	// Wait until the writer has written to that slot (i.e., not equal to write index).
-	while (engine->render_read_idx == engine->game_write_idx && engine->is_running && !engine->should_quit)
+	while (engine->render_read_idx == engine->game_write_idx && 
+		engine->is_running && !engine->should_quit) {
 		cnd_wait(&engine->rendercmd_cnd, &engine->rendercmd_mutex);
+	}
+
+	engine->render_read_idx = (engine->render_read_idx + 1) % engine->command_ring_length;
 
 	// Grab a snapshot of the command->finished under the lock and then unlock
 	box_rendercmd* rendercmd = &engine->command_ring[engine->render_read_idx];
 	mtx_unlock(&engine->rendercmd_mutex);
 
-	if (!rendercmd->finished) return NULL;
 	return rendercmd;
 }
 
@@ -65,7 +66,7 @@ b8 playback_rendercmd(box_engine* engine, box_rendercmd* rendercmd) {
 
 			break;
 
-		case RENDERCMD_BIND_BUFFER:
+		case RENDERCMD_SET_DESCRIPTOR:
 		case RENDERCMD_DRAW:
 		case RENDERCMD_DRAW_INDEXED:
 		case RENDERCMD_DISPATCH:

@@ -12,8 +12,8 @@ VkResult create_pipeline_layout(vulkan_context* context, box_renderstage* shader
 			VkDescriptorSetLayoutBinding binding = { 0 };
 			binding.binding = i;
 			binding.descriptorCount = 1;
-			binding.descriptorType = box_renderbuffer_usage_to_vulkan_type(shader->layout.descriptors[i]);
-			binding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT; // TODO: Make configurable.
+			binding.descriptorType = box_renderbuffer_usage_to_vulkan_type(shader->layout.descriptors[i].descriptor_type);
+			binding.stageFlags = box_shader_type_to_vulkan_type(shader->layout.descriptors[i].stage_type);
 			descriptor_bindings = _darray_push(descriptor_bindings, &binding);
 
 			VkDescriptorPoolSize pool_size = { 0 };
@@ -193,7 +193,7 @@ VkResult vulkan_graphics_pipeline_create(
 			VkVertexInputAttributeDescription descriptor = { 0 };
 			descriptor.binding = 0;
 			descriptor.location = i;
-			descriptor.format = box_attribute_to_vulkan_type(attribute->type);
+			descriptor.format = box_format_to_vulkan_type(attribute->type);
 			descriptor.offset = attribute->offset;
 			attributes = _darray_push(attributes, &descriptor);
 		}

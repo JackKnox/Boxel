@@ -1,6 +1,8 @@
 #include "defines.h"
 #include "render_layout.h"
 
+#include "renderer/renderer_types.h"
+
 u64 box_render_format_size(box_render_format format) {
 	u64 base_size = 1;
 	
@@ -41,13 +43,15 @@ void box_render_layout_add(box_render_layout* layout, box_render_format attrib_t
 	++layout->attrib_count;
 }
 
-void box_render_layout_add_descriptor(box_render_layout* layout, box_renderbuffer_usage buffer_type) {
+void box_render_layout_add_descriptor(box_render_layout* layout, box_descriptor_type descriptor_type, box_shader_stage_type stage_type) {
 	if (layout->initialized) {
 		BX_WARN("Cannot add more descriptors after ending render layout.");
 		return;
 	}
 
-	layout->descriptors[layout->descriptor_count] = buffer_type;
+	box_descriptor_desc* desc = &layout->descriptors[layout->descriptor_count];
+	desc->descriptor_type = descriptor_type;
+	desc->stage_type = stage_type;
 	++layout->descriptor_count;
 }
 

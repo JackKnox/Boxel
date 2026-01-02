@@ -22,7 +22,7 @@ enum {
     RENDERCMD_SET_CLEAR_COLOUR,
     RENDERCMD_BEGIN_RENDERSTAGE,
     RENDERCMD_END_RENDERSTAGE,
-    RENDERCMD_BIND_BUFFER,
+    RENDERCMD_SET_DESCRIPTOR,
     RENDERCMD_DRAW,
     RENDERCMD_DRAW_INDEXED,
     RENDERCMD_DISPATCH,
@@ -60,6 +60,15 @@ typedef union rendercmd_payload {
     } set_clear_colour;
 
     struct {
+        struct box_renderstage* renderstage;
+    } begin_renderstage;
+
+    struct {
+        void* value;
+        u32 size, binding;
+    } set_descriptor;
+
+    struct {
         u32 vertex_count;
         u32 instance_count;
     } draw;
@@ -68,15 +77,6 @@ typedef union rendercmd_payload {
         u32 index_count;
         u32 instance_count;
     } draw_indexed;
-
-    struct {
-        struct box_renderstage* renderstage;
-    } begin_renderstage;
-
-    struct {
-        struct box_renderbuffer* renderbuffer;
-        u32 set, binding;
-    } bind_buffer;
 
     struct {
         uvec3 group_size;
@@ -97,8 +97,8 @@ void box_rendercmd_set_clear_colour(box_rendercmd* cmd, f32 clear_r, f32 clear_g
 // Begin a new render stage with specified shaders. Subsequent draw calls will use this stage.
 void box_rendercmd_begin_renderstage(box_rendercmd* cmd, struct box_renderstage* renderstage);
 
-// Binds buffers to next draw call, inferes buffer type and usage.
-void box_rendercmd_bind_buffer(box_rendercmd* cmd, struct box_renderbuffer* renderbuffer, u32 set, u32 binding);
+// Sets descriptor / uniform at binding to value. Accepts box_texture*, box_renderbuffer* and any primitive type also supported by shader.
+void box_rendercmd_set_descriptor(box_rendercmd* cmd, void* value, u32 size_of_value, u32 binding);
 
 // Issue a draw call with current bound state.
 void box_rendercmd_draw(box_rendercmd* cmd, u32 vertex_count, u32 instance_count);

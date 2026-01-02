@@ -25,6 +25,28 @@ typedef enum renderer_mode {
     RENDERER_MODE_TRANSFER = 1 << 2,
 } renderer_mode;
 
+// Type of shader attached to a renderstage.
+typedef enum box_shader_stage_type {
+    BOX_SHADER_STAGE_TYPE_VERTEX,
+    BOX_SHADER_STAGE_TYPE_GEOMETRY,
+    BOX_SHADER_STAGE_TYPE_FRAGMENT,
+    BOX_SHADER_STAGE_TYPE_COMPUTE,
+    BOX_SHADER_STAGE_TYPE_MAX,
+} box_shader_stage_type;
+
+typedef enum box_filter_type {
+    BOX_FILTER_TYPE_NEAREST,
+    BOX_FILTER_TYPE_LINEAR,
+} box_filter_type;
+
+typedef enum box_address_mode {
+    BOX_ADDRESS_MODE_REPEAT,
+    BOX_ADDRESS_MODE_MIRRORED_REPEAT,
+    BOX_ADDRESS_MODE_CLAMP_TO_EDGE,
+    BOX_ADDRESS_MODE_CLAMP_TO_BORDER,
+    BOX_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE,
+} box_address_mode;
+
 typedef struct renderer_capabilities {
     const char* device_name;
     renderer_device_type device_type;

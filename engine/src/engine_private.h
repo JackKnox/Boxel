@@ -15,6 +15,7 @@ typedef struct box_engine {
 	b8 is_running, is_suspended;
 	b8 should_quit;
 	u8 command_ring_length;
+	b8 has_open_frame;
 
 	box_config config;
 	u64 allocation_size;

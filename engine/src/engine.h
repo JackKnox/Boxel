@@ -59,10 +59,7 @@ void box_engine_prepare_resources(box_engine* engine);
 const box_config* box_engine_get_config(box_engine* engine);
 
 // Returns a per-frame render command buffer for the user to fill with rendering instructions.
-struct box_rendercmd* box_engine_next_rendercmd(box_engine* engine);
-
-// Renders next frame based on specified command.
-void box_engine_render_frame(box_engine* engine, struct box_rendercmd* command);
+struct box_rendercmd* box_engine_next_frame(box_engine* engine);
 
 // Destroys the boxel engine and it's subsystem.
 void box_destroy_engine(box_engine* engine);
