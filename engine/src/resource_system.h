@@ -13,7 +13,6 @@ typedef enum box_resource_state {
 	BOX_RESOURCE_STATE_UPLOADING,
 	BOX_RESOURCE_STATE_READY,  
 	BOX_RESOURCE_STATE_FAILED,
-	BOX_RESOURCE_STATE_PENDING_DELETE // TODO: Might not need this?
 } box_resource_state;
 
 // Hold resource-specific function pointer to be used on resource creation thread.
@@ -47,7 +46,7 @@ b8 resource_system_allocate_resource(box_resource_system* system, u64 resource_s
 void resource_system_signal_upload(box_resource_system* system, void* resource);
 
 // Wait until all resources signaled for uploading before this function call.
-void resource_system_wait(box_resource_system* system);
+void resource_system_flush_uploads(box_resource_system* system);
 
 // Calls destruction function on all managed resources within specified system and deallocates memory.
 void resource_system_shutdown(box_resource_system* system);

@@ -41,9 +41,7 @@ typedef struct box_rendercmd {
 // Holds the current render state during playback.
 typedef struct box_rendercmd_context {
     struct box_renderstage* current_shader;
-
-    // TODO: Remove!
-    struct vulkan_command_buffer* command_buffer;
+    renderer_mode current_mode;
 } box_rendercmd_context;
 
 #pragma pack(push, 1)

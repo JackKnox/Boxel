@@ -89,7 +89,7 @@ VkResult create(box_renderer_backend* backend, VkExtent2D size, vulkan_swapchain
     // Choose a swap surface format.
     swapchain->image_format = find_swapchain_format(&context->device.swapchain_support);
     
-    if (backend->config.frames_in_flight <= 1) {
+    if (context->config.frames_in_flight <= 1) {
         BX_ERROR("config->frames_in_flight must be set greater than one");
         return VK_ERROR_FORMAT_NOT_SUPPORTED;
     }

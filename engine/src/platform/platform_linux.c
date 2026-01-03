@@ -34,11 +34,11 @@ void platform_console_write(log_level level, const char* message) {
 		"\033[1;36m"      // trace
 	};
 
-	printf("%s%s\033[0m", colors[level], message);
+	printf("%s%s\033[0m\n", colors[level], message);
 }
 
 void platform_sleep(u64 ms) {
-	sleep(ms / 1000.0f);
+	nanosleep(ms * 1000.0f);
 }
 
 #endif

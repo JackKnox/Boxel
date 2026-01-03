@@ -20,7 +20,7 @@ box_rendercmd* get_next_rendercmd(box_engine* engine) {
 
 	engine->render_read_idx = (engine->render_read_idx + 1) % engine->command_ring_length;
 
-	// Grab a snapshot of the command->finished under the lock and then unlock
+	// Grab a snapshot of the command under the lock and then unlock
 	box_rendercmd* rendercmd = &engine->command_ring[engine->render_read_idx];
 	mtx_unlock(&engine->rendercmd_mutex);
 
@@ -35,9 +35,13 @@ b8 playback_rendercmd(box_engine* engine, box_rendercmd* rendercmd) {
 		rendercmd_header* hdr = (rendercmd_header*)cursor;
 		rendercmd_payload* payload = (rendercmd_payload*)(cursor + sizeof(rendercmd_header));
 
+		if (hdr->supported_mode != 0) {
+			context.current_mode = hdr->supported_mode;
+		}
+
 #if BOX_ENABLE_VALIDATION
 		if (hdr->supported_mode != 0) {
-			if ((engine->renderer.config.modes & hdr->supported_mode) == 0) {
+			if ((engine->config.render_config.modes & hdr->supported_mode) == 0) {
 				BX_ERROR("Render command in box_rendercmd isn't supported by renderer configuration");
 				return FALSE;
 			}
@@ -91,8 +95,7 @@ b8 engine_thread_init(box_engine* engine) {
 		goto exit_and_cleanup;
 	}
 
-	if (!renderer_backend_create(engine->config.render_config.api_type, &engine->platform_state, &engine->config.render_config, &engine->renderer) || 
-		!engine->renderer.initialize(&engine->renderer, engine->config.window_size, engine->config.title)) {
+	if (!renderer_backend_create(&engine->config.render_config, engine->config.window_size, engine->config.title, &engine->platform_state, &engine->renderer)) {
 		BX_ERROR("Failed to init renderer backend.");
 		goto exit_and_cleanup;
 	}
@@ -102,8 +105,8 @@ b8 engine_thread_init(box_engine* engine) {
 		goto exit_and_cleanup;
 	}
 
-	const double target_frame_time = (engine->config.target_fps > 0)
-		? (1000.0 / (double)engine->config.target_fps)
+	const f64 target_frame_time = (engine->config.target_fps > 0)
+		? (1000.0 / (f64)engine->config.target_fps)
 		: 0.0; // ms per frame
 
 	// Send message to main thread to unlock user access to engine
@@ -127,7 +130,6 @@ b8 engine_thread_init(box_engine* engine) {
 		box_rendercmd* command = get_next_rendercmd(engine);
 
 		if (command != NULL && backend->begin_frame(backend, engine->delta_time)) {
-			// Grab a snapshot of the command->finished under the lock and then unlock
 			b8 succeceded = playback_rendercmd(engine, command);
 			if (!succeceded) {
 				BX_WARN("Could not playback render command.");
@@ -135,9 +137,10 @@ b8 engine_thread_init(box_engine* engine) {
 
 			// After successful playback:
 			mtx_lock(&engine->rendercmd_mutex);
+
 			command->finished = FALSE; // Mark slot free for reuse
-			// Signal any waiting writer that a slot became available
 			cnd_signal(&engine->rendercmd_cnd);
+
 			mtx_unlock(&engine->rendercmd_mutex);
 
 			// Finish frame after sending validated rendercmd
@@ -149,7 +152,7 @@ b8 engine_thread_init(box_engine* engine) {
 
 		platform_pump_messages(&engine->platform_state);
 
-		// Throttle FPS if configured (no sleep if 0 = uncapped)
+		// Throttle FPS if configured
 		if (target_frame_time > 0.0) {
 			f64 frame_end = platform_get_absolute_time();
 			f64 elapsed = frame_end - frame_start;
@@ -185,7 +188,6 @@ void engine_thread_shutdown(box_engine* engine) {
 
 	BX_INFO("Shutting down renderer backend...");
 	if (engine->renderer.internal_context != NULL) {
-		engine->renderer.shutdown(&engine->renderer);
 		renderer_backend_destroy(&engine->renderer);
 	}
 

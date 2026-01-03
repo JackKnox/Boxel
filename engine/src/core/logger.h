@@ -41,6 +41,10 @@ void log_output(log_level level, const char* message, ...);
 #endif
 
 #if BOX_ENABLE_ASSERTS
+// NOTE: Assertions in the engine are used to validate internal state and function arguments 
+//       that originate from within the engine itself. Assertions should only be used to detect 
+//       programming errors or invalid engine state. Any user-provided input must be validated explicitly 
+//       and handled gracefully, with clear and descriptive error messages, rather than using assertions.
 #   define BX_ASSERT(x) do { if (!(x)) BX_FATAL(#x, __FILE__, __LINE__); } while (0)
 #else
 #   define BX_ASSERT(x) ((void)0)

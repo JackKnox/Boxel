@@ -28,7 +28,7 @@ b8 resource_thread_func(job_worker* worker, void* job, box_resource_system* syst
     // Perform the create (does its own GPU/local allocations)
     b8 created = resource->vtable.create_local(system, resource, resource->resource_arg);
     resource->state = created ? BOX_RESOURCE_STATE_READY : BOX_RESOURCE_STATE_FAILED;
-    return TRUE;
+    return created;
 }
 
 b8 resource_system_init(box_resource_system* system, u64 start_mem) {
@@ -77,7 +77,7 @@ void resource_system_signal_upload(box_resource_system* system, void* resource) 
     job_worker_push(&system->worker, &offset);
 }
 
-void resource_system_wait(box_resource_system* system) {
+void resource_system_flush_uploads(box_resource_system* system) {
     job_worker_wait_until_idle(&system->worker);
 }
 

@@ -17,6 +17,7 @@ box_shader_stage_type get_stage_type_from_filepath(const char* filepath) {
 	else if (strstr(filepath, ".geom.spv"))
 		return BOX_SHADER_STAGE_TYPE_GEOMETRY;
 
+	BX_ERROR("Unsupported shader stage type: (%s)", filepath);
 	return 0;
 }
 
@@ -28,6 +29,7 @@ renderer_mode box_stage_type_to_renderer_mode(box_shader_stage_type stage_type) 
 	case BOX_SHADER_STAGE_TYPE_GEOMETRY: return RENDERER_MODE_GRAPHICS;
 	}
 
+	BX_ERROR("Unsupported shader stage type: (%i)", stage_type);
 	return 0;
 }
 
@@ -46,11 +48,25 @@ box_renderstage* box_engine_create_renderstage(
 	const char* shader_stages[], 
 	box_renderbuffer* vertex_buffer, 
 	box_renderbuffer* index_buffer) {
-	box_renderstage* renderstage = NULL;
-	if (!resource_system_allocate_resource(&engine->resource_system, sizeof(box_renderstage), &renderstage)) {
-		// Error already printed...
+#if BOX_ENABLE_VALIDATION
+	if (layout == NULL && (shader_stages_count != 0 || vertex_buffer != NULL || index_buffer != NULL)) {
+		BX_ERROR("Passed shader stages, vertex buffers, index buffers but not a box_render_layout in box_engine_create_renderstage");
 		return NULL;
 	}
+
+	if (shader_stages_count <= 0 && vertex_buffer != NULL) {
+		BX_ERROR("Specified vertex buffer and not any shader stages in box_engine_create_renderstage");
+	}
+
+	if (vertex_buffer == NULL && index_buffer != NULL) {
+		BX_ERROR("Specified index buffer and not a vertex buffer in box_engine_create_renderstage");
+		return NULL;
+	}
+#endif
+
+	box_renderstage* renderstage = NULL;
+	if (!resource_system_allocate_resource(&engine->resource_system, sizeof(box_renderstage), &renderstage))
+		return NULL;
 
 	u32 success_stages = 0;
 	for (int i = 0; i < shader_stages_count; ++i) {
@@ -121,11 +137,21 @@ box_renderbuffer* box_engine_create_renderbuffer(
 	box_renderbuffer_usage usage,
 	u64 buffer_size,
 	void* data_to_send) {
-	box_renderbuffer* renderbuffer = NULL;
-	if (!resource_system_allocate_resource(&engine->resource_system, sizeof(box_renderbuffer), &renderbuffer)) {
-		// Error already printed...
+#if BOX_ENABLE_VALIDATION
+	if (usage == 0) {
+		BX_ERROR("Not specified a renderbuffer usage to box_engine_create_renderbuffer");
 		return NULL;
 	}
+
+	if (data_to_send != NULL && buffer_size == 0) {
+		BX_ERROR("Specified a data ptr but no size to box_engine_create_renderbuffer");
+		return NULL;
+	}
+#endif 
+
+	box_renderbuffer* renderbuffer = NULL;
+	if (!resource_system_allocate_resource(&engine->resource_system, sizeof(box_renderbuffer), &renderbuffer))
+		return NULL;
 
 	// Fill static data
 	renderbuffer->usage = usage;
@@ -164,11 +190,16 @@ box_texture* box_engine_create_texture(
 	box_filter_type filter_type,
 	box_address_mode address_mode,
 	const void* data) {
-	box_texture* texture = NULL;
-	if (!resource_system_allocate_resource(&engine->resource_system, sizeof(box_texture), &texture)) {
-		// Error already printed...
+#if BOX_ENABLE_VALIDATION
+	if (size.width == 0 || size.height == 0 || image_format.channel_count == 0) {
+		BX_ERROR("Invalid format of data passed to box_engine_create_texture");
 		return NULL;
 	}
+#endif
+	
+	box_texture* texture = NULL;
+	if (!resource_system_allocate_resource(&engine->resource_system, sizeof(box_texture), &texture))
+		return NULL;
 
 	// Fill static data
 	texture->size = size;
@@ -191,5 +222,6 @@ box_texture* box_engine_create_texture(
 }
 
 u64 box_texture_get_total_size(box_texture* texture) {
-	return texture->size.x * texture->size.y * texture->image_format.channel_count;;
+	if (!texture) return 0;
+	return texture->size.x * texture->size.y * texture->image_format.channel_count;
 }

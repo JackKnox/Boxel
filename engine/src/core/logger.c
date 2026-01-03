@@ -13,7 +13,7 @@ void log_output(log_level level, const char* message, ...) {
     char* formatted = string_format_v(message, args);
     va_end(args);
 
-    char* out_message = string_format("%s%s\n", level_strings[level], formatted);
+    char* out_message = string_format("%s%s", level_strings[level], formatted);
 
     platform_free(formatted, FALSE);
     platform_console_write(level, out_message);

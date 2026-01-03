@@ -72,9 +72,6 @@ typedef struct renderer_backend_config {
 
     // Frame count for swapchain, must be greater than 1.
     u32 frames_in_flight;
-
-    // Output of renderer backend.
-    renderer_capabilities capabilities;
 } box_renderer_backend_config;
 
 // Sets default configurtion for renderer backend.
@@ -83,14 +80,14 @@ box_renderer_backend_config renderer_backend_default_config();
 typedef struct box_renderer_backend {
     void* internal_context;
     struct box_platform* plat_state;
-    box_renderer_backend_config config;
+    renderer_capabilities capabilities;
 
-    b8 (*initialize)(struct box_renderer_backend* backend, uvec2 starting_size, const char* application_name);
+    b8 (*initialize)(struct box_renderer_backend* backend, box_renderer_backend_config* config, uvec2 starting_size, const char* application_name);
 
     void (*shutdown)(struct box_renderer_backend* backend);
 
     void (*wait_until_idle)(struct box_renderer_backend* backend, u64 timeout);
-    void (*resized)(struct box_renderer_backend* backend, u32 width, u32 height);
+    void (*resized)(struct box_renderer_backend* backend, uvec2 new_size);
 
     b8 (*begin_frame)(struct box_renderer_backend* backend, f32 delta_time);
     void (*playback_rendercmd)(struct box_renderer_backend* backend, struct box_rendercmd_context* rendercmd_context, struct rendercmd_header* header, union rendercmd_payload* payload);
@@ -98,15 +95,15 @@ typedef struct box_renderer_backend {
 
     // Renderer resources.
     b8 (*create_internal_renderstage)(struct box_renderer_backend* backend, struct box_renderstage* out_stage);
-    void (*destroy_internal_renderstage)(struct box_renderer_backend* backend, struct box_renderstage* out_stage);
-
-    b8(*create_internal_renderbuffer)(struct box_renderer_backend* backend, struct box_renderbuffer* out_buffer);
-    b8(*upload_to_renderbuffer)(struct box_renderer_backend* backend, struct box_renderbuffer* buffer, void* data, u64 start_offset, u64 region);
+    void (*destroy_internal_renderstage)(struct box_renderer_backend* backend, struct box_renderstage* stage);
+    
+    b8 (*create_internal_renderbuffer)(struct box_renderer_backend* backend, struct box_renderbuffer* out_buffer);
+    b8 (*upload_to_renderbuffer)(struct box_renderer_backend* backend, struct box_renderbuffer* buffer, void* data, u64 start_offset, u64 region);
     void (*destroy_internal_renderbuffer)(struct box_renderer_backend* backend, struct box_renderbuffer* buffer);
 
-    b8(*create_internal_texture)(struct box_renderer_backend* backend, struct box_texture* out_texture);
+    b8 (*create_internal_texture)(struct box_renderer_backend* backend, struct box_texture* out_texture);
     void (*destroy_internal_texture)(struct box_renderer_backend* backend, struct box_texture* texture);
 } box_renderer_backend;
 
-b8 renderer_backend_create(box_renderer_backend_type type, struct box_platform* plat_state, box_renderer_backend_config* config, box_renderer_backend* out_renderer_backend);
+b8 renderer_backend_create(box_renderer_backend_config* config, uvec2 starting_size, const char* application_name, struct box_platform* plat_state, box_renderer_backend* out_renderer_backend);
 void renderer_backend_destroy(box_renderer_backend* renderer_backend);

@@ -19,11 +19,17 @@ static const char* tag_strings[] = {
 	"RENDERER  ",
 	"TOTAL     "};
 
+static b8 is_initialized = FALSE;
 static memory_stats stats = { 0 };
 
 #endif
 
 b8 memory_initialize() {
+	if (is_initialized == TRUE) {
+		return FALSE;
+	}
+
+	is_initialized = TRUE;
 	return TRUE;
 }
 

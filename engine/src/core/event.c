@@ -22,14 +22,13 @@ typedef struct event_system_state {
 
 // Event system internal state.
 static b8 is_initialized = FALSE;
-static event_system_state state;
+static event_system_state state = { 0 };
 
 b8 event_initialize() {
     if (is_initialized == TRUE) {
         return FALSE;
     }
 
-    bzero_memory(&state, sizeof(state));
     is_initialized = TRUE;
     return TRUE;
 }
@@ -58,7 +57,7 @@ b8 event_register(u16 code, void* listener, PFN_on_event on_event) {
     u64 registered_count = darray_length(state.registered[code].events);
     for (u64 i = 0; i < registered_count; ++i) {
         if (state.registered[code].events[i].listener == listener) {
-            // TODO: warn
+            BX_WARN("Event listener already registered. Code: %u, Listener: %p", code, listener);
             return FALSE;
         }
     }
@@ -87,8 +86,7 @@ b8 event_unregister(u16 code, void* listener, PFN_on_event on_event) {
         registered_event e = state.registered[code].events[i];
         if (e.listener == listener && e.callback == on_event) {
             // Found one, remove it
-            registered_event popped_event;
-            darray_pop_at(state.registered[code].events, i, &popped_event);
+            darray_pop_at(state.registered[code].events, i, NULL);
             return TRUE;
         }
     }
@@ -109,8 +107,8 @@ b8 event_fire(u16 code, void* sender, event_context context) {
 
     u64 registered_count = darray_length(state.registered[code].events);
     for (u64 i = 0; i < registered_count; ++i) {
-        registered_event e = state.registered[code].events[i];
-        if (e.callback(code, sender, e.listener, context)) {
+        registered_event* e = &state.registered[code].events[i];
+        if (e->callback(code, sender, e->listener, context)) {
             // Message has been handled, do not send to other listeners.
             return TRUE;
         }

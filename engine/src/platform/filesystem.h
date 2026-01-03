@@ -14,10 +14,10 @@ typedef struct file_handle {
 // File open modes. Can be combined.
 typedef enum file_modes {
     // Read mode 
-    FILE_MODE_READ = 0x1,
+    FILE_MODE_READ = 1 << 0,
 
     // Write mode 
-    FILE_MODE_WRITE = 0x2
+    FILE_MODE_WRITE = 1 << 1,
 } file_modes;
 
 typedef enum file_seek_origin {
@@ -38,8 +38,10 @@ void filesystem_close(file_handle* handle);
 // Attempts to read the size of the file to which handle is attached.
 b8 filesystem_size(file_handle* handle, u64* out_size);
 
+// Moves the file cursor to a specific position within the file.
 b8 filesystem_seek(file_handle* handle, i64 offset, file_seek_origin origin);
 
+// Retrieves the current position of the file cursor.
 u64 filesystem_tell(file_handle* handle);
 
 // Reads up to a newline or EOF.

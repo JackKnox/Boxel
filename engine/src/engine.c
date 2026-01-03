@@ -7,7 +7,7 @@
 #include "utils/darray.h"
 
 box_config box_default_config() {
-	box_config configuration = {0}; // fill with zeros
+	box_config configuration = { 0 }; // fill with zeros
 	configuration.window_mode = BOX_WINDOW_MODE_WINDOWED;
 	configuration.window_position.centered = TRUE;
 	configuration.window_size.x = 640;
@@ -33,8 +33,9 @@ b8 render_thread_loop(void* arg) {
 	// NOTE: loop runs in init (see engine_private.c)
 
 	engine_thread_shutdown(engine);
-	engine->is_running = FALSE;
 
+	engine->is_running = FALSE;
+	engine->should_quit = FALSE;
 	return TRUE; // Success
 }
 
@@ -53,17 +54,20 @@ box_engine* allocate_engine_and_ring(u32 ring_size) {
 }
 
 box_engine* box_create_engine(box_config* app_config) {
-	if (!app_config) return NULL;
+	if (!app_config || app_config->target_fps <= 0 || !app_config->title || app_config->render_config.modes == 0) {
+		BX_ERROR("Invalid configuration passed to box_create_engine"); 
+		return NULL; 
+	}
 
 	// Init core systems
 	if (!memory_initialize()) {
-		BX_ERROR("Failed to initialize memory system.");
-		goto failed_init;
+		BX_ERROR("Failed to initialize core memory system.");
+		return NULL;
 	}
 
 	if (!event_initialize()) {
-		BX_ERROR("Failed to initialize event system.");
-		goto failed_init;
+		BX_ERROR("Failed to initialize core event system.");
+		return NULL;
 	}
 
 	u32 ring_length = (u32)app_config->render_config.frames_in_flight + 1;
@@ -119,12 +123,12 @@ b8 box_engine_is_running(box_engine* engine) {
 }
 
 b8 box_engine_should_skip_frame(box_engine* engine) {
-	if (!engine) return TRUE;
+	if (!engine) return FALSE;
 	return engine->is_suspended;
 }
 
 void box_close_engine(box_engine* engine, b8 should_close) {
-	if (!engine || !should_close || engine->should_quit) return;
+	if (!engine || !should_close || !engine->is_running) return;
 	BX_TRACE("Closing window...");
 	engine->should_quit = TRUE;
 }
@@ -136,7 +140,7 @@ box_resource_system* box_engine_get_resource_system(box_engine* engine) {
 
 void box_engine_prepare_resources(box_engine* engine) {
 	if (!engine) return;
-	resource_system_wait(&engine->resource_system);
+	resource_system_flush_uploads(&engine->resource_system);
 }
 
 const box_config* box_engine_get_config(box_engine* engine) {
@@ -194,13 +198,15 @@ void box_destroy_engine(box_engine* engine) {
 	mtx_destroy(&engine->rendercmd_mutex);
 	cnd_destroy(&engine->rendercmd_cnd);
 
-	event_shutdown();
-
 	BX_TRACE("Freeing command buffer ring...");
 	for (int i = 0; i < engine->command_ring_length; ++i) {
 		box_rendercmd_destroy(&engine->command_ring[i]);
 	}
 
+	engine->command_ring_length = 0;
+
 	bfree(engine, engine->allocation_size, MEMORY_TAG_ENGINE);
+
+	event_shutdown();
 	memory_shutdown();
 }

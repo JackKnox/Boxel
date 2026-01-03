@@ -28,11 +28,15 @@ u64 box_render_format_size(box_render_format format) {
 	return base_size * format.channel_count;
 }
 
+#if BOX_ENABLE_VALIDATION
+#   define CHECK_INITIALIZED() if (layout->initialized) { BX_ERROR("Adding to render layout after ending."); return; }
+#else
+#   define CHECK_FINISHED()
+#endif
+
 void box_render_layout_add(box_render_layout* layout, box_render_format attrib_type) {
-	if (layout->initialized) {
-		BX_WARN("Cannot add more attributes after ending render layout.");
-		return;
-	}
+	if (!layout) return;
+	CHECK_INITIALIZED()
 
 	if (layout->attrib_count + 1 >= BOX_MAX_VERTEX_ATTRIBS) {
 		BX_WARN("Reached maximum attributes in render layout (%i).", BOX_MAX_VERTEX_ATTRIBS);
@@ -44,11 +48,9 @@ void box_render_layout_add(box_render_layout* layout, box_render_format attrib_t
 }
 
 void box_render_layout_add_descriptor(box_render_layout* layout, box_descriptor_type descriptor_type, box_shader_stage_type stage_type) {
-	if (layout->initialized) {
-		BX_WARN("Cannot add more descriptors after ending render layout.");
-		return;
-	}
-
+	if (!layout) return;
+	CHECK_INITIALIZED()
+	
 	box_descriptor_desc* desc = &layout->descriptors[layout->descriptor_count];
 	desc->descriptor_type = descriptor_type;
 	desc->stage_type = stage_type;
@@ -56,20 +58,16 @@ void box_render_layout_add_descriptor(box_render_layout* layout, box_descriptor_
 }
 
 void box_render_layout_set_topology(box_render_layout* layout, box_vertex_topology_type topology) {
-	if (layout->initialized) {
-		BX_WARN("Cannot set topology after ending render layout.");
-		return;
-	}
-
+	if (!layout) return;
+	CHECK_INITIALIZED()
+	
 	layout->topology_type = topology;
 }
 
 void box_render_layout_set_index_type(box_render_layout* layout, box_format_type type) {
-	if (layout->initialized) {
-		BX_WARN("Cannot set index type after ending render layout.");
-		return;
-	}
-
+	if (!layout) return;
+	CHECK_INITIALIZED()
+	
 	layout->index_type = type;
 }
 
@@ -87,18 +85,20 @@ void box_render_layout_end(box_render_layout* layout) {
 
 // Get total stride from vertex layout.
 u64 box_render_layout_stride(box_render_layout* layout) {
-	if (!layout->initialized) {
-		BX_WARN("Cannot retrieve render layout stride before ending layout.");
+	if (!layout) return 0;
+	if (layout->initialized) {
+		BX_ERROR("Adding to render layout after ending."); 
 		return 0;
 	}
-
+	
 	return layout->stride;
 }
 
 // Get count of total attributes from vertex layout.
 u32 box_render_layout_count(box_render_layout* layout) {
-	if (!layout->initialized) {
-		BX_WARN("Cannot retrieve render layout count before ending layout.");
+	if (!layout) return 0;
+	if (layout->initialized) {
+		BX_ERROR("Adding to render layout after ending.");
 		return 0;
 	}
 

@@ -58,7 +58,7 @@ VkResult vulkan_device_create(box_renderer_backend* backend) {
 
     // Request device features.
     VkPhysicalDeviceFeatures device_features = {0};
-    device_features.samplerAnisotropy = backend->config.sampler_anisotropy;  // Request anistrophy
+    device_features.samplerAnisotropy = context->config.sampler_anisotropy;  // Request anistrophy
 
     VkDeviceCreateInfo device_create_info = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
     device_create_info.queueCreateInfoCount = darray_length(queue_create_info);
@@ -79,7 +79,7 @@ VkResult vulkan_device_create(box_renderer_backend* backend) {
     // Get queues.
     for (u32 i = 0; i < VULKAN_QUEUE_TYPE_MAX; ++i) {
         vulkan_queue* mode = &context->device.mode_queues[i];
-        if (!(backend->config.modes & mode->supported_modes))
+        if (!(context->config.modes & mode->supported_modes))
             continue;
 
         vkGetDeviceQueue(
@@ -94,7 +94,7 @@ VkResult vulkan_device_create(box_renderer_backend* backend) {
     // Create command pool for necessary queue.
     for (u32 i = 0; i < VULKAN_QUEUE_TYPE_MAX; ++i) {
         vulkan_queue* mode = &context->device.mode_queues[i];
-        if (!(backend->config.modes & mode->supported_modes) || i == VULKAN_QUEUE_TYPE_PRESENT)
+        if (!(context->config.modes & mode->supported_modes) || i == VULKAN_QUEUE_TYPE_PRESENT)
             continue;
         
         VkCommandPoolCreateInfo pool_create_info = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
@@ -136,7 +136,7 @@ void vulkan_device_destroy(box_renderer_backend* backend) {
         context->device.logical_device = 0;
     }
 
-    bfree(backend->config.capabilities.device_name, string_length(backend->config.capabilities.device_name) + 1, MEMORY_TAG_RENDERER);
+    bfree(backend->capabilities.device_name, string_length(backend->capabilities.device_name) + 1, MEMORY_TAG_RENDERER);
     context->device.physical_device = 0;
 
     darray_destroy(context->device.swapchain_support.formats);
@@ -230,7 +230,7 @@ b8 select_physical_device(box_renderer_backend* backend) {
             }
 
             context->device.physical_device = physical_devices[i];
-            backend->config.capabilities = capabilities;
+            backend->capabilities = capabilities;
             break;
         }
     }
@@ -256,8 +256,8 @@ b8 physical_device_meets_requirements(
     vulkan_context* context = (vulkan_context*)backend->internal_context;
     vulkan_swapchain_support_info* support = &context->device.swapchain_support;
 
-    darray_destroy(support->formats);
-    darray_destroy(support->present_modes);
+    if (support->formats) darray_destroy(support->formats);
+    if (support->present_modes) darray_destroy(support->present_modes);
     support->formats = 0;
     support->present_modes = 0;
 
@@ -286,7 +286,7 @@ b8 physical_device_meets_requirements(
     strncpy(out_capabilities->device_name, properties.deviceName, str_length);
 
     // Discrete GPU?
-    if (backend->config.discrete_gpu) {
+    if (context->config.discrete_gpu) {
         if (properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
             BX_INFO("Device is not a discrete GPU, and one is required. Skipping.");
             return FALSE;
@@ -348,13 +348,13 @@ b8 physical_device_meets_requirements(
         out_queue_support[VULKAN_QUEUE_TYPE_TRANSFER].family_index != -1,
         properties.deviceName);
 
-    b8 needs_present = backend->config.modes & RENDERER_MODE_GRAPHICS;
+    b8 needs_present = context->config.modes & RENDERER_MODE_GRAPHICS;
 
     if (
-        (!(backend->config.modes & RENDERER_MODE_GRAPHICS) || ((backend->config.modes & RENDERER_MODE_GRAPHICS) && out_queue_support[VULKAN_QUEUE_TYPE_GRAPHICS].family_index != -1)) &&
-        (!needs_present                                    || (needs_present                                    && out_queue_support[VULKAN_QUEUE_TYPE_PRESENT].family_index != -1)) &&
-        (!(backend->config.modes & RENDERER_MODE_COMPUTE)  || ((backend->config.modes & RENDERER_MODE_COMPUTE)  && out_queue_support[VULKAN_QUEUE_TYPE_COMPUTE].family_index != -1)) &&
-        (!(backend->config.modes & RENDERER_MODE_TRANSFER) || ((backend->config.modes & RENDERER_MODE_TRANSFER) && out_queue_support[VULKAN_QUEUE_TYPE_TRANSFER].family_index != -1))) {
+        (!(context->config.modes & RENDERER_MODE_GRAPHICS) || ((context->config.modes & RENDERER_MODE_GRAPHICS) && out_queue_support[VULKAN_QUEUE_TYPE_GRAPHICS].family_index != -1)) &&
+        (!needs_present                                     || (needs_present                                    && out_queue_support[VULKAN_QUEUE_TYPE_PRESENT].family_index != -1)) &&
+        (!(context->config.modes & RENDERER_MODE_COMPUTE)  || ((context->config.modes & RENDERER_MODE_COMPUTE)  && out_queue_support[VULKAN_QUEUE_TYPE_COMPUTE].family_index != -1)) &&
+        (!(context->config.modes & RENDERER_MODE_TRANSFER) || ((context->config.modes & RENDERER_MODE_TRANSFER) && out_queue_support[VULKAN_QUEUE_TYPE_TRANSFER].family_index != -1))) {
         BX_INFO("Device meets queue requirements.");
         BX_TRACE("Graphics Family Index: %i", out_queue_support[VULKAN_QUEUE_TYPE_GRAPHICS].family_index);
         BX_TRACE("Present Family Index:  %i", out_queue_support[VULKAN_QUEUE_TYPE_PRESENT].family_index);
@@ -373,7 +373,7 @@ b8 physical_device_meets_requirements(
         }
 
         // Sampler anisotropy
-        if (backend->config.sampler_anisotropy && !features.samplerAnisotropy) {
+        if (context->config.sampler_anisotropy && !features.samplerAnisotropy) {
             BX_INFO("Device does not support sampler anisotropy, skipping.");
             return FALSE;
         }

@@ -134,6 +134,8 @@ typedef struct vulkan_fence {
 } vulkan_fence;
 
 typedef struct vulkan_context {
+    box_renderer_backend_config config;
+
     vec2 framebuffer_size;
     u32 image_index;
     u32 current_frame;

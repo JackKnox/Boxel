@@ -18,13 +18,11 @@ box_renderer_backend_config renderer_backend_default_config() {
     return configuration;
 }
 
-b8 renderer_backend_create(box_renderer_backend_type type, struct box_platform* plat_state, box_renderer_backend_config* config, box_renderer_backend* out_renderer_backend) {
     if (!out_renderer_backend) return FALSE;
+b8 renderer_backend_create(box_renderer_backend_config* config, uvec2 starting_size, const char* application_name, struct box_platform* plat_state, box_renderer_backend* out_renderer_backend) {
     out_renderer_backend->plat_state = plat_state;
-    out_renderer_backend->config = *config;
-    bzero_memory(&out_renderer_backend->config.capabilities, sizeof(renderer_capabilities));
 
-    if (type == RENDERER_BACKEND_TYPE_VULKAN) {
+    if (config->api_type == RENDERER_BACKEND_TYPE_VULKAN) {
         out_renderer_backend->initialize = vulkan_renderer_backend_initialize;
         out_renderer_backend->shutdown = vulkan_renderer_backend_shutdown;
         out_renderer_backend->wait_until_idle = vulkan_renderer_backend_wait_until_idle;
@@ -39,14 +37,19 @@ b8 renderer_backend_create(box_renderer_backend_type type, struct box_platform* 
         out_renderer_backend->destroy_internal_renderbuffer = vulkan_renderer_destroy_renderbuffer;
         out_renderer_backend->create_internal_texture = vulkan_renderer_create_texture;
         out_renderer_backend->destroy_internal_texture = vulkan_renderer_destroy_texture;
-
-        return TRUE;
+    }
+    else {
+        BX_ERROR("Unsupported renderer backend type (%i).", config->api_type);
+        return FALSE;
     }
 
-    BX_ERROR("Unsupported renderer backend type (%i).", type);
-    return FALSE;
+    out_renderer_backend->initialize(out_renderer_backend, config, starting_size, application_name);
+    return TRUE;
 }
 
 void renderer_backend_destroy(box_renderer_backend* renderer_backend) {
-    bzero_memory(renderer_backend, sizeof(renderer_backend));
+    if (renderer_backend->shutdown != NULL) 
+        renderer_backend->shutdown(renderer_backend);
+    
+    bzero_memory(renderer_backend, sizeof(*renderer_backend));
 }
