@@ -24,6 +24,7 @@ VkShaderStageFlags box_shader_type_to_vulkan_type(box_shader_stage_type type) {
     case BOX_SHADER_STAGE_TYPE_COMPUTE:  return VK_SHADER_STAGE_COMPUTE_BIT;
     }
 
+    BX_ASSERT(TRUE && "Unsupported shader stage type!");
     return 0;
 }
 
@@ -34,6 +35,7 @@ VkDescriptorType box_renderbuffer_usage_to_vulkan_type(box_descriptor_type descr
     case BOX_DESCRIPTOR_TYPE_IMAGE_SAMPLER:  return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     }
 
+    BX_ASSERT(TRUE && "Unsupported descriptor type!");
     return 0;
 }
 
@@ -55,7 +57,8 @@ VkIndexType box_format_to_vulkan_index_type(box_format_type data_type) {
         break;
     }
 
-    return VK_INDEX_TYPE_UINT16;
+    BX_ASSERT(TRUE && "Unsupported format type!");
+    return 0;
 }
 
 VkFilter box_filter_to_vulkan_type(box_filter_type filter_type) {
@@ -64,6 +67,7 @@ VkFilter box_filter_to_vulkan_type(box_filter_type filter_type) {
     case BOX_FILTER_TYPE_LINEAR:  return VK_FILTER_LINEAR;
     }
 
+    BX_ASSERT(TRUE && "Unsupported filter type!");
     return 0;
 }
 
@@ -76,6 +80,7 @@ VkSamplerAddressMode box_address_mode_to_vulkan_type(box_address_mode address) {
     case BOX_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE: return VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE;
     }
 
+    BX_ASSERT(TRUE && "Unsupported address mode!");
     return 0;
 }
 
@@ -131,6 +136,7 @@ VkFormat box_format_to_vulkan_type(box_render_format format) {
         if (format.channel_count == 4) return VK_FORMAT_R8G8B8A8_SRGB;
     }
 
+    BX_ASSERT(TRUE && "Unsupported render format!");
     return VK_FORMAT_UNDEFINED;
 }
 

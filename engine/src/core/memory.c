@@ -45,6 +45,8 @@ void memory_shutdown() {
 }
 
 void* ballocate(u64 size, memory_tag tag) {
+	BX_ASSERT(tag != MEMORY_TAG_UNKNOWN && "Memory allocated on unknown tag");
+
 	breport(size, tag);
 	return bzero_memory(platform_allocate(size, FALSE), size);
 }

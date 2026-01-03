@@ -14,7 +14,7 @@ void* _darray_create(u64 length, u64 stride, memory_tag tag) {
 }
 
 void _darray_destroy(void* array) {
-    if (!array) return;
+    BX_ASSERT(array != NULL && "Invalid arguments passed to _darray_destroy");
 
     u64* header = (u64*)array - DARRAY_FIELD_LENGTH;
     u64 header_size = DARRAY_FIELD_LENGTH * sizeof(u64);
@@ -23,16 +23,22 @@ void _darray_destroy(void* array) {
 }
 
 u64 _darray_field_get(void* array, u64 field) {
+    BX_ASSERT(array != NULL && field < DARRAY_FIELD_LENGTH && "Invalid arguments passed to _darray_field_get");
+
     u64* header = (u64*)array - DARRAY_FIELD_LENGTH;
     return header[field];
 }
 
 void _darray_field_set(void* array, u64 field, u64 value) {
+    BX_ASSERT(array != NULL && field < DARRAY_FIELD_LENGTH && "Invalid arguments passed to _darray_field_set");
+
     u64* header = (u64*)array - DARRAY_FIELD_LENGTH;
     header[field] = value;
 }
 
 void* _darray_resize(void* array) {
+    BX_ASSERT(array != NULL && "Invalid arguments passed to _darray_resize");
+
     u64 length = darray_length(array);
     u64 stride = darray_stride(array);
     void* temp = _darray_create(
@@ -46,6 +52,8 @@ void* _darray_resize(void* array) {
 }
 
 void* _darray_push(void* array, const void* value_ptr) {
+    BX_ASSERT(array != NULL && value_ptr != NULL && "Invalid arguments passed to _darray_push");
+
     u64 length = darray_length(array);
     u64 stride = darray_stride(array);
     if (length >= darray_capacity(array)) {
@@ -60,6 +68,8 @@ void* _darray_push(void* array, const void* value_ptr) {
 }
 
 void _darray_pop(void* array, void* dest) {
+    BX_ASSERT(array != NULL && dest != NULL && "Invalid arguments passed to _darray_pop");
+
     u64 length = darray_length(array);
     u64 stride = darray_stride(array);
     u64 addr = (u64)array;
@@ -69,6 +79,8 @@ void _darray_pop(void* array, void* dest) {
 }
 
 void* _darray_pop_at(void* array, u64 index, void* dest) {
+    BX_ASSERT(array != NULL && index < darray_length(array) && dest != NULL && "Invalid arguments passed to _darray_pop_at");
+
     u64 length = darray_length(array);
     u64 stride = darray_stride(array);
     if (index >= length) {
@@ -92,6 +104,8 @@ void* _darray_pop_at(void* array, u64 index, void* dest) {
 }
 
 void* _darray_insert_at(void* array, u64 index, void* value_ptr) {
+    BX_ASSERT(array != NULL && index < darray_length(array) && value_ptr != NULL && "Invalid arguments passed to _darray_insert_at");
+
     u64 length = darray_length(array);
     u64 stride = darray_stride(array);
     if (index >= length) {

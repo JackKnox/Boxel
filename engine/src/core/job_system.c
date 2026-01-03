@@ -5,6 +5,7 @@
 
 b8 job_thread_func(void* arg) {
     job_worker* worker = (job_worker*)arg;
+    BX_ASSERT(worker != NULL && "Invalid job_worker passed to thread argument");
 
     for (;;) {
         mtx_lock(&worker->mutex);
@@ -52,6 +53,7 @@ b8 job_thread_func(void* arg) {
 }
 
 b8 job_worker_start(job_worker* worker, PFN_worker_thread func_ptr, u64 size_of_job, void* worker_arg) {
+    BX_ASSERT(worker != NULL && func_ptr != NULL && size_of_job != 0 && "Invalid arguments passed to job_worker_start");
     worker->job_queue = _darray_create(1, size_of_job, MEMORY_TAG_CORE);
     worker->func_ptr = func_ptr;
     worker->worker_arg = worker_arg;
@@ -76,15 +78,19 @@ b8 job_worker_start(job_worker* worker, PFN_worker_thread func_ptr, u64 size_of_
 }
 
 void job_worker_stop(job_worker* worker) {
+    BX_ASSERT(worker != NULL && "Invalid arguments passed to job_worker_stop");
     job_worker_quit(worker, FALSE);
     thrd_join(worker->resource_thread, NULL);
 
     mtx_destroy(&worker->mutex);
     cnd_destroy(&worker->cnd);
     darray_destroy(worker->job_queue);
+
+    bzero_memory(worker, sizeof(*worker));
 }
 
 void job_worker_push(job_worker* worker, void* job) {
+    BX_ASSERT(worker != NULL && job != NULL && "Invalid arguments passed to job_worker_push");
     if (worker->should_quit) return;
 
     // Update state and waiting counter under lock to avoid races with wait()
@@ -97,6 +103,8 @@ void job_worker_push(job_worker* worker, void* job) {
 }
 
 void job_worker_wait_until_idle(job_worker* worker) {
+    BX_ASSERT(worker != NULL && "Invalid arguments passed to job_worker_push");
+
     mtx_lock(&worker->mutex);
     while (darray_length(worker->job_queue) > 0 && worker->is_running) 
         cnd_wait(&worker->cnd, &worker->mutex);
@@ -104,6 +112,8 @@ void job_worker_wait_until_idle(job_worker* worker) {
 }
 
 void job_worker_quit(job_worker* worker, b8 should_quit) {
+    BX_ASSERT(worker != NULL && "Invalid arguments passed to job_worker_push");
+
     mtx_lock(&worker->mutex);
     
     // Wake the resource thread so it can exit

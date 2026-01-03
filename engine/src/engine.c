@@ -22,8 +22,8 @@ box_config box_default_config() {
 }
 
 b8 render_thread_loop(void* arg) {
-	if (!arg) return FALSE;
-	box_engine* engine = (box_engine*)arg; 
+	box_engine* engine = (box_engine*)arg;
+	BX_ASSERT(engine != NULL && "Invalid box_engine passed to thread argument");
 
 	if (!engine_thread_init(engine)) {
 		// Error message already printed

@@ -13,6 +13,7 @@ b8 resource_system_on_application_quit(u16 code, void* sender, void* listener_in
 }
 
 b8 resource_thread_func(job_worker* worker, void* job, box_resource_system* system /* void* arg */) {
+    BX_ASSERT(worker != NULL && job != NULL && system != NULL && "Invalid arguments passed to resource_thread_func");
     box_resource_header* resource = (box_resource_header*)((u8*)system->resources.memory + *(u64*)job);
     
     if (resource->magic != RESOURCE_MAGIC) {
@@ -32,6 +33,7 @@ b8 resource_thread_func(job_worker* worker, void* job, box_resource_system* syst
 }
 
 b8 resource_system_init(box_resource_system* system, u64 start_mem) {
+    BX_ASSERT(system != NULL && "Invalid arguments passed to resource_system_init");
     bzero_memory(system, sizeof(box_resource_system));
     freelist_create(start_mem, MEMORY_TAG_RESOURCES, &system->resources);
 
@@ -45,6 +47,7 @@ b8 resource_system_init(box_resource_system* system, u64 start_mem) {
 }
 
 b8 resource_system_allocate_resource(box_resource_system* system, u64 size, void** out_resource) {
+    BX_ASSERT(system != NULL && out_resource != NULL && "Invalid arguments passed to resource_system_allocate_resource");
     if (system->resources.size + size > system->resources.capacity) {
         BX_ERROR("Ran out of resource system memory");
         return FALSE;
@@ -60,6 +63,7 @@ b8 resource_system_allocate_resource(box_resource_system* system, u64 size, void
 }
 
 void resource_system_signal_upload(box_resource_system* system, void* resource) {
+    BX_ASSERT(system != NULL && resource != NULL && "Invalid arguments passed to resource_system_signal_upload");
     box_resource_header* hdr = (box_resource_header*)resource;
     if (!hdr || hdr->magic != RESOURCE_MAGIC) {
         BX_WARN("Invalid resource passed to upload.");
@@ -78,10 +82,12 @@ void resource_system_signal_upload(box_resource_system* system, void* resource) 
 }
 
 void resource_system_flush_uploads(box_resource_system* system) {
+    BX_ASSERT(system != NULL && "Invalid arguments passed to resource_system_flush_uploads");
     job_worker_wait_until_idle(&system->worker);
 }
 
 void resource_system_shutdown(box_resource_system* system) {
+    BX_ASSERT(system != NULL && "Invalid arguments passed to resource_system_shutdown");
     job_worker_wait_until_idle(&system->worker);
     job_worker_stop(&system->worker);
 

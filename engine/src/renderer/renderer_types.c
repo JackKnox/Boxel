@@ -17,7 +17,7 @@ box_shader_stage_type get_stage_type_from_filepath(const char* filepath) {
 	else if (strstr(filepath, ".geom.spv"))
 		return BOX_SHADER_STAGE_TYPE_GEOMETRY;
 
-	BX_ERROR("Unsupported shader stage type: (%s)", filepath);
+	BX_ASSERT(TRUE && "Unsupported shader stage type!");
 	return 0;
 }
 
@@ -29,15 +29,17 @@ renderer_mode box_stage_type_to_renderer_mode(box_shader_stage_type stage_type) 
 	case BOX_SHADER_STAGE_TYPE_GEOMETRY: return RENDERER_MODE_GRAPHICS;
 	}
 
-	BX_ERROR("Unsupported shader stage type: (%i)", stage_type);
+	BX_ASSERT(TRUE && "Unsupported shader stage type!");
 	return 0;
 }
 
 b8 internal_create_renderstage(box_resource_system* system, box_renderstage* resource, box_engine* engine) {
+	BX_ASSERT(system != NULL && resource != NULL && engine != NULL && "Invalid arguments passed to internal_create_renderstage");
 	return engine->renderer.create_internal_renderstage(&engine->renderer, resource);
 }
 
 void internal_destroy_renderstage(box_resource_system* system, box_renderstage* resource, box_engine* engine) {
+	BX_ASSERT(system != NULL && resource != NULL && engine != NULL && "Invalid arguments passed to internal_destroy_renderstage");
 	engine->renderer.destroy_internal_renderstage(&engine->renderer, resource);
 }
 
@@ -117,6 +119,7 @@ box_renderstage* box_engine_create_renderstage(
 }
 
 b8 internal_create_renderbuffer(box_resource_system* system, box_renderbuffer* resource, box_engine* engine) {
+	BX_ASSERT(system != NULL && resource != NULL && engine != NULL && "Invalid arguments passed to internal_create_renderbuffer");
 	b8 result = engine->renderer.create_internal_renderbuffer(&engine->renderer, resource);
 	
 	if (resource->temp_user_data != NULL) {
@@ -129,6 +132,7 @@ b8 internal_create_renderbuffer(box_resource_system* system, box_renderbuffer* r
 }
 
 void internal_destroy_renderbuffer(box_resource_system* system, box_renderbuffer* resource, box_engine* engine) {
+	BX_ASSERT(system != NULL && resource != NULL && engine != NULL && "Invalid arguments passed to internal_destroy_renderbuffer");
 	engine->renderer.destroy_internal_renderbuffer(&engine->renderer, resource);
 }
 
@@ -170,6 +174,7 @@ box_renderbuffer* box_engine_create_renderbuffer(
 }
 
 b8 internal_create_texture(box_resource_system* system, box_texture* resource, box_engine* engine) {
+	BX_ASSERT(system != NULL && resource != NULL && engine != NULL && "Invalid arguments passed to internal_create_texture");
 	b8 result = engine->renderer.create_internal_texture(&engine->renderer, resource);
 
 	if (resource->temp_user_data != NULL) {
@@ -180,6 +185,7 @@ b8 internal_create_texture(box_resource_system* system, box_texture* resource, b
 }
 
 void internal_destroy_texture(box_resource_system* system, box_texture* resource, box_engine* engine) {
+	BX_ASSERT(system != NULL && resource != NULL && engine != NULL && "Invalid arguments passed to internal_destroy_texture");
 	engine->renderer.destroy_internal_texture(&engine->renderer, resource);
 }
 

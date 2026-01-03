@@ -8,11 +8,12 @@ typedef struct freelist_header {
 #pragma pack(pop)
 
 void* get_user_memory(freelist* list, void* internal_block) {
+    BX_ASSERT(list != NULL && internal_block != NULL && "Invalid arguments passed to get_user_memory");
     return (u8*)internal_block + sizeof(freelist_header);
 }
 
 void freelist_create(u64 start_size, memory_tag tag, freelist* out_list) {
-    if (!out_list) return;
+    BX_ASSERT(out_list != NULL && "Invalid arguments passed to freelist_create");
 
     out_list->memory = NULL;
     out_list->size = 0;
@@ -29,9 +30,10 @@ b8 freelist_empty(freelist* list) {
 }
 
 void freelist_destroy(freelist* list) {
-    if (!list) return;
+    BX_ASSERT(list != NULL && "Invalid arguments passed to freelist_destroy");
 
     if (list->memory) {
+        BX_ASSERT(list->capacity > 0 && "Allocated memory in freelist but not recorded capacity");
         bfree(list->memory, list->capacity, list->tag);
         list->memory = NULL;
     }
@@ -41,17 +43,17 @@ void freelist_destroy(freelist* list) {
 }
 
 u64 freelist_size(freelist* list) {
-    if (freelist_empty(list)) return 0;
+    BX_ASSERT(list != NULL && list->memory != NULL && "Invalid arguments passed to freelist_size");
     return list->size;
 }
 
 u64 freelist_capacity(freelist* list) {
-    if (freelist_empty(list)) return 0;
+    BX_ASSERT(list != NULL && list->memory != NULL && "Invalid arguments passed to freelist_capacity");
     return list->capacity;
 }
 
 void freelist_resize(freelist* list, u64 new_size) {
-    if (!list) return;
+    BX_ASSERT(list != NULL && "Invalid arguments passed to freelist_resize");
 
     if (list->memory == NULL || new_size > list->capacity) {
         u64 new_capacity = (list->capacity == 0) ? 8 : list->capacity;
@@ -71,7 +73,7 @@ void freelist_resize(freelist* list, u64 new_size) {
 }
 
 void freelist_reset(freelist* list, b8 zero_memory, b8 free_memory) {
-    if (!list || list->memory == NULL) return;
+    BX_ASSERT(list != NULL && list->memory != NULL && "Invalid arguments passed to freelist_reset");
     list->size = 0;
 
     if (free_memory) {
@@ -87,8 +89,7 @@ void freelist_reset(freelist* list, b8 zero_memory, b8 free_memory) {
 }
 
 void* freelist_push(freelist* list, u64 block_size, void* memory) {
-    if (!list) return NULL;
-    if (block_size == 0) return NULL;
+    BX_ASSERT(list != NULL && list->memory != NULL && block_size > 0 && memory != NULL && "Invalid arguments passed to freelist_push");
 
     u64 aligned_pos = alignment(list->size, 8ULL);
     u64 padding = aligned_pos - list->size;
@@ -112,8 +113,7 @@ void* freelist_push(freelist* list, u64 block_size, void* memory) {
 }
 
 void* freelist_get(freelist* list, u64 index) {
-    if (freelist_empty(list)) return NULL;
-    if (!list->memory) return NULL;
+    BX_ASSERT(list != NULL && list->memory != NULL && "Invalid arguments passed to freelist_get");
 
     u64 pos = 0;
     for (u64 i = 0; i < index; ++i) {
@@ -129,8 +129,7 @@ void* freelist_get(freelist* list, u64 index) {
 }
 
 b8 freelist_next_block(freelist* list, u8** cursor) {
-    if (freelist_empty(list) || !cursor || !list->memory) return FALSE;
-
+    BX_ASSERT(list != NULL && cursor != NULL && list->memory != NULL && "Invalid arguments passed to freelist_next_block");
     u8* next_block_header = 0;
 
     if (*cursor == 0) {
@@ -142,11 +141,10 @@ b8 freelist_next_block(freelist* list, u8** cursor) {
     }
 
     u64 memory_limit = (u64)list->memory + list->size;
-
     if ((u64)next_block_header + sizeof(freelist_header) > memory_limit) {
         return FALSE;
     }
 
-    *cursor = (u8*)alignment((u64)next_block_header + sizeof(freelist_header), 8);
+    *cursor = (u8*)alignment((u64)next_block_header + sizeof(freelist_header), 8ULL);
     return TRUE;
 }

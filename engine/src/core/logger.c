@@ -7,6 +7,7 @@
 
 void log_output(log_level level, const char* message, ...) {
     const char* level_strings[] = { "[FATAL]: ", "[ERROR]: ", "[WARN]:  ", "[INFO]:  ", "[TRACE]: " };
+    BX_ASSERT(level < BX_ARRAYSIZE(level_strings) && message != NULL && "Invalid arguments passed to log_output");
 
     va_list args;
     va_start(args, message);

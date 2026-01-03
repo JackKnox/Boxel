@@ -13,9 +13,8 @@
 #endif
 
 rendercmd_payload* add_command(box_rendercmd* cmd, renderer_mode mode, rendercmd_payload_type type, u64 payload_size) {
-    if (!cmd) return NULL;
+    BX_ASSERT(cmd != NULL && "Invalid arguments passed to add_command");
 
-    // Our command layout inside user memory: [rendercmd_header][payload]
     u64 user_block_size = sizeof(rendercmd_header) + payload_size;
 
     if (freelist_empty(&cmd->buffer)) {
@@ -34,10 +33,11 @@ rendercmd_payload* add_command(box_rendercmd* cmd, renderer_mode mode, rendercmd
     }
 
     // user_memory points at rendercmd_header
-    return (rendercmd_payload*)((u8*)user_memory + sizeof(rendercmd_header));
+    return payload_size > 0 ? (rendercmd_payload*)((u8*)user_memory + sizeof(rendercmd_header)) : NULL;
 }
 
 void box_rendercmd_reset(box_rendercmd* cmd) {
+    BX_ASSERT(cmd != NULL && "Invalid arguments passed to box_rendercmd_reset");
     if (!freelist_empty(&cmd->buffer))
         freelist_reset(&cmd->buffer, FALSE, FALSE);
 
@@ -45,6 +45,7 @@ void box_rendercmd_reset(box_rendercmd* cmd) {
 }
 
 void box_rendercmd_destroy(box_rendercmd* cmd) {
+    BX_ASSERT(cmd != NULL && "Invalid arguments passed to box_rendercmd_destroy");
     freelist_destroy(&cmd->buffer);
     bzero_memory(cmd, sizeof(box_rendercmd));
 }

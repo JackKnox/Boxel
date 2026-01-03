@@ -18,8 +18,8 @@ box_renderer_backend_config renderer_backend_default_config() {
     return configuration;
 }
 
-    if (!out_renderer_backend) return FALSE;
 b8 renderer_backend_create(box_renderer_backend_config* config, uvec2 starting_size, const char* application_name, struct box_platform* plat_state, box_renderer_backend* out_renderer_backend) {
+    BX_ASSERT(plat_state != NULL && config != NULL && out_renderer_backend != NULL && "Invalid arguments passed to renderer_backend_create");
     out_renderer_backend->plat_state = plat_state;
 
     if (config->api_type == RENDERER_BACKEND_TYPE_VULKAN) {

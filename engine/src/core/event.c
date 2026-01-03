@@ -46,6 +46,7 @@ void event_shutdown() {
 }
 
 b8 event_register(u16 code, void* listener, PFN_on_event on_event) {
+    BX_ASSERT(code > 0 && listener != NULL && on_event != NULL && "Invalid arguments passed to event_register");
     if (is_initialized == FALSE) {
         return FALSE;
     }
@@ -72,6 +73,7 @@ b8 event_register(u16 code, void* listener, PFN_on_event on_event) {
 }
 
 b8 event_unregister(u16 code, void* listener, PFN_on_event on_event) {
+    BX_ASSERT(code > 0 && listener != NULL && on_event != NULL && "Invalid arguments passed to event_unregister");
     if (is_initialized == FALSE) {
         return FALSE;
     }
@@ -96,6 +98,7 @@ b8 event_unregister(u16 code, void* listener, PFN_on_event on_event) {
 }
 
 b8 event_fire(u16 code, void* sender, event_context context) {
+    BX_ASSERT(code > 0 && "Invalid arguments passed to event_fire");
     if (is_initialized == FALSE) {
         return FALSE;
     }
