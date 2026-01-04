@@ -3,7 +3,7 @@
 #include "defines.h"
 
 // Holds a handle to a file.
-typedef struct file_handle {
+typedef struct {
     // Opaque handle to internal file handle.
     void* handle;
 
@@ -12,7 +12,7 @@ typedef struct file_handle {
 } file_handle;
 
 // File open modes. Can be combined.
-typedef enum file_modes {
+typedef enum {
     // Read mode 
     FILE_MODE_READ = 1 << 0,
 
@@ -20,7 +20,7 @@ typedef enum file_modes {
     FILE_MODE_WRITE = 1 << 1,
 } file_modes;
 
-typedef enum file_seek_origin {
+typedef enum {
     FILE_SEEK_START,
     FILE_SEEK_CURRENT,
     FILE_SEEK_END,

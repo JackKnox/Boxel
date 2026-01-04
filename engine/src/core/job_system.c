@@ -3,6 +3,11 @@
 
 #include "utils/darray.h"
 
+b8 job_worker_on_application_quit(u16 code, void* sender, void* listener_inst, event_context data) {
+    job_worker_quit((job_worker*)listener_inst, TRUE);
+    return FALSE;
+}
+
 b8 job_thread_func(void* arg) {
     job_worker* worker = (job_worker*)arg;
     BX_ASSERT(worker != NULL && "Invalid job_worker passed to thread argument");
@@ -52,9 +57,9 @@ b8 job_thread_func(void* arg) {
     return TRUE;
 }
 
-b8 job_worker_start(job_worker* worker, PFN_worker_thread func_ptr, u64 size_of_job, void* worker_arg) {
+b8 job_worker_start(job_worker* worker, PFN_worker_thread func_ptr, u64 size_of_job, memory_tag tag, void* worker_arg) {
     BX_ASSERT(worker != NULL && func_ptr != NULL && size_of_job != 0 && "Invalid arguments passed to job_worker_start");
-    worker->job_queue = _darray_create(1, size_of_job, MEMORY_TAG_CORE);
+    worker->job_queue = _darray_create(1, size_of_job, tag);
     worker->func_ptr = func_ptr;
     worker->worker_arg = worker_arg;
     worker->is_running = TRUE;
@@ -64,7 +69,7 @@ b8 job_worker_start(job_worker* worker, PFN_worker_thread func_ptr, u64 size_of_
         return FALSE;
     }
 
-    if (!mtx_init(&worker->mutex, mtx_plain)) {
+    if (!mtx_init(&worker->mutex, BOX_MUTEX_TYPE_PLAIN)) {
         BX_ERROR("Failed to init mutex for worker thread.");
         return FALSE;
     }
@@ -74,12 +79,13 @@ b8 job_worker_start(job_worker* worker, PFN_worker_thread func_ptr, u64 size_of_
         return FALSE;
     }
 
+    event_register(EVENT_CODE_APPLICATION_QUIT, worker, job_worker_on_application_quit);
     return TRUE;
 }
 
 void job_worker_stop(job_worker* worker) {
     BX_ASSERT(worker != NULL && "Invalid arguments passed to job_worker_stop");
-    job_worker_quit(worker, FALSE);
+    job_worker_quit(worker, TRUE); 
     thrd_join(worker->resource_thread, NULL);
 
     mtx_destroy(&worker->mutex);

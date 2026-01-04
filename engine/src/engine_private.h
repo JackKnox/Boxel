@@ -8,32 +8,62 @@
 #include "renderer/renderer_cmd.h"
 #include "resource_system.h"
 
+// Core engine context, contains all global state required for running the engine.
+// Designed to be accessed primarily by the render and main/game threads.
 typedef struct box_engine {
-	// Running = render thread actually open or not.
-	// Suspended = window minimising / paused and waiting to be resumed.
-	// Should quit = Thread is in the process of stopping execution.
-	b8 is_running, is_suspended;
-	b8 should_quit;
+	// Engine state flags:
+	// - is_running: True if the render thread is active and window is open.
+	// - is_suspended: True if the engine is paused or window is minimized.
+	// - should_quit: True when the engine is requested to stop execution.
+	b8 is_running, is_suspended, should_quit;
+
+	// Number of slots in the command ring buffer.
 	u8 command_ring_length;
+
+	// True if a frame is currently being processed.
 	b8 has_open_frame;
 
+	// Engine configuration (window size, vsync, etc.).
 	box_config config;
+
+	// Total memory allocated for engine subsystems.
 	u64 allocation_size;
 
+	// Selected rendering backend (OpenGL, Vulkan, etc.).
 	box_renderer_backend renderer;
+
+	// Pointer to the engine's resource management system.
 	box_resource_system resource_system;
+
+	// Platform-specific state (window handle, input devices, etc.).
 	box_platform platform_state;
 
+	// Render thread handle.
 	thrd_t render_thread;
-	f64 last_time, delta_time;
 
-	u64 game_write_idx, render_read_idx;
-	box_rendercmd* command_ring; // Constant size, cannot change size
+	// Timing values in seconds.
+	f64 last_time;    // Timestamp of previous frame
+	f64 delta_time;   // Time elapsed since last frame
 
-	mtx_t rendercmd_mutex; // For protecting rendercmd processing in a ring buffer.
-	cnd_t rendercmd_cnd;   // Condition variable for above mutex to wait on for special processes.
+	// Ring buffer indices for multi-threaded command submission.
+	u64 game_write_idx;   // Written by game thread
+	u64 render_read_idx;  // Read by render thread
+
+	// Current render command context (shader, mode, descriptors, etc.).
+	rendercmd_context command_context;
+
+	// Ring buffer for render commands. Fixed size; never resized at runtime.
+	box_rendercmd* command_ring;
+
+	// Synchronization primitives for command buffer access:
+	// - rendercmd_mutex: Protects ring buffer access.
+	// - rendercmd_cnd: Allows threads to wait for or signal command processing.
+	mtx_t rendercmd_mutex;
+	cnd_t rendercmd_cnd;
 } box_engine;
 
+// Initializes the engine thread and internal systems.
 b8 engine_thread_init(box_engine* engine);
 
+// Shuts down the engine thread and cleans up all resources.
 void engine_thread_shutdown(box_engine* engine);                                                          

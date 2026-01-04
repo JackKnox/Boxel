@@ -79,7 +79,7 @@ void _darray_pop(void* array, void* dest) {
 }
 
 void* _darray_pop_at(void* array, u64 index, void* dest) {
-    BX_ASSERT(array != NULL && index < darray_length(array) && dest != NULL && "Invalid arguments passed to _darray_pop_at");
+    BX_ASSERT(array != NULL && index < darray_length(array) && "Invalid arguments passed to _darray_pop_at");
 
     u64 length = darray_length(array);
     u64 stride = darray_stride(array);

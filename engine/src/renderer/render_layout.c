@@ -29,7 +29,7 @@ u64 box_render_format_size(box_render_format format) {
 }
 
 #if BOX_ENABLE_VALIDATION
-#   define CHECK_INITIALIZED() if (layout->initialized) { BX_ERROR("Adding to render layout after ending."); return; }
+#   define CHECK_INITIALIZED() if (layout->initialized) { BX_ERROR("Adding to render layout after ending."); bxdebug_break(); return; }
 #else
 #   define CHECK_FINISHED()
 #endif
@@ -83,22 +83,20 @@ void box_render_layout_end(box_render_layout* layout) {
 	layout->initialized = TRUE;
 }
 
-// Get total stride from vertex layout.
 u64 box_render_layout_stride(box_render_layout* layout) {
 	if (!layout) return 0;
-	if (layout->initialized) {
-		BX_ERROR("Adding to render layout after ending."); 
+	if (!layout->initialized) {
+		BX_WARN("Cannot retrieve render layout stride before ending layout.");
 		return 0;
 	}
-	
+
 	return layout->stride;
 }
 
-// Get count of total attributes from vertex layout.
 u32 box_render_layout_count(box_render_layout* layout) {
 	if (!layout) return 0;
-	if (layout->initialized) {
-		BX_ERROR("Adding to render layout after ending.");
+	if (!layout->initialized) {
+		BX_WARN("Cannot retrieve render layout count before ending layout.");
 		return 0;
 	}
 

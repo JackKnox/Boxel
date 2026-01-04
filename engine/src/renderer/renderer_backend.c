@@ -31,6 +31,7 @@ b8 renderer_backend_create(box_renderer_backend_config* config, uvec2 starting_s
         out_renderer_backend->playback_rendercmd = vulkan_renderer_playback_rendercmd;
         out_renderer_backend->end_frame = vulkan_renderer_backend_end_frame;
         out_renderer_backend->create_internal_renderstage = vulkan_renderer_create_renderstage;
+        out_renderer_backend->write_renderstage_descriptors = vulkan_renderer_write_renderstage_descriptors;
         out_renderer_backend->destroy_internal_renderstage = vulkan_renderer_destroy_renderstage;
         out_renderer_backend->create_internal_renderbuffer = vulkan_renderer_create_renderbuffer;
         out_renderer_backend->upload_to_renderbuffer = vulkan_renderer_upload_to_renderbuffer;

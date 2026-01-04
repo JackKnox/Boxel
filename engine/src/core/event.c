@@ -2,12 +2,12 @@
 
 #include "utils/darray.h"
 
-typedef struct registered_event {
+typedef struct {
     void* listener;
     PFN_on_event callback;
 } registered_event;
 
-typedef struct event_code_entry {
+typedef struct {
     registered_event* events;
 } event_code_entry;
 
@@ -15,7 +15,7 @@ typedef struct event_code_entry {
 #define MAX_MESSAGE_CODES 16384
 
 // State structure.
-typedef struct event_system_state {
+typedef struct {
     // Lookup table for event codes.
     event_code_entry registered[MAX_MESSAGE_CODES];
 } event_system_state;

@@ -2,7 +2,7 @@
 
 #include "defines.h"
 
-typedef struct event_context {
+typedef struct {
     // 128 bytes
     union {
         i64 i64[2];
@@ -26,7 +26,10 @@ typedef struct event_context {
 // Should return true if handled.
 typedef b8 (*PFN_on_event)(u16 code, void* sender, void* listener_inst, event_context data);
 
+// Initializes the global event system.
 b8 event_initialize();
+
+// Shuts down the global event system.
 void event_shutdown();
 
 // Register to listen for when events are sent with the provided code.
@@ -39,7 +42,7 @@ b8 event_unregister(u16 code, void* listener, PFN_on_event on_event);
 b8 event_fire(u16 code, void* sender, event_context context);
 
 // System internal event codes. Application should use codes beyond 255.
-typedef enum system_event_code {
+typedef enum {
     // Shuts the application down on the next frame.
     EVENT_CODE_APPLICATION_QUIT = 0x01,
 

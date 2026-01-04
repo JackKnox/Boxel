@@ -54,17 +54,12 @@ box_engine* allocate_engine_and_ring(u32 ring_size) {
 }
 
 box_engine* box_create_engine(box_config* app_config) {
-	if (!app_config || app_config->target_fps <= 0 || !app_config->title || app_config->render_config.modes == 0) {
+	if (!app_config || app_config->target_fps <= 0 || !app_config->title || app_config->render_config.modes == 0 || app_config->render_config.frames_in_flight <= 1) {
 		BX_ERROR("Invalid configuration passed to box_create_engine"); 
 		return NULL; 
 	}
 
 	// Init core systems
-	if (!memory_initialize()) {
-		BX_ERROR("Failed to initialize core memory system.");
-		return NULL;
-	}
-
 	if (!event_initialize()) {
 		BX_ERROR("Failed to initialize core event system.");
 		return NULL;
@@ -81,7 +76,7 @@ box_engine* box_create_engine(box_config* app_config) {
 	engine->command_ring_length = (u32)ring_length;
 	engine->config = *app_config;
 
-	if (!resource_system_init(&engine->resource_system, 1024)) {
+	if (!box_resource_system_init(&engine->resource_system, 1024)) {
 		BX_ERROR("Failed to initialize resource system.");
 		goto failed_init;
 	}
@@ -89,7 +84,7 @@ box_engine* box_create_engine(box_config* app_config) {
 	event_register(EVENT_CODE_APPLICATION_QUIT, engine, engine_on_application_quit);
 
 	if (!cnd_init(&engine->rendercmd_cnd) ||
-		!mtx_init(&engine->rendercmd_mutex, mtx_plain) ||
+		!mtx_init(&engine->rendercmd_mutex, BOX_MUTEX_TYPE_PLAIN) ||
 		!thrd_create(&engine->render_thread, render_thread_loop, (void*)engine)) {
 		BX_ERROR("Failed to start render thread.");
 		goto failed_init;
@@ -140,7 +135,7 @@ box_resource_system* box_engine_get_resource_system(box_engine* engine) {
 
 void box_engine_prepare_resources(box_engine* engine) {
 	if (!engine) return;
-	resource_system_flush_uploads(&engine->resource_system);
+	box_resource_system_flush_uploads(&engine->resource_system);
 }
 
 const box_config* box_engine_get_config(box_engine* engine) {

@@ -87,7 +87,7 @@ char* string_format(const char* format, ...) {
     return result;
 }
 
-char* string_format_v(const char* format, va_list args) {
+char* string_format_v(const char* format, void* args) {
     if (!format) return NULL;
 
     va_list list_copy;

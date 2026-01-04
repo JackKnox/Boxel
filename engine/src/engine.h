@@ -5,62 +5,65 @@
 #include "platform/platform.h"
 
 #include "renderer/renderer_backend.h"
+#include "renderer/renderer_cmd.h"
 
 #include "resource_system.h"
 
-// Application configuration
+// Application configuration used to initialize a Boxel engine instance.
 typedef struct box_config {
 	// Window starting position.
+	// Either absolute coordinates or centered on screen.
 	union box_windowpos {
-		uvec2 absolute;
-		b8 centered;
+		uvec2 absolute; // Position in pixels from top-left corner.
+		b8 centered;    // True to center window automatically.
 	} window_position;
 
-	// Window starting mode.
+	// Initial window mode (e.g., windowed, fullscreen, borderless).
 	box_window_mode window_mode;
 
-	// FPS to lock render thread to.
+	// Target FPS to lock the render thread to.
 	u32 target_fps;
 
-	// Window starting size.
+	// Initial window size in pixels.
 	uvec2 window_size;
 
-	// The application name used in windowing.
+	// Application title used for windowing and OS integration.
 	const char* title;
 
-	// Configuration for render backend.
+	// Renderer-specific configuration (API-specific settings).
 	box_renderer_backend_config render_config;
 } box_config;
 
-// Opaque handle to true box_engine.
+// Opaque handle to a Boxel engine instance.
 typedef struct box_engine box_engine;
 
-// Sets default configurtion for Boxel.
+// Returns a default configuration for initializing Boxel.
 box_config box_default_config();
 
-// Creates and initializes the boxel engine, Consumes specified box_config.
+// Creates and initializes a Boxel engine using the specified configuration, ownership of the returned engine is transferred to the caller.
 box_engine* box_create_engine(box_config* app_config);
 
-// Checks if specified engine is currently running.
+// Returns true if the engine's main render thread is currently running.
 b8 box_engine_is_running(box_engine* engine);
 
-// Checks if engine is temporarily paused.
+// Returns true if the engine is temporarily paused or suspended (e.g., window minimized).
 b8 box_engine_should_skip_frame(box_engine* engine);
 
-// Closes window safely linked to specified engine, calling box_destroy_engine still applies.
+// Closes the window associated with the engine if should_close is true; box_destroy_engine must still be called to fully clean up.
 void box_close_engine(box_engine* engine, b8 should_close);
 
+// Returns the engine's resource system for direct resource management.
 box_resource_system* box_engine_get_resource_system(box_engine* engine);
 
-// Waits until engine and it's dependencies is fully initialized.
+// Blocks until the engine and all dependent subsystems are fully initialized, useful for asynchronous resource setup before the first frame
 void box_engine_prepare_resources(box_engine* engine);
 
-// Gets current config for specified engine.
+// Returns a pointer to the engine's current configuration.
 const box_config* box_engine_get_config(box_engine* engine);
 
-// Returns a per-frame render command buffer for the user to fill with rendering instructions.
-struct box_rendercmd* box_engine_next_frame(box_engine* engine);
+// Returns a per-frame render command buffer for the user to populate with rendering instructions for the current frame.
+box_rendercmd* box_engine_next_frame(box_engine* engine);
 
-// Destroys the boxel engine and it's subsystem.
+// Destroys the engine and all its subsystems, freeing all memory. After this call, the engine pointer is invalid and must not be used.
 void box_destroy_engine(box_engine* engine);
 

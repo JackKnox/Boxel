@@ -5,7 +5,7 @@
 
 #if BOX_ENABLE_MEMORY_TRACKING
 
-typedef struct memory_stats {
+typedef struct {
 	u64 total_allocated;
 	u64 tagged_allocations[MEMORY_TAG_MAX_TAGS];
 } memory_stats;
@@ -23,15 +23,6 @@ static b8 is_initialized = FALSE;
 static memory_stats stats = { 0 };
 
 #endif
-
-b8 memory_initialize() {
-	if (is_initialized == TRUE) {
-		return FALSE;
-	}
-
-	is_initialized = TRUE;
-	return TRUE;
-}
 
 void memory_shutdown() {
 #if BOX_ENABLE_MEMORY_TRACKING

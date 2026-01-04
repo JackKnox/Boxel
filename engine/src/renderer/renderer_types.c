@@ -66,9 +66,8 @@ box_renderstage* box_engine_create_renderstage(
 	}
 #endif
 
-	box_renderstage* renderstage = NULL;
-	if (!resource_system_allocate_resource(&engine->resource_system, sizeof(box_renderstage), &renderstage))
-		return NULL;
+	box_renderstage* renderstage = box_resource_system_allocate_resource(&engine->resource_system, sizeof(box_renderstage));
+	if (!renderstage) return NULL;
 
 	u32 success_stages = 0;
 	for (int i = 0; i < shader_stages_count; ++i) {
@@ -114,7 +113,7 @@ box_renderstage* box_engine_create_renderstage(
 	renderstage->header.vtable.create_local = internal_create_renderstage;
 	renderstage->header.vtable.destroy_local = internal_destroy_renderstage;
 	renderstage->header.resource_arg = (void*)engine;
-	resource_system_signal_upload(&engine->resource_system, renderstage);
+	box_resource_system_signal_upload(&engine->resource_system, renderstage);
 	return renderstage;
 }
 
@@ -153,9 +152,8 @@ box_renderbuffer* box_engine_create_renderbuffer(
 	}
 #endif 
 
-	box_renderbuffer* renderbuffer = NULL;
-	if (!resource_system_allocate_resource(&engine->resource_system, sizeof(box_renderbuffer), &renderbuffer))
-		return NULL;
+	box_renderbuffer* renderbuffer = box_resource_system_allocate_resource(&engine->resource_system, sizeof(box_renderbuffer));
+	if (!renderbuffer) return NULL;
 
 	// Fill static data
 	renderbuffer->usage = usage;
@@ -169,7 +167,7 @@ box_renderbuffer* box_engine_create_renderbuffer(
 	renderbuffer->header.vtable.create_local = internal_create_renderbuffer;
 	renderbuffer->header.vtable.destroy_local = internal_destroy_renderbuffer;
 	renderbuffer->header.resource_arg = (void*)engine;
-	resource_system_signal_upload(&engine->resource_system, renderbuffer);
+	box_resource_system_signal_upload(&engine->resource_system, renderbuffer);
 	return renderbuffer;
 }
 
@@ -203,9 +201,8 @@ box_texture* box_engine_create_texture(
 	}
 #endif
 	
-	box_texture* texture = NULL;
-	if (!resource_system_allocate_resource(&engine->resource_system, sizeof(box_texture), &texture))
-		return NULL;
+	box_texture* texture = box_resource_system_allocate_resource(&engine->resource_system, sizeof(box_texture));
+	if (!texture) return NULL;
 
 	// Fill static data
 	texture->size = size;
@@ -223,7 +220,7 @@ box_texture* box_engine_create_texture(
 	texture->header.vtable.create_local = internal_create_texture;
 	texture->header.vtable.destroy_local = internal_destroy_texture;
 	texture->header.resource_arg = (void*)engine;
-	resource_system_signal_upload(&engine->resource_system, texture);
+	box_resource_system_signal_upload(&engine->resource_system, texture);
 	return texture;
 }
 

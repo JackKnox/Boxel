@@ -6,18 +6,7 @@
 
 #include "renderer_backend.h"
 
-/*
-Memory layout:
-void* buffer = buffer to render commands
-u64 capacity = capacity of rendercmd buffer
-u64 size = bytes used by rendercmd buffer
-
--- per command --
-u64 payload_size = size of data associated with command
-u32 command_type = type of render command
-...rest is payload (size is payload_size)
-*/
-
+// These describe high-level rendering intent and are translated into backend-specific API calls (OpenGL, Vulkan, etc).
 enum {
     RENDERCMD_SET_CLEAR_COLOUR,
     RENDERCMD_BEGIN_RENDERSTAGE,
@@ -27,56 +16,67 @@ enum {
     RENDERCMD_DRAW_INDEXED,
     RENDERCMD_DISPATCH,
 
-    // Private command used for benefit of the renderer backend for ending state.
+    // Private command used internally by the renderer backend to finalize state.
     _RENDERCMD_END,
 };
 typedef u32 rendercmd_payload_type;
 
 // Async container of commands to send to the render backend.
-typedef struct box_rendercmd {
+// Written by the game thread and consumed by the render thread.
+typedef struct {
+    // Linear allocator backing the render command buffer.
     freelist buffer;
+
+    // Indicates that no further commands may be written to this buffer.
     b8 finished;
 } box_rendercmd;
 
-// Holds the current render state during playback.
-typedef struct box_rendercmd_context {
-    struct box_renderstage* current_shader;
-    renderer_mode current_mode;
-} box_rendercmd_context;
-
 #pragma pack(push, 1)
+// Header prepended to every render command payload.
 typedef struct rendercmd_header {
+    // Type of render command.
     rendercmd_payload_type type;
+
+    // Renderer mode this command is valid for (graphics / compute).
     renderer_mode supported_mode;
 } rendercmd_header;
 #pragma pack(pop)
 
 #pragma pack(push, 1)
+// Payload data for all supported render commands.
+// Interpreted based on rendercmd_payload_type.
 typedef union rendercmd_payload {
     struct {
+        // Packed RGBA clear colour.
         u32 clear_colour;
     } set_clear_colour;
 
     struct {
+        // Renderstage to bind for subsequent draw or dispatch calls.
         struct box_renderstage* renderstage;
     } begin_renderstage;
 
-    struct {
-        void* value;
-        u32 size, binding;
-    } set_descriptor;
+    // Descriptor or resource binding update.
+    resource_binding set_descriptor;
 
     struct {
+        // Number of vertices to draw.
         u32 vertex_count;
+
+        // Number of instances to draw.
         u32 instance_count;
     } draw;
 
     struct {
+        // Number of indices to draw.
         u32 index_count;
+
+        // Number of instances to draw.
         u32 instance_count;
     } draw_indexed;
 
     struct {
+        // Compute workgroup dimensions.
         uvec3 group_size;
     } dispatch;
 
@@ -95,8 +95,8 @@ void box_rendercmd_set_clear_colour(box_rendercmd* cmd, f32 clear_r, f32 clear_g
 // Begin a new render stage with specified shaders. Subsequent draw calls will use this stage.
 void box_rendercmd_begin_renderstage(box_rendercmd* cmd, struct box_renderstage* renderstage);
 
-// Sets descriptor / uniform at binding to value. Accepts box_texture*, box_renderbuffer* and any primitive type also supported by shader.
-void box_rendercmd_set_descriptor(box_rendercmd* cmd, void* value, u32 size_of_value, u32 binding);
+// Sets descriptor / uniform at binding to specified texture.
+void box_rendercmd_set_texture(box_rendercmd* cmd, struct box_texture* texture, u32 binding);
 
 // Issue a draw call with current bound state.
 void box_rendercmd_draw(box_rendercmd* cmd, u32 vertex_count, u32 instance_count);
@@ -110,5 +110,6 @@ void box_rendercmd_dispatch(box_rendercmd* cmd, u32 group_size_x, u32 group_size
 // End the current render stage and finalizes state.
 void box_rendercmd_end_renderstage(box_rendercmd* cmd);
 
-// End the current render command and makes set render command immutable.
+// Finalizes the render command buffer and prevents further modification.
+// Intended for internal use by the engine and renderer backend.
 void _box_rendercmd_end(box_rendercmd* cmd);

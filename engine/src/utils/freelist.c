@@ -2,7 +2,7 @@
 #include "freelist.h"
 
 #pragma pack(push, 1)
-typedef struct freelist_header {
+typedef struct {
     u64 payload_size;
 } freelist_header;
 #pragma pack(pop)
@@ -89,7 +89,7 @@ void freelist_reset(freelist* list, b8 zero_memory, b8 free_memory) {
 }
 
 void* freelist_push(freelist* list, u64 block_size, void* memory) {
-    BX_ASSERT(list != NULL && list->memory != NULL && block_size > 0 && memory != NULL && "Invalid arguments passed to freelist_push");
+    BX_ASSERT(list != NULL && list->memory != NULL && block_size > 0 && "Invalid arguments passed to freelist_push");
 
     u64 aligned_pos = alignment(list->size, 8ULL);
     u64 padding = aligned_pos - list->size;

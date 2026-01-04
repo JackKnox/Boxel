@@ -81,18 +81,8 @@ VkSurfaceFormatKHR find_swapchain_format(vulkan_swapchain_support_info* swapchai
 VkResult create(box_renderer_backend* backend, VkExtent2D size, vulkan_swapchain* swapchain) {
     vulkan_context* context = (vulkan_context*)backend->internal_context;
 
-    if (size.width == 0 || size.height == 0) {
-        BX_ERROR("Could not create swapchain with a size of 0");
-        return VK_ERROR_FORMAT_NOT_SUPPORTED;
-    }
-
     // Choose a swap surface format.
     swapchain->image_format = find_swapchain_format(&context->device.swapchain_support);
-    
-    if (context->config.frames_in_flight <= 1) {
-        BX_ERROR("config->frames_in_flight must be set greater than one");
-        return VK_ERROR_FORMAT_NOT_SUPPORTED;
-    }
 
     // Swapchain extent
     if (context->device.swapchain_support.capabilities.currentExtent.width != UINT32_MAX) {
@@ -121,10 +111,11 @@ VkResult create(box_renderer_backend* backend, VkExtent2D size, vulkan_swapchain
     swapchain_create_info.imageArrayLayers = 1;
 
     // Setup the queue family indices
+    u32 queueFamilyIndices[] = {
+        (u32)context->device.mode_queues[VULKAN_QUEUE_TYPE_GRAPHICS].family_index,
+        (u32)context->device.mode_queues[VULKAN_QUEUE_TYPE_PRESENT].family_index };
+
     if (context->device.mode_queues[VULKAN_QUEUE_TYPE_GRAPHICS].family_index != context->device.mode_queues[VULKAN_QUEUE_TYPE_PRESENT].family_index) {
-        u32 queueFamilyIndices[] = {
-            (u32)context->device.mode_queues[VULKAN_QUEUE_TYPE_GRAPHICS].family_index,
-            (u32)context->device.mode_queues[VULKAN_QUEUE_TYPE_PRESENT].family_index};
         swapchain_create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
         swapchain_create_info.queueFamilyIndexCount = 2;
         swapchain_create_info.pQueueFamilyIndices = queueFamilyIndices;
@@ -138,7 +129,7 @@ VkResult create(box_renderer_backend* backend, VkExtent2D size, vulkan_swapchain
     swapchain_create_info.preTransform = context->device.swapchain_support.capabilities.currentTransform;
     swapchain_create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
     swapchain_create_info.presentMode = VK_PRESENT_MODE_FIFO_KHR;
-    swapchain_create_info.oldSwapchain = swapchain->handle;
+    swapchain_create_info.oldSwapchain = VK_NULL_HANDLE;
     swapchain_create_info.clipped = TRUE;
 
     VkResult result = vkCreateSwapchainKHR(context->device.logical_device, &swapchain_create_info, context->allocator, &swapchain->handle);

@@ -28,16 +28,16 @@ box_rendercmd* get_next_rendercmd(box_engine* engine) {
 }
 
 b8 playback_rendercmd(box_engine* engine, box_rendercmd* rendercmd) {
-	box_rendercmd_context context = { 0 };
+	rendercmd_context* context = &engine->command_context;
+	context->batched_descriptors = darray_create(resource_binding, MEMORY_TAG_ENGINE);
 
 	u8* cursor = 0;
 	while (freelist_next_block(&rendercmd->buffer, &cursor)) {
 		rendercmd_header* hdr = (rendercmd_header*)cursor;
 		rendercmd_payload* payload = (rendercmd_payload*)(cursor + sizeof(rendercmd_header));
 
-		if (hdr->supported_mode != 0) {
-			context.current_mode = hdr->supported_mode;
-		}
+		if (hdr->supported_mode)
+			context->current_mode = hdr->supported_mode;
 
 #if BOX_ENABLE_VALIDATION
 		if (hdr->supported_mode != 0) {
@@ -50,42 +50,36 @@ b8 playback_rendercmd(box_engine* engine, box_rendercmd* rendercmd) {
 
 		switch (hdr->type) {
 		case RENDERCMD_BEGIN_RENDERSTAGE:
-#if BOX_ENABLE_VALIDATION
-			if (context.current_shader != NULL) {
-				BX_ERROR("Tried to begin renderstage twice in box_rendercmd.");
-				return FALSE;
-			}
-#endif
-
-			context.current_shader = payload->begin_renderstage.renderstage;
+			context->current_shader = payload->begin_renderstage.renderstage;
+			break;
+		
+		case RENDERCMD_SET_DESCRIPTOR:
+			context->batched_descriptors = _darray_push(context->batched_descriptors, &payload->set_descriptor);
 			break;
 
 		case RENDERCMD_END_RENDERSTAGE:
-#if BOX_ENABLE_VALIDATION
-			if (context.current_shader == NULL) {
-				BX_ERROR("Tried to end renderstage twice in box_rendercmd.");
-				return FALSE;
-			}
-#endif
-
+			context->current_shader = NULL;
 			break;
 
-		case RENDERCMD_SET_DESCRIPTOR:
 		case RENDERCMD_DRAW:
 		case RENDERCMD_DRAW_INDEXED:
 		case RENDERCMD_DISPATCH:
-#if BOX_ENABLE_VALIDATION
-			if (context.current_shader == NULL) {
-				BX_ERROR("Tried to dispatch draw call without a renderstage in box_rendercmd.");
-				return FALSE;
+			if (darray_length(context->batched_descriptors) > 0) {
+				// Connect renderer resources to uniforms / descriptors in renderstage. 
+				if (!engine->renderer.write_renderstage_descriptors(&engine->renderer, context->current_shader, context->batched_descriptors)) {
+					BX_ERROR("Could not write descriptors to renderstage in render command");
+					return FALSE;
+				}
+
+				darray_clear(context->batched_descriptors);
 			}
-#endif
 			break;
 		}
 
-		engine->renderer.playback_rendercmd(&engine->renderer, &context, hdr, payload);
+		engine->renderer.playback_rendercmd(&engine->renderer, context, hdr, payload);
 	}
 
+	darray_destroy(context->batched_descriptors);
 	return TRUE;
 }
 
@@ -97,11 +91,6 @@ b8 engine_thread_init(box_engine* engine) {
 
 	if (!renderer_backend_create(&engine->config.render_config, engine->config.window_size, engine->config.title, &engine->platform_state, &engine->renderer)) {
 		BX_ERROR("Failed to init renderer backend.");
-		goto exit_and_cleanup;
-	}
-
-	if (engine->config.target_fps == 0) {
-		BX_ERROR("Cannot set box_config->target_fps to zero.");
 		goto exit_and_cleanup;
 	}
 
@@ -184,7 +173,7 @@ void engine_thread_shutdown(box_engine* engine) {
 	engine->renderer.wait_until_idle(&engine->renderer, UINT64_MAX);
 
 	BX_INFO("Destroying engine resources...");
-	resource_system_shutdown(&engine->resource_system);
+	box_resource_system_shutdown(&engine->resource_system);
 
 	BX_INFO("Shutting down renderer backend...");
 	if (engine->renderer.internal_context != NULL) {

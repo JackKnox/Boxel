@@ -69,7 +69,7 @@ b8 filesystem_seek(file_handle* handle, i64 offset, file_seek_origin origin) {
 
 u64 filesystem_tell(file_handle* handle) {
     BX_ASSERT(handle != NULL && handle->handle != NULL && handle->is_valid && "Invalid arguments passed to filesystem_tell");
-    return ftell((FILE*)handle->handle) == 0;
+    return ftell((FILE*)handle->handle);
 }
 
 b8 filesystem_read_line(file_handle* handle, u64 max_length, char** line_buf, u64* out_line_length) {

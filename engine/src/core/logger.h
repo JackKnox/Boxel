@@ -1,6 +1,6 @@
 #pragma once
 
-typedef enum log_level {
+typedef enum {
     LOG_LEVEL_FATAL = 0,
     LOG_LEVEL_ERROR = 1,
     LOG_LEVEL_WARN = 2,
