@@ -32,6 +32,10 @@ void* platform_set_memory(void* dest, i32 value, u64 size) {
 	return memset(dest, value, size);
 }
 
+b8 platform_compare_memory(void* buf1, void* buf2, u64 size) {
+    return memcmp(buf1, buf2, size) == 0;
+}
+
 void platform_console_write(log_level level, const char* message) {
 	b8 is_error = (level <= LOG_LEVEL_ERROR);
 

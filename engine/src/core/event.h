@@ -2,6 +2,8 @@
 
 #include "defines.h"
 
+#include "core/allocators.h"
+
 typedef struct {
     // 128 bytes
     union {
@@ -27,7 +29,7 @@ typedef struct {
 typedef b8 (*PFN_on_event)(u16 code, void* sender, void* listener_inst, event_context data);
 
 // Initializes the global event system.
-b8 event_initialize();
+void event_initialize(burst_allocator* allocator);
 
 // Shuts down the global event system.
 void event_shutdown();
@@ -90,5 +92,5 @@ typedef enum {
      */
     EVENT_CODE_RESIZED = 0x08,
 
-    MAX_EVENT_CODE = 0xFF
+    MAX_EVENT_CODE,
 } system_event_code;

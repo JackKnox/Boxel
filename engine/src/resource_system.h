@@ -41,6 +41,9 @@ typedef struct {
 	// User-owned argument passed to resource callbacks.
 	void* resource_arg;
 
+	// Total allocated block for this resource.
+	u64 allocation_size;
+
 	// Current lifecycle state of the resource.
 	box_resource_state state;
 
@@ -49,22 +52,19 @@ typedef struct {
 } box_resource_header;
 
 // Opaque handle to true box_resource_system.
-typedef struct box_resource_system {
-	freelist resources;
-	job_worker worker;
-} box_resource_system;
+typedef struct box_resource_system box_resource_system;
 
-// Creates and initializes the resource system, allocate internal resource storage with size of start_mem.
-b8 box_resource_system_init(box_resource_system* system, u64* memory_usage, u64 start_mem);
+// Creates and initializes the resource system.
+b8 resource_system_init(box_resource_system* system, burst_allocator* allocator, box_resource_system** out_block);
 
 // Allocates memory for a resource, including its internal header and bookkeeping data.
-void* box_resource_system_allocate_resource(box_resource_system* system, u64 resource_size);
+void* resource_system_allocate_resource(box_resource_system* system, u64 resource_size);
 
 // Queues a resource for creation/upload after its state has been set appropriately.
-void box_resource_system_signal_upload(box_resource_system* system, void* resource);
+void resource_system_signal_upload(box_resource_system* system, void* resource);
 
 // Blocks until all previously signaled resource uploads have completed.
-void box_resource_system_flush_uploads(box_resource_system* system);
+void resource_system_flush_uploads(box_resource_system* system);
 
 // Destroys all managed resources and releases all system-owned memory.
-void box_resource_system_shutdown(box_resource_system* system);
+void resource_system_shutdown(box_resource_system* system);

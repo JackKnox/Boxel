@@ -3,13 +3,15 @@
 #include "defines.h"
 
 #include "engine.h"
+#include "resource_system.h"
 
 #include "platform/platform.h"
 #include "renderer/renderer_cmd.h"
-#include "resource_system.h"
+
+#include "core/allocators.h"
 
 // Core engine context, contains all global state required for running the engine.
-// Designed to be accessed primarily by the render and main/game threads.
+// Designed to be accessed primarily by the renderer and main/game threads.
 typedef struct box_engine {
 	// Engine state flags:
 	// - is_running: True if the render thread is active and window is open.
@@ -27,19 +29,19 @@ typedef struct box_engine {
 	box_config config;
 
 	// Total memory allocated for engine subsystems.
-	u64 allocation_size;
+	burst_allocator allocator;
 
 	// Selected rendering backend (OpenGL, Vulkan, etc.).
 	box_renderer_backend renderer;
 
 	// Pointer to the engine's resource management system.
-	box_resource_system resource_system;
+	box_resource_system* resource_system;
 
 	// Platform-specific state (window handle, input devices, etc.).
 	box_platform platform_state;
 
 	// Render thread handle.
-	thrd_t render_thread;
+	box_thread render_thread;
 
 	// Timing values in seconds.
 	f64 last_time;    // Timestamp of previous frame
@@ -58,8 +60,8 @@ typedef struct box_engine {
 	// Synchronization primitives for command buffer access:
 	// - rendercmd_mutex: Protects ring buffer access.
 	// - rendercmd_cnd: Allows threads to wait for or signal command processing.
-	mtx_t rendercmd_mutex;
-	cnd_t rendercmd_cnd;
+	box_mutex rendercmd_mutex;
+	box_cond rendercmd_cnd;
 } box_engine;
 
 // Initializes the engine thread and internal systems.

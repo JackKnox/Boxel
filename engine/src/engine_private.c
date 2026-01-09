@@ -173,7 +173,7 @@ void engine_thread_shutdown(box_engine* engine) {
 	engine->renderer.wait_until_idle(&engine->renderer, UINT64_MAX);
 
 	BX_INFO("Destroying engine resources...");
-	box_resource_system_shutdown(&engine->resource_system);
+	resource_system_shutdown(engine->resource_system);
 
 	BX_INFO("Shutting down renderer backend...");
 	if (engine->renderer.internal_context != NULL) {

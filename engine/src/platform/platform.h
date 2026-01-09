@@ -41,6 +41,9 @@ void* platform_copy_memory(void* dest, const void* source, u64 size);
 // Sets a block of memory to a specific value.
 void* platform_set_memory(void* dest, i32 value, u64 size);
 
+// Checks if two blocks are the same data exactlly.
+b8 platform_compare_memory(void* buf1, void* buf2, u64 size);
+
 // Writes a message to the platform console/log.
 void platform_console_write(log_level level, const char* message);
 
