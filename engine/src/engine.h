@@ -32,6 +32,9 @@ typedef struct box_config {
 
 	// Renderer-specific configuration (API-specific settings).
 	box_renderer_backend_config render_config;
+
+	// Print diagnostics on engine start.
+	b8 output_diagnostics;
 } box_config;
 
 // Opaque handle to a Boxel engine instance.
@@ -58,11 +61,17 @@ box_resource_system* box_engine_get_resource_system(box_engine* engine);
 // Blocks until the engine and all dependent subsystems are fully initialized, useful for asynchronous resource setup before the first frame
 void box_engine_prepare_resources(box_engine* engine);
 
+// Outputs diagnostic information about the current state of the engine.
+void box_engine_output_diagnostics(box_engine* engine);
+
 // Returns a pointer to the engine's current configuration.
 const box_config* box_engine_get_config(box_engine* engine);
 
 // Returns a per-frame render command buffer for the user to populate with rendering instructions for the current frame.
 box_rendercmd* box_engine_next_frame(box_engine* engine);
+
+// Sends render command back to engine returned by box_rendercmd for rendering.
+void box_engine_end_frame(box_engine* engine);
 
 // Destroys the engine and all its subsystems, freeing all memory. After this call, the engine pointer is invalid and must not be used.
 void box_destroy_engine(box_engine* engine);

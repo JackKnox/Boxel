@@ -137,17 +137,17 @@ STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes.");
 #if defined(BOX_BUILD_DEV)
 #   define BOX_ENABLE_ASSERTS 1
 #   define BOX_ENABLE_LOGGING 1
-#   define BOX_ENABLE_MEMORY_TRACKING 1
+#   define BOX_ENABLE_DIAGNOSTICS 1
 #   define BOX_ENABLE_VALIDATION 1
 #elif defined(BOX_BUILD_RELEASE)
 #   define BOX_ENABLE_ASSERTS 1
 #   define BOX_ENABLE_LOGGING 1
-#   define BOX_ENABLE_MEMORY_TRACKING 0
+#   define BOX_ENABLE_DIAGNOSTICS 0
 #   define BOX_ENABLE_VALIDATION 1
 #elif defined(BOX_BUILD_DIST)
 #   define BOX_ENABLE_ASSERTS 0
 #   define BOX_ENABLE_LOGGING 0
-#   define BOX_ENABLE_MEMORY_TRACKING 0
+#   define BOX_ENABLE_DIAGNOSTICS 0
 #   define BOX_ENABLE_VALIDATION 0
 #endif
 

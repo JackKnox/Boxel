@@ -22,14 +22,14 @@ typedef struct job_worker {
 	void* worker_arg;
 
 	// Thread handle for the worker
-	thrd_t resource_thread;
+	box_thread resource_thread;
 
 	// Job processing callback
 	PFN_worker_thread func_ptr;
 
 	// Synchronization primitives for queue access and worker signaling
-	mtx_t mutex;
-	cnd_t cnd;
+	box_mutex mutex;
+	box_cond cond;
 } job_worker;
 
 // Initializes internal synchronization objects, and launches a worker thread.

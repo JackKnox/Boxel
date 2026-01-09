@@ -3,7 +3,7 @@
 
 #include "platform/platform.h"
 
-#if BOX_ENABLE_MEMORY_TRACKING
+#if BOX_ENABLE_DIAGNOSTICS
 
 typedef struct {
 	u64 total_allocated;
@@ -25,7 +25,7 @@ static memory_stats stats = { 0 };
 #endif
 
 void memory_shutdown() {
-#if BOX_ENABLE_MEMORY_TRACKING
+#if BOX_ENABLE_DIAGNOSTICS
 	if (stats.total_allocated == 0) return;
 	for (u32 i = 0; i < MEMORY_TAG_MAX_TAGS; ++i) {
 		if (stats.tagged_allocations[i] == 0) continue;
@@ -48,14 +48,14 @@ void bfree(const void* block, u64 size, memory_tag tag) {
 }
 
 void breport(u64 size, memory_tag tag) {
-#if BOX_ENABLE_MEMORY_TRACKING
+#if BOX_ENABLE_DIAGNOSTICS
 	stats.total_allocated += size;
 	stats.tagged_allocations[tag] += size;
 #endif
 }
 
 void breport_free(u64 size, memory_tag tag) {
-#if BOX_ENABLE_MEMORY_TRACKING
+#if BOX_ENABLE_DIAGNOSTICS
 	stats.total_allocated -= size;
 	stats.tagged_allocations[tag] -= size;
 #endif
@@ -73,8 +73,12 @@ void* bset_memory(void* dest, i32 value, u64 size) {
 	return platform_set_memory(dest, value, size);
 }
 
+b8 bcmp_memory(void* buf1, void* buf2, u64 size) {
+	return platform_compare_memory(buf1, buf2, size);
+}
+
 void print_memory_usage() {
-#if BOX_ENABLE_MEMORY_TRACKING
+#if BOX_ENABLE_DIAGNOSTICS
 	u64 total = 0;
 
 	const u64 gib = 1024 * 1024 * 1024;

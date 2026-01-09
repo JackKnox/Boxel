@@ -10,19 +10,19 @@
 
 box_rendercmd* get_next_rendercmd(box_engine* engine) {
 	// Get next read index reliably
-	mtx_lock(&engine->rendercmd_mutex);
+	mutex_lock(&engine->rendercmd_mutex);
 
 	// Wait until the writer has written to that slot (i.e., not equal to write index).
 	while (engine->render_read_idx == engine->game_write_idx && 
 		engine->is_running && !engine->should_quit) {
-		cnd_wait(&engine->rendercmd_cnd, &engine->rendercmd_mutex);
+		cond_wait(&engine->rendercmd_cnd, &engine->rendercmd_mutex);
 	}
 
 	engine->render_read_idx = (engine->render_read_idx + 1) % engine->command_ring_length;
 
 	// Grab a snapshot of the command under the lock and then unlock
 	box_rendercmd* rendercmd = &engine->command_ring[engine->render_read_idx];
-	mtx_unlock(&engine->rendercmd_mutex);
+	mutex_unlock(&engine->rendercmd_mutex);
 
 	return rendercmd;
 }
@@ -101,10 +101,10 @@ b8 engine_thread_init(box_engine* engine) {
 	// Send message to main thread to unlock user access to engine
 	// since everthing is initialized
 	{
-		mtx_lock(&engine->rendercmd_mutex); // Using the same mutex as the thread waiting
+		mutex_lock(&engine->rendercmd_mutex); // Using the same mutex as the thread waiting
 		engine->is_running = TRUE;
-		cnd_broadcast(&engine->rendercmd_cnd);
-		mtx_unlock(&engine->rendercmd_mutex);
+		cond_broadcast(&engine->rendercmd_cnd);
+		mutex_unlock(&engine->rendercmd_mutex);
 	}
 	
 	engine->last_time = platform_get_absolute_time();
@@ -125,12 +125,12 @@ b8 engine_thread_init(box_engine* engine) {
 			}
 
 			// After successful playback:
-			mtx_lock(&engine->rendercmd_mutex);
+			mutex_lock(&engine->rendercmd_mutex);
 
 			command->finished = FALSE; // Mark slot free for reuse
-			cnd_signal(&engine->rendercmd_cnd);
+			cond_signal(&engine->rendercmd_cnd);
 
-			mtx_unlock(&engine->rendercmd_mutex);
+			mutex_unlock(&engine->rendercmd_mutex);
 
 			// Finish frame after sending validated rendercmd
 			if (succeceded && !backend->end_frame(backend)) {
@@ -152,17 +152,17 @@ b8 engine_thread_init(box_engine* engine) {
 		}
 	}
 
-	cnd_broadcast(&engine->rendercmd_cnd);
+	cond_broadcast(&engine->rendercmd_cnd);
 	return TRUE;
 
 exit_and_cleanup:
 	BX_ERROR("Fatal error in render thread. Exiting...");
 
 	// Broadcast to wake all waiters
-	mtx_lock(&engine->rendercmd_mutex);
+	mutex_lock(&engine->rendercmd_mutex);
 	engine->should_quit = TRUE;
-	cnd_broadcast(&engine->rendercmd_cnd); 
-	mtx_unlock(&engine->rendercmd_mutex);
+	cond_broadcast(&engine->rendercmd_cnd); 
+	mutex_unlock(&engine->rendercmd_mutex);
 	return FALSE;
 }
 
