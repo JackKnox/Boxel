@@ -29,7 +29,7 @@ typedef struct {
 typedef b8 (*PFN_on_event)(u16 code, void* sender, void* listener_inst, event_context data);
 
 // Initializes the global event system.
-void event_initialize(burst_allocator* allocator);
+b8 event_initialize();
 
 // Shuts down the global event system.
 void event_shutdown();

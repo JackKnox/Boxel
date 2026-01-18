@@ -3,14 +3,14 @@
 #include "defines.h"
 
 // Type for Graphics API/Method.
-typedef enum {
+typedef enum box_renderer_backend_type {
     RENDERER_BACKEND_TYPE_VULKAN,
     RENDERER_BACKEND_TYPE_OPENGL,
     RENDERER_BACKEND_TYPE_DIRECTX,
 } box_renderer_backend_type;
 
 // Type of GPU / Device.
-typedef enum {
+typedef enum renderer_device_type {
     RENDERER_DEVICE_TYPE_OTHER,
     RENDERER_DEVICE_TYPE_INTEGRATED_GPU,
     RENDERER_DEVICE_TYPE_DISCRETE_GPU,
@@ -19,14 +19,14 @@ typedef enum {
 } renderer_device_type;
 
 // Modes for renderer to prepare for.
-typedef enum {
+typedef enum renderer_mode {
     RENDERER_MODE_GRAPHICS = 1 << 0,
     RENDERER_MODE_COMPUTE = 1 << 1,
     RENDERER_MODE_TRANSFER = 1 << 2,
 } renderer_mode;
 
 // Type of shader attached to a renderstage.
-typedef enum {
+typedef enum box_shader_stage_type {
     BOX_SHADER_STAGE_TYPE_VERTEX,
     BOX_SHADER_STAGE_TYPE_GEOMETRY,
     BOX_SHADER_STAGE_TYPE_FRAGMENT,
@@ -35,7 +35,7 @@ typedef enum {
 } box_shader_stage_type;
 
 // Supported format types for the renderer backend.
-typedef enum {
+typedef enum box_format_type {
     BOX_FORMAT_TYPE_UINT8,
     BOX_FORMAT_TYPE_UINT16,
     BOX_FORMAT_TYPE_UINT32,
@@ -51,39 +51,39 @@ typedef enum {
 } box_format_type;
 
 // Structure for format of general data in renderer backend.
-typedef struct {
+typedef struct box_render_format {
     box_format_type type;
     u8 channel_count;
     b8 normalized;
 } box_render_format;
 
 // Supported usages for a renderbuffer in host or local.
-typedef enum {
+typedef enum box_renderbuffer_usage {
     BOX_RENDERBUFFER_USAGE_VERTEX = 1 << 0,
     BOX_RENDERBUFFER_USAGE_INDEX = 1 << 1,
     BOX_RENDERBUFFER_USAGE_STORAGE = 1 << 2,
 } box_renderbuffer_usage;
 
 // Supported topologys for vertex buffers.
-typedef enum {
+typedef enum box_vertex_topology_type {
     BOX_VERTEX_TOPOLOGY_TRIANGLES,
     BOX_VERTEX_TOPOLOGY_POINTS,
     BOX_VERTEX_TOPOLOGY_LINES,
 } box_vertex_topology_type;
 
 // Supported descriptor / uniform types for renderer backend.
-typedef enum {
+typedef enum box_descriptor_type {
     BOX_DESCRIPTOR_TYPE_STORAGE_BUFFER,
     BOX_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
     BOX_DESCRIPTOR_TYPE_IMAGE_SAMPLER,
 } box_descriptor_type;
 
-typedef enum {
+typedef enum box_filter_type {
     BOX_FILTER_TYPE_NEAREST,
     BOX_FILTER_TYPE_LINEAR,
 } box_filter_type;
 
-typedef enum {
+typedef enum box_address_mode {
     BOX_ADDRESS_MODE_REPEAT,
     BOX_ADDRESS_MODE_MIRRORED_REPEAT,
     BOX_ADDRESS_MODE_CLAMP_TO_EDGE,
@@ -91,27 +91,27 @@ typedef enum {
     BOX_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE,
 } box_address_mode;
 
-typedef struct {
+typedef struct renderer_capabilities {
     char* device_name;
     renderer_device_type device_type;
     f32 max_anisotropy;
 } renderer_capabilities;
 
-typedef struct {
+typedef struct resource_binding {
     void* value;
     u64 size;
     u32 binding;
     box_descriptor_type type;
 } resource_binding;
 
-typedef struct {
+typedef struct rendercmd_context {
     struct box_renderstage* current_shader;
     renderer_mode current_mode;
     resource_binding* batched_descriptors;
 } rendercmd_context;
 
 // Configuration for render backend.
-typedef struct {
+typedef struct box_renderer_backend_config {
     /// Enabled pipelines / modes for backend to prepare for.
     renderer_mode modes;
 

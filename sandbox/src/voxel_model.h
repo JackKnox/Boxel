@@ -19,9 +19,6 @@ typedef struct {
 typedef struct {
 	box_resource_header header;
 
-	// Version of file, if applicable.
-	u32 file_version;
-
 	// Dynamically allocated memory from file.
 	voxel_material* file_data;
 

@@ -5,6 +5,7 @@
 #include "utils/freelist.h"
 
 #include "renderer_backend.h"
+#include "renderer/renderer_types.h"
 
 // These describe high-level rendering intent and are translated into backend-specific API calls (OpenGL, Vulkan, etc).
 enum {
@@ -93,10 +94,10 @@ void box_rendercmd_destroy(box_rendercmd* cmd);
 void box_rendercmd_set_clear_colour(box_rendercmd* cmd, f32 clear_r, f32 clear_g, f32 clear_b);
 
 // Begin a new render stage with specified shaders. Subsequent draw calls will use this stage.
-void box_rendercmd_begin_renderstage(box_rendercmd* cmd, struct box_renderstage* renderstage);
+void box_rendercmd_begin_renderstage(box_rendercmd* cmd, box_renderstage* renderstage);
 
 // Sets descriptor / uniform at binding to specified texture.
-void box_rendercmd_set_texture(box_rendercmd* cmd, struct box_texture* texture, u32 binding);
+void box_rendercmd_set_texture(box_rendercmd* cmd, box_texture* texture, u32 binding);
 
 // Issue a draw call with current bound state.
 void box_rendercmd_draw(box_rendercmd* cmd, u32 vertex_count, u32 instance_count);

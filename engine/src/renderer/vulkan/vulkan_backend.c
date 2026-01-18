@@ -141,9 +141,9 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, box_rendere
 	// Create intermediate objects.
 	context->swapchain.framebuffers = darray_reserve(vulkan_framebuffer, context->swapchain.image_count, MEMORY_TAG_RENDERER);
 	context->images_in_flight = darray_reserve(vulkan_fence*, context->swapchain.image_count, MEMORY_TAG_RENDERER);
+	context->queue_complete_semaphores = darray_reserve(VkSemaphore, context->swapchain.image_count, MEMORY_TAG_RENDERER);
 
 	context->image_available_semaphores = darray_reserve(VkSemaphore, context->config.frames_in_flight, MEMORY_TAG_RENDERER);
-	context->queue_complete_semaphores = darray_reserve(VkSemaphore, context->config.frames_in_flight, MEMORY_TAG_RENDERER);
 	context->in_flight_fences = darray_reserve(vulkan_fence, context->config.frames_in_flight, MEMORY_TAG_RENDERER);
 
 	// Create framebuffers & command buffers.
@@ -159,7 +159,41 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, box_rendere
 				BX_ARRAYSIZE(attachments), attachments,
 				&context->swapchain.framebuffers[i]),
 			"Failed to create Vulkan framebuffers");
+		
+		VkSemaphoreCreateInfo semaphore_create_info = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
+
+		CHECK_VKRESULT(
+			vkCreateSemaphore(
+				context->device.logical_device, 
+				&semaphore_create_info, 
+				context->allocator, 
+				&context->queue_complete_semaphores[i]),
+			"Failed to create Vulkan sync objects");
 	}
+
+	for (u32 i = 0; i < context->config.frames_in_flight; ++i) {
+		VkSemaphoreCreateInfo semaphore_create_info = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
+		
+		CHECK_VKRESULT(
+			vkCreateSemaphore(
+				context->device.logical_device, 
+				&semaphore_create_info, 
+				context->allocator,
+				&context->image_available_semaphores[i]),
+			"Failed to create Vulkan sync objects");
+
+		// Create the fence in a signaled state, indicating that the first frame has already been "rendered".
+		// This will prevent the application from waiting indefinitely for the first frame to render since it
+		// cannot be rendered until a frame is "rendered" before it.
+		CHECK_VKRESULT(
+			vulkan_fence_create(
+				context, 
+				TRUE, 
+				&context->in_flight_fences[i]),
+			"Failed to create Vulkan sync objects");
+	}
+
+	BX_TRACE("Vulkan synchronization objects created.");
 
 	if (context->config.modes & RENDERER_MODE_GRAPHICS) {
 		vulkan_queue_type queue_type = VULKAN_QUEUE_TYPE_GRAPHICS;
@@ -196,35 +230,6 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, box_rendere
 
 	BX_TRACE("Vulkan command buffers created.");
 
-	for (u8 i = 0; i < context->config.frames_in_flight; ++i) {
-		VkSemaphoreCreateInfo semaphore_create_info = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
-		CHECK_VKRESULT(
-			vkCreateSemaphore(
-				context->device.logical_device, 
-				&semaphore_create_info, 
-				context->allocator,
-				&context->image_available_semaphores[i]),
-			"Failed to create Vulkan sync objects");
-
-		CHECK_VKRESULT(
-			vkCreateSemaphore(
-				context->device.logical_device, 
-				&semaphore_create_info, 
-				context->allocator, 
-				&context->queue_complete_semaphores[i]),
-			"Failed to create Vulkan sync objects");
-
-		// Create the fence in a signaled state, indicating that the first frame has already been "rendered".
-		// This will prevent the application from waiting indefinitely for the first frame to render since it
-		// cannot be rendered until a frame is "rendered" before it.
-		CHECK_VKRESULT(
-			vulkan_fence_create(
-				context, 
-				TRUE, 
-				&context->in_flight_fences[i]),
-			"Failed to create Vulkan sync objects");
-	}
-
 	BX_INFO("Vulkan renderer initialized successfully.");
 	return TRUE;
 }
@@ -234,13 +239,6 @@ void vulkan_renderer_backend_shutdown(box_renderer_backend* backend) {
 	vulkan_renderer_backend_wait_until_idle(backend, UINT64_MAX);
 
 	// Destroy in the opposite order of creation.
-
-	// Create framebuffers & command buffers.
-	for (u32 i = 0; i < context->swapchain.image_count; ++i) {
-		vulkan_framebuffer_destroy(
-			context, 
-			&context->swapchain.framebuffers[i]);
-	}
 
 	for (u32 i = 0; i < BX_ARRAYSIZE(context->command_buffer_ring); ++i) {
 		if (!context->command_buffer_ring[i]) continue;
@@ -258,14 +256,8 @@ void vulkan_renderer_backend_shutdown(box_renderer_backend* backend) {
 		darray_destroy(context->command_buffer_ring[i]);
 	}
 
-	for (u8 i = 0; i < context->config.frames_in_flight; ++i) {
-		if (context->image_available_semaphores[i]) {
-			vkDestroySemaphore(
-				context->device.logical_device,
-				context->image_available_semaphores[i],
-				context->allocator);
-		}
-		
+	// Destroy framebuffers & command buffers.
+	for (u32 i = 0; i < context->swapchain.image_count; ++i) {
 		if (context->queue_complete_semaphores[i]) {
 			vkDestroySemaphore(
 				context->device.logical_device,
@@ -273,9 +265,22 @@ void vulkan_renderer_backend_shutdown(box_renderer_backend* backend) {
 				context->allocator);
 		}
 
+		vulkan_framebuffer_destroy(
+			context, 
+			&context->swapchain.framebuffers[i]);
+	}
+
+	for (u32 i = 0; i < context->config.frames_in_flight; ++i) {
 		vulkan_fence_destroy(
 			context,
 			&context->in_flight_fences[i]);
+		
+		if (context->image_available_semaphores[i]) {
+			vkDestroySemaphore(
+				context->device.logical_device,
+				context->image_available_semaphores[i],
+				context->allocator);
+		}
 	}
 
 	darray_destroy(context->swapchain.framebuffers);
@@ -471,7 +476,7 @@ b8 vulkan_renderer_backend_end_frame(box_renderer_backend* backend) {
 		// Submit into queues
 		VkSemaphore wait_semaphores[] = { context->image_available_semaphores[context->current_frame] };
 		VkPipelineStageFlags wait_stages[] = { VK_PIPELINE_STAGE_ALL_COMMANDS_BIT };
-		VkSemaphore signal_semaphores[] = { context->queue_complete_semaphores[context->current_frame] };
+		VkSemaphore signal_semaphores[] = { context->queue_complete_semaphores[context->image_index] };
 
 		VkSubmitInfo submit_info = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
 		submit_info.pWaitDstStageMask = wait_stages;
@@ -500,7 +505,7 @@ b8 vulkan_renderer_backend_end_frame(box_renderer_backend* backend) {
 				context,
 				&context->swapchain,
 				context->device.mode_queues[VULKAN_QUEUE_TYPE_PRESENT].handle,
-				context->queue_complete_semaphores[context->current_frame],
+				context->queue_complete_semaphores[context->image_index],
 				context->image_index),
 			"Failed to present Vulkan swapchain");
 	}

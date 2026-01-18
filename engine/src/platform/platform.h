@@ -20,6 +20,8 @@ typedef enum box_window_mode {
     BOX_WINDOW_MODE_FULLSCREEN
 } box_window_mode;
 
+struct box_config;
+
 // Initializes the platform and starts the window based on the provided configuration.
 b8 platform_start(box_platform* state, struct box_config* app_config);
 

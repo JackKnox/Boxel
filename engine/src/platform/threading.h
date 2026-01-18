@@ -5,19 +5,17 @@
 // Generic includes
 #include <time.h>
 
-// Platform specific includes
+// Platform-specific includes
 #if defined(BX_PLATFORM_POSIX)
 #   include <pthread.h>
 #elif defined(BX_PLATFORM_WINDOWS)
 #   ifndef WIN32_LEAN_AND_MEAN
 #       define WIN32_LEAN_AND_MEAN
-#       define __UNDEF_LEAN_AND_MEAN
 #   endif
-#       include <windows.h>
-#       ifdef __UNDEF_LEAN_AND_MEAN
-#       undef WIN32_LEAN_AND_MEAN
-#       undef __UNDEF_LEAN_AND_MEAN
+#   ifndef NOMINMAX
+#       define NOMINMAX
 #   endif
+#   include <windows.h>
 #endif
 
 // If TIME_UTC is missing, provide it and provide a wrapper for timespec_get.

@@ -1,7 +1,7 @@
 #include "defines.h"
 #include "platform/platform.h"
 
-#if BX_PLATFORM_WINDOWS
+#ifdef BX_PLATFORM_WINDOWS
 
 #include "engine.h"
 #include "utils/darray.h"
@@ -382,37 +382,7 @@ b8 thread_join(box_thread thr, int* res) {
     return TRUE;
 }
 
-b8 thread_sleep(const struct timespec* duration, struct timespec* remaining) {
-    struct timespec start;
-    DWORD t;
-
-    timespec_get(&start, TIME_UTC);
-
-    t = SleepEx((DWORD)(duration->tv_sec * 1000 +
-        duration->tv_nsec / 1000000 +
-        (((duration->tv_nsec % 1000000) == 0) ? 0 : 1)),
-        TRUE);
-
-    if (t == 0) {
-        return TRUE;
-    }
-    else {
-        if (remaining != NULL) {
-            timespec_get(remaining, TIME_UTC);
-            remaining->tv_sec -= start.tv_sec;
-            remaining->tv_nsec -= start.tv_nsec;
-            if (remaining->tv_nsec < 0)
-            {
-                remaining->tv_nsec += 1000000000;
-                remaining->tv_sec -= 1;
-            }
-        }
-
-        return (t == WAIT_IO_COMPLETION) ? -1 : -2;
-    }
-}
-
-void thrd_yield(void) {
+void thread_yield(void) {
     Sleep(0);
 }
 

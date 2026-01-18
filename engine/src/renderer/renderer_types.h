@@ -81,6 +81,8 @@ typedef struct box_texture {
     void* internal_data;
 } box_texture;
 
+struct box_engine;
+
 // Creates a renderstage asynchronously and logs it with the resource system attached to the specified box_engine.
 box_renderstage* box_engine_create_renderstage(struct box_engine* engine, box_render_layout* layout, u8 shader_stages_count, const char* shader_stages[], box_renderbuffer* vertex_buffer, box_renderbuffer* index_buffer);
 

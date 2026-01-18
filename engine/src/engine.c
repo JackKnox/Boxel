@@ -55,21 +55,23 @@ box_engine* box_create_engine(box_config* app_config) {
 		return NULL; 
 	}
 
-	burst_allocator allocator = { 0 };
+	// Init core / global systems.
+	if (!event_initialize()) {
+		BX_ERROR("Failed to init core event system.");
+		return NULL;
+	}
 
-	// --- Core Systems
-	event_initialize(&allocator);
-
-	// --- Actual Main Engine
 	box_engine* engine = NULL;
+	box_rendercmd* command_ring = NULL;
+	box_resource_system* resc_system = NULL;
+
+	burst_allocator allocator = { 0 };
 	burst_add_block(&allocator, sizeof(box_engine), MEMORY_TAG_ENGINE, &engine);
 
-	box_rendercmd* command_ring = NULL;
 	u32 ring_length = app_config->render_config.frames_in_flight + 1;
 	burst_add_block(&allocator, sizeof(box_rendercmd) * ring_length, MEMORY_TAG_ENGINE, &command_ring);
 
 	// --- Engine-Owned Structures
-	box_resource_system* resc_system = NULL;
 	resource_system_init(NULL, &allocator, &resc_system);
 
 	if (!burst_allocate_all(&allocator)) {
