@@ -61,11 +61,9 @@ b8 event_register(u16 code, void* listener, PFN_on_event on_event) {
     }
 
     // If at this point, no duplicate was found. Proceed with registration.
-    registered_event event;
-    event.listener = listener;
-    event.callback = on_event;
-    state.registered[code].events = _darray_push(state.registered[code].events, &event);
-
+    registered_event* event = darray_push_empty(state.registered[code].events);
+    event->listener = listener;
+    event->callback = on_event;
     return TRUE;
 }
 

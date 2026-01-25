@@ -2,9 +2,7 @@
 
 #include "defines.h"
 
-#include "utils/freelist.h"
-
-#include "core/job_system.h"
+#include "core/allocators.h"
 
 // Represents the lifecycle state of a resource throughout the resource system's runtime.
 typedef enum {
@@ -27,14 +25,14 @@ typedef enum {
 // Holds resource-specific function pointers executed on the resource creation thread.
 typedef struct {
 	// Creates or initializes the resource in a thread-local context.
-	b8 (*create_local)(struct box_resource_system* system, void* resource, void* args);
+	b8 (*create_local)(void* resource, void* args);
 
 	// Destroys or cleans up the resource in a thread-local context.
-	void (*destroy_local)(struct box_resource_system* system, void* resource, void* args);
+	void (*destroy_local)(void* resource, void* args);
 } box_resource_vtable;
 
 // Header present at the start of every valid box_resource in memory.
-typedef struct {
+typedef struct box_resource_header {
 	// Resource-specific callbacks used during creation and destruction.
 	box_resource_vtable vtable;
 

@@ -1,8 +1,10 @@
 #include "voxel_model.h"
 
+#include "utils/string_utils.h"
 #include "platform/filesystem.h"
 
-b8 load_model_vox_format(box_resource_system* system, voxel_model* model, void* arg) {
+b8 load_model_vox_format(void* resource, void* arg) {
+	voxel_model* model = (voxel_model*)resource;
 	file_handle* handle = (file_handle*)arg;
 
 	char header[4];
@@ -93,7 +95,8 @@ b8 load_model_vox_format(box_resource_system* system, voxel_model* model, void* 
 	return TRUE;
 }
 
-void internal_destroy_model(box_resource_system* system, voxel_model* model, void* arg) {
+void internal_destroy_model(void* resource, void* arg) {
+	voxel_model* model = (voxel_model*)resource;
 	file_handle* handle = (file_handle*)arg;
 
 	filesystem_close(handle);
@@ -116,7 +119,7 @@ voxel_model* voxel_model_create(box_engine* engine, const char* filepath) {
 		return FALSE;
 	}
 
-	if (strstr(filepath, ".vox")) {
+	if (string_find_substr(filepath, ".vox")) {
 		model->header.vtable.create_local = load_model_vox_format;
 	}
 	else {

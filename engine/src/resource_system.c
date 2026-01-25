@@ -4,6 +4,8 @@
 #include "engine.h"
 #include "utils/darray.h"
 
+#include "core/job_system.h"
+
 // Represents the resource management system of the engine.
 typedef struct box_resource_system {
     // Dynamic array of resource headers owned by this system - darray.
@@ -13,11 +15,12 @@ typedef struct box_resource_system {
     job_worker worker;
 } box_resource_system;
 
+// Is equal to a 'R' in ASCII
 #define RESOURCE_MAGIC 0x52
 
-b8 resource_thread_func(job_worker* worker, void* job, box_resource_system* system /* void* arg */) {
-    BX_ASSERT(worker != NULL && job != NULL && system != NULL && "Invalid arguments passed to resource_thread_func");
-    box_resource_header* resource = *(box_resource_header**)job;
+b8 resource_thread_func(job_worker* worker, job_info* job) {
+    BX_ASSERT(worker != NULL && job != NULL && "Invalid arguments passed to resource_thread_func");
+    box_resource_header* resource = (box_resource_header*)job->param_data;
 
     if (resource->magic != RESOURCE_MAGIC) {
         BX_WARN("Resource in upload queue had invalid magic; skipping.");
@@ -30,14 +33,14 @@ b8 resource_thread_func(job_worker* worker, void* job, box_resource_system* syst
     resource->state = BOX_RESOURCE_STATE_UPLOADING;
 
     // Perform the create (does its own GPU/local allocations)
-    b8 created = resource->vtable.create_local(system, resource, resource->resource_arg);
+    b8 created = resource->vtable.create_local(resource, resource->resource_arg);
     resource->state = created ? BOX_RESOURCE_STATE_READY : BOX_RESOURCE_STATE_FAILED;
     return created;
 }
 
 b8 resource_system_init(box_resource_system* system, burst_allocator* allocator, box_resource_system** out_block) {
     if (allocator != NULL) {
-        burst_add_block(allocator, sizeof(box_resource_system), MEMORY_TAG_RESOURCES, out_block);
+        burst_add_block(allocator, sizeof(box_resource_system), MEMORY_TAG_RESOURCES, (void**)out_block);
         return TRUE;
     }
 
@@ -45,7 +48,7 @@ b8 resource_system_init(box_resource_system* system, burst_allocator* allocator,
 
     system->owned_resources = darray_create(box_resource_header*, MEMORY_TAG_RESOURCES);
 
-    if (!job_worker_start(&system->worker, resource_thread_func, sizeof(box_resource_header*), MEMORY_TAG_RESOURCES, (void*)system)) {
+    if (!job_worker_start(&system->worker, MEMORY_TAG_RESOURCES)) {
         BX_ERROR("Could not start resource thread");
         return FALSE;
     }
@@ -59,8 +62,8 @@ void* resource_system_allocate_resource(box_resource_system* system, u64 size) {
     new_resource->magic = RESOURCE_MAGIC;
     new_resource->allocation_size = size;
     new_resource->state = BOX_RESOURCE_STATE_UNINITIALIZED;
-
-    system->owned_resources = _darray_push(system->owned_resources, &new_resource);
+    
+    darray_push(system->owned_resources, new_resource);
     return new_resource;
 }
 
@@ -78,7 +81,12 @@ void resource_system_signal_upload(box_resource_system* system, void* resource) 
     }
 
     hdr->state = BOX_RESOURCE_STATE_NEEDS_UPLOAD;
-    job_worker_push(&system->worker, &resource);
+
+    job_info job;
+    job.entry_point = resource_thread_func;
+    job.param_data = hdr;
+    job.param_data_size = hdr->allocation_size;
+    job_worker_submit(&system->worker, &job);
 }
 
 void resource_system_flush_uploads(box_resource_system* system) {
@@ -97,7 +105,7 @@ void resource_system_shutdown(box_resource_system* system) {
         BX_ASSERT(hdr->state != BOX_RESOURCE_STATE_UNINITIALIZED && "Allocated resource within system but didn't signal upload.");
 
         if ((hdr->state == BOX_RESOURCE_STATE_READY || hdr->state == BOX_RESOURCE_STATE_FAILED) && hdr->vtable.destroy_local) {
-            hdr->vtable.destroy_local(system, hdr, hdr->resource_arg);
+            hdr->vtable.destroy_local(hdr, hdr->resource_arg);
         }
 
         bfree(hdr, hdr->allocation_size, MEMORY_TAG_RESOURCES);

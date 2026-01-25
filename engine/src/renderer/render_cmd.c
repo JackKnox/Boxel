@@ -1,10 +1,7 @@
 #include "defines.h"
-#include "renderer_cmd.h"
+#include "renderer_backend.h"
 
 #include "engine.h"
-
-#include "renderer/renderer_types.h"
-#include "renderer/render_layout.h"
 
 #if BOX_ENABLE_VALIDATION
 #   define CHECK_FINISHED() if (!cmd) return; if (cmd->finished) { BX_ERROR("Adding to render command after ending, users should not be calling _box_rendercmd_end."); return; }
@@ -12,7 +9,7 @@
 #   define CHECK_FINISHED()
 #endif
 
-rendercmd_payload* add_command(box_rendercmd* cmd, renderer_mode mode, rendercmd_payload_type type, u64 payload_size) {
+rendercmd_payload* add_command(box_rendercmd* cmd, box_renderer_mode mode, rendercmd_payload_type type, u64 payload_size) {
     BX_ASSERT(cmd != NULL && "Invalid arguments passed to add_command");
 
     u64 user_block_size = sizeof(rendercmd_header) + payload_size;
@@ -67,23 +64,6 @@ void box_rendercmd_begin_renderstage(box_rendercmd* cmd, box_renderstage* render
     rendercmd_payload* payload;
     payload = add_command(cmd, renderstage->mode, RENDERCMD_BEGIN_RENDERSTAGE, sizeof(payload->begin_renderstage));
     payload->begin_renderstage.renderstage = renderstage;
-}
-
-void set_descriptor(box_rendercmd* cmd, void* value, u64 size, u32 binding, box_descriptor_type type) {
-    CHECK_FINISHED();
-
-    rendercmd_payload* payload;
-    payload = add_command(cmd, 0, RENDERCMD_SET_DESCRIPTOR, sizeof(payload->set_descriptor));
-    payload->set_descriptor.value = value;
-    payload->set_descriptor.size = size;
-    payload->set_descriptor.binding = binding;
-    payload->set_descriptor.type = type;
-}
-
-void box_rendercmd_set_texture(box_rendercmd* cmd, box_texture* texture, u32 binding) {
-    CHECK_FINISHED();
-
-    set_descriptor(cmd, texture, box_texture_get_total_size(texture), binding, BOX_DESCRIPTOR_TYPE_IMAGE_SAMPLER);
 }
 
 void box_rendercmd_draw(box_rendercmd* cmd, u32 vertex_count, u32 instance_count) {

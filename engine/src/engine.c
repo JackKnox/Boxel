@@ -9,9 +9,9 @@
 box_config box_default_config() {
 	box_config configuration = { 0 }; // fill with zeros
 	configuration.window_mode = BOX_WINDOW_MODE_WINDOWED;
-	configuration.window_position.centered = TRUE;
-	configuration.window_size.x = 640;
-	configuration.window_size.y = 480;
+	configuration.window_centered = TRUE;
+	configuration.window_size.width = 640;
+	configuration.window_size.height = 480;
 	configuration.title = "Boxel Sandbox";
 	configuration.target_fps = 60;
 #if BOX_ENABLE_DIAGNOSTICS
@@ -66,10 +66,10 @@ box_engine* box_create_engine(box_config* app_config) {
 	box_resource_system* resc_system = NULL;
 
 	burst_allocator allocator = { 0 };
-	burst_add_block(&allocator, sizeof(box_engine), MEMORY_TAG_ENGINE, &engine);
+	burst_add_block(&allocator, sizeof(box_engine), MEMORY_TAG_ENGINE, (void**) &engine);
 
 	u32 ring_length = app_config->render_config.frames_in_flight + 1;
-	burst_add_block(&allocator, sizeof(box_rendercmd) * ring_length, MEMORY_TAG_ENGINE, &command_ring);
+	burst_add_block(&allocator, sizeof(box_rendercmd) * ring_length, MEMORY_TAG_ENGINE, (void**) &command_ring);
 
 	// --- Engine-Owned Structures
 	resource_system_init(NULL, &allocator, &resc_system);
@@ -199,7 +199,7 @@ void box_destroy_engine(box_engine* engine) {
 
 	box_close_engine(engine, TRUE);
 
-	if (engine->render_thread != NULL) {
+	if (engine->render_thread != 0) {
 		int success_code = TRUE;
 		thread_join(engine->render_thread, &success_code);
 

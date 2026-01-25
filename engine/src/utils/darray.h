@@ -28,6 +28,7 @@ void _darray_field_set(void* array, u64 field, u64 value);
 void* _darray_resize(void* array);
 
 void* _darray_push(void* array, const void* value_ptr);
+void* _darray_push_empty(void** array);
 void _darray_pop(void* array, void* dest);
 
 void* _darray_pop_at(void* array, u64 index, void* dest);
@@ -50,12 +51,15 @@ void* _darray_insert_at(void* array, u64 index, void* value_ptr);
         array = _darray_push(array, &temp); \
     }
 
+#define darray_push_empty(array) \
+    _darray_push_empty((void**) &array)
+
 #define darray_pop(array, value_ptr) \
     _darray_pop(array, value_ptr)
 
 #define darray_insert_at(array, index, value)           \
     {                                                   \
-        typeof(value) temp = value;                     \
+        void* temp = (void*)(value);                    \
         array = _darray_insert_at(array, index, &temp); \
     }
 

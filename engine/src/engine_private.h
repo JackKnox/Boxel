@@ -2,13 +2,15 @@
 
 #include "defines.h"
 
+#include "core/allocators.h"
+
 #include "engine.h"
 #include "resource_system.h"
 
-#include "platform/platform.h"
-#include "renderer/renderer_cmd.h"
+#include "renderer/renderer_backend.h"
 
-#include "core/allocators.h"
+#include "platform/platform.h"
+#include "platform/threading.h"
 
 // Core engine context, contains all global state required for running the engine.
 // Designed to be accessed primarily by the renderer and main/game threads.

@@ -1,7 +1,7 @@
 #include "defines.h"
 #include "vulkan_pipeline.h"
 
-#include "renderer/render_layout.h"
+#include "utils/darray.h"
 
 VkResult create_pipeline_layout(vulkan_context* context, box_renderstage* shader, vulkan_pipeline* out_pipeline) {
 	if (shader->layout.descriptor_count > 0) {
@@ -9,17 +9,15 @@ VkResult create_pipeline_layout(vulkan_context* context, box_renderstage* shader
 		VkDescriptorPoolSize* descriptor_pools = darray_reserve(VkDescriptorPoolSize, shader->layout.descriptor_count, MEMORY_TAG_RENDERER);
 
 		for (u32 i = 0; i < shader->layout.descriptor_count; ++i) {
-			VkDescriptorSetLayoutBinding binding = { 0 };
-			binding.binding = i;
-			binding.descriptorCount = 1;
-			binding.descriptorType = box_renderbuffer_usage_to_vulkan_type(shader->layout.descriptors[i].descriptor_type);
-			binding.stageFlags = box_shader_type_to_vulkan_type(shader->layout.descriptors[i].stage_type);
-			descriptor_bindings = _darray_push(descriptor_bindings, &binding);
+			VkDescriptorSetLayoutBinding* binding = darray_push_empty(descriptor_bindings);
+			binding->binding = i;
+			binding->descriptorCount = 1;
+			binding->descriptorType = box_descriptor_type_to_vulkan_type(shader->layout.descriptors[i].descriptor_type);
+			binding->stageFlags = box_shader_type_to_vulkan_type(shader->layout.descriptors[i].stage_type);
 
-			VkDescriptorPoolSize pool_size = { 0 };
-			pool_size.descriptorCount = context->swapchain.image_count;
-			pool_size.type = binding.descriptorType;
-			descriptor_pools = _darray_push(descriptor_pools, &pool_size);
+			VkDescriptorPoolSize* pool_size = darray_push_empty(descriptor_pools);
+			pool_size->descriptorCount = context->swapchain.image_count;
+			pool_size->type = binding->descriptorType;
 		}
 
 		VkDescriptorSetLayoutCreateInfo layoutInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
@@ -45,7 +43,7 @@ VkResult create_pipeline_layout(vulkan_context* context, box_renderstage* shader
 		VkDescriptorSetLayout* layouts = darray_reserve(VkDescriptorSetLayout, context->swapchain.image_count, MEMORY_TAG_RENDERER);
 		for (u32 i = 0; i < context->swapchain.image_count; ++i)
 			darray_push(layouts, out_pipeline->descriptor);
-
+		
 		VkDescriptorSetAllocateInfo alloc_info = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
 		alloc_info.descriptorPool = out_pipeline->descriptor_pool;
 		alloc_info.descriptorSetCount = darray_length(layouts);
@@ -81,9 +79,7 @@ VkResult vulkan_graphics_pipeline_create(
 	for (int i = 0; i < BOX_SHADER_STAGE_TYPE_MAX; ++i) {
 		shader_stage* stage = &shader->stages[i];
 		if (stage->file_size == 0) {
-			if (stage->file_data != NULL) {
-				BX_WARN("Shader stage says file size is zero but contains data?");
-			}
+			BX_ASSERT(stage->file_data == NULL && "Shader stage says file size is zero but contains data?");
 			continue;
 		}
 
@@ -94,11 +90,11 @@ VkResult vulkan_graphics_pipeline_create(
 		VkResult result = vkCreateShaderModule(context->device.logical_device, &create_info, context->allocator, &shader_module);
 		if (!vulkan_result_is_success(result)) return result;
 
-		VkPipelineShaderStageCreateInfo stage_info = { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
-		stage_info.stage = box_shader_type_to_vulkan_type((box_shader_stage_type)i);
-		stage_info.module = shader_module;
-		stage_info.pName = "main";
-		shader_stages = _darray_push(shader_stages, &stage_info);
+		VkPipelineShaderStageCreateInfo* stage_info = darray_push_empty(shader_stages);
+		stage_info->sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		stage_info->stage  = box_shader_type_to_vulkan_type((box_shader_stage_type)i);
+		stage_info->module = shader_module;
+		stage_info->pName  = "main";
 
 		bfree(stage->file_data, stage->file_size, MEMORY_TAG_CORE); // Comes from filesystem_read_entire_binary_file
 	}
@@ -190,12 +186,11 @@ VkResult vulkan_graphics_pipeline_create(
 		for (u32 i = 0; i < box_render_layout_count(&shader->layout); ++i) {
 			box_vertex_attrib_desc* attribute = &shader->layout.attribs[i];
 
-			VkVertexInputAttributeDescription descriptor = { 0 };
-			descriptor.binding = 0;
-			descriptor.location = i;
-			descriptor.format = box_format_to_vulkan_type(attribute->type);
-			descriptor.offset = attribute->offset;
-			attributes = _darray_push(attributes, &descriptor);
+			VkVertexInputAttributeDescription* descriptor = darray_push_empty(attributes);
+			descriptor->binding = 0;
+			descriptor->location = i;
+			descriptor->format = box_format_to_vulkan_type(attribute->type);
+			descriptor->offset = attribute->offset;
 		}
 	}
 	

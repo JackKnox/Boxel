@@ -1,13 +1,13 @@
 #include "defines.h"
 #include "renderer_backend.h"
 
-#include "utils/darray.h"
+#include "platform/platform.h"
 
 #include "vulkan/vulkan_backend.h"
 
 box_renderer_backend_config renderer_backend_default_config() {
     box_renderer_backend_config configuration = {0}; // fill with zeros
-    configuration.modes = RENDERER_MODE_GRAPHICS /* | RENDERER_MODE_COMPUTE */;
+    configuration.modes = RENDERER_MODE_GRAPHICS;
 	configuration.frames_in_flight = 3;
 
 #if BOX_ENABLE_VALIDATION
@@ -18,7 +18,7 @@ box_renderer_backend_config renderer_backend_default_config() {
     return configuration;
 }
 
-b8 renderer_backend_create(box_renderer_backend_config* config, uvec2 starting_size, const char* application_name, struct box_platform* plat_state, box_renderer_backend* out_renderer_backend) {
+b8 box_renderer_backend_create(box_renderer_backend_config* config, uvec2 starting_size, const char* application_name, box_platform* plat_state, box_renderer_backend* out_renderer_backend) {
     BX_ASSERT(plat_state != NULL && config != NULL && out_renderer_backend != NULL && "Invalid arguments passed to renderer_backend_create");
     out_renderer_backend->plat_state = plat_state;
 
@@ -48,9 +48,9 @@ b8 renderer_backend_create(box_renderer_backend_config* config, uvec2 starting_s
     return TRUE;
 }
 
-void renderer_backend_destroy(box_renderer_backend* renderer_backend) {
+void box_renderer_backend_destroy(box_renderer_backend* renderer_backend) {
     if (renderer_backend->shutdown != NULL) 
         renderer_backend->shutdown(renderer_backend);
     
-    bzero_memory(renderer_backend, sizeof(*renderer_backend));
+    bzero_memory(renderer_backend, sizeof(box_renderer_backend));
 }

@@ -11,6 +11,9 @@ b8 char_is_whitespace(char c);
 // Duplicates the provided string. Note that this allocates new memory, which should be freed by the caller.
 char* string_duplicate(const char* str);
 
+// Finds the first occurrence of the substring needle in the string haystack. The terminating null bytes ('\0') are not compared.
+const char* string_find_substr(const char *haystack, const char *needle);
+
 // Case-sensitive string comparison.
 b8 strings_equal(const char* str0, const char* str1);
 

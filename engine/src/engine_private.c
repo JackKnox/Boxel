@@ -29,7 +29,7 @@ box_rendercmd* get_next_rendercmd(box_engine* engine) {
 
 b8 playback_rendercmd(box_engine* engine, box_rendercmd* rendercmd) {
 	rendercmd_context* context = &engine->command_context;
-	context->batched_descriptors = darray_create(resource_binding, MEMORY_TAG_ENGINE);
+	bzero_memory(context, sizeof(rendercmd_context));
 
 	u8* cursor = 0;
 	while (freelist_next_block(&rendercmd->buffer, &cursor)) {
@@ -50,36 +50,41 @@ b8 playback_rendercmd(box_engine* engine, box_rendercmd* rendercmd) {
 
 		switch (hdr->type) {
 		case RENDERCMD_BEGIN_RENDERSTAGE:
+#if BOX_ENABLE_VALIDATION
+			if (context->current_shader != NULL) {
+				BX_ERROR("Tried to begin renderstage twice in box_rendercmd.");
+				return FALSE;
+			}
+#endif
+
 			context->current_shader = payload->begin_renderstage.renderstage;
-			break;
-		
-		case RENDERCMD_SET_DESCRIPTOR:
-			context->batched_descriptors = _darray_push(context->batched_descriptors, &payload->set_descriptor);
 			break;
 
 		case RENDERCMD_END_RENDERSTAGE:
-			context->current_shader = NULL;
+#if BOX_ENABLE_VALIDATION
+			if (context->current_shader == NULL) {
+				BX_ERROR("Tried to end renderstage twice in box_rendercmd.");
+				return FALSE;
+			}
+#endif
+
 			break;
 
 		case RENDERCMD_DRAW:
 		case RENDERCMD_DRAW_INDEXED:
 		case RENDERCMD_DISPATCH:
-			if (darray_length(context->batched_descriptors) > 0) {
-				// Connect renderer resources to uniforms / descriptors in renderstage. 
-				if (!engine->renderer.write_renderstage_descriptors(&engine->renderer, context->current_shader, context->batched_descriptors)) {
-					BX_ERROR("Could not write descriptors to renderstage in render command");
-					return FALSE;
-				}
-
-				darray_clear(context->batched_descriptors);
+#if BOX_ENABLE_VALIDATION
+			if (context->current_shader == NULL) {
+				BX_ERROR("Tried to dispatch draw call without a renderstage in box_rendercmd.");
+				return FALSE;
 			}
+#endif
 			break;
 		}
 
 		engine->renderer.playback_rendercmd(&engine->renderer, context, hdr, payload);
 	}
 
-	darray_destroy(context->batched_descriptors);
 	return TRUE;
 }
 
@@ -89,7 +94,7 @@ b8 engine_thread_init(box_engine* engine) {
 		goto exit_and_cleanup;
 	}
 
-	if (!renderer_backend_create(&engine->config.render_config, engine->config.window_size, engine->config.title, &engine->platform_state, &engine->renderer)) {
+	if (!box_renderer_backend_create(&engine->config.render_config, engine->config.window_size, engine->config.title, &engine->platform_state, &engine->renderer)) {
 		BX_ERROR("Failed to init renderer backend.");
 		goto exit_and_cleanup;
 	}
@@ -177,7 +182,7 @@ void engine_thread_shutdown(box_engine* engine) {
 
 	BX_INFO("Shutting down renderer backend...");
 	if (engine->renderer.internal_context != NULL) {
-		renderer_backend_destroy(&engine->renderer);
+		box_renderer_backend_destroy(&engine->renderer);
 	}
 
 	BX_INFO("Close connection to operating system...");

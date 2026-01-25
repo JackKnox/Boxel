@@ -2,21 +2,23 @@
 
 #include "defines.h"
 
+#include "resource_system.h"
+
 #include "platform/platform.h"
 
-#include "renderer/renderer_backend.h"
-#include "renderer/renderer_cmd.h"
-
-#include "resource_system.h"
+#include "renderer/renderer_types.h"
 
 // Application configuration used to initialize a Boxel engine instance.
 typedef struct box_config {
 	// Window starting position.
 	// Either absolute coordinates or centered on screen.
-	union box_windowpos {
-		uvec2 absolute; // Position in pixels from top-left corner.
-		b8 centered;    // True to center window automatically.
-	} window_position;
+	union {
+		// Position in pixels from top-left corner.
+		uvec2 window_absolute;
+			
+		// True to center window automatically.
+		b8 window_centered;
+	};
 
 	// Initial window mode (e.g., windowed, fullscreen, borderless).
 	box_window_mode window_mode;

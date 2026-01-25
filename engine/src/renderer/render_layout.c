@@ -1,7 +1,5 @@
 #include "defines.h"
-#include "render_layout.h"
-
-#include "renderer/renderer_types.h"
+#include "renderer_backend.h"
 
 u64 box_render_format_size(box_render_format format) {
 	u64 base_size = 1;
@@ -31,7 +29,7 @@ u64 box_render_format_size(box_render_format format) {
 #if BOX_ENABLE_VALIDATION
 #   define CHECK_INITIALIZED() if (layout->initialized) { BX_ERROR("Adding to render layout after ending."); bxdebug_break(); return; }
 #else
-#   define CHECK_FINISHED()
+#   define CHECK_INITIALIZED()
 #endif
 
 void box_render_layout_add(box_render_layout* layout, box_render_format attrib_type) {
@@ -55,20 +53,6 @@ void box_render_layout_add_descriptor(box_render_layout* layout, box_descriptor_
 	desc->descriptor_type = descriptor_type;
 	desc->stage_type = stage_type;
 	++layout->descriptor_count;
-}
-
-void box_render_layout_set_topology(box_render_layout* layout, box_vertex_topology_type topology) {
-	if (!layout) return;
-	CHECK_INITIALIZED()
-	
-	layout->topology_type = topology;
-}
-
-void box_render_layout_set_index_type(box_render_layout* layout, box_format_type type) {
-	if (!layout) return;
-	CHECK_INITIALIZED()
-	
-	layout->index_type = type;
 }
 
 void box_render_layout_end(box_render_layout* layout) {

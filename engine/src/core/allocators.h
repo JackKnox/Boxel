@@ -2,8 +2,6 @@
 
 #include "defines.h"
 
-#include "memory.h"
-
 // Represents a single allocation request within a burst allocator.
 typedef struct {
 	// Address of a pointer that will receive the allocated memory block.

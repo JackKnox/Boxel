@@ -1,5 +1,7 @@
 #pragma once
 
+#include "defines.h"
+
 #include "vulkan_types.h"
 
 VkResult vulkan_device_create(box_renderer_backend* backend);

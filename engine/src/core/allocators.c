@@ -9,12 +9,11 @@ void burst_add_block(burst_allocator* allocator, u64 size, memory_tag tag, void*
 	if (!allocator->entries)
 		allocator->entries = darray_create(burst_allocator_entry, MEMORY_TAG_CORE);
 
-	burst_allocator_entry entry = { 0 };
-	entry.out_pointer = out_pointer;
-	entry.size = size;
-	entry.tag = tag;
+	burst_allocator_entry* entry = darray_push_empty(allocator->entries);
+	entry->out_pointer = out_pointer;
+	entry->size = size;
+	entry->tag = tag;
 
-	allocator->entries = _darray_push(allocator->entries, &entry);
 	allocator->total_size += size;
 }
 

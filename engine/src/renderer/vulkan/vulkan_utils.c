@@ -19,23 +19,21 @@ i32 find_memory_index(vulkan_context* context, u32 type_filter, u32 property_fla
 VkShaderStageFlags box_shader_type_to_vulkan_type(box_shader_stage_type type) {
     switch (type) {
     case BOX_SHADER_STAGE_TYPE_VERTEX:  return VK_SHADER_STAGE_VERTEX_BIT;
-    case BOX_SHADER_STAGE_TYPE_GEOMETRY: return VK_SHADER_STAGE_GEOMETRY_BIT;
     case BOX_SHADER_STAGE_TYPE_FRAGMENT: return VK_SHADER_STAGE_FRAGMENT_BIT;
     case BOX_SHADER_STAGE_TYPE_COMPUTE:  return VK_SHADER_STAGE_COMPUTE_BIT;
     }
 
-    BX_ASSERT(TRUE && "Unsupported shader stage type!");
+    BX_ASSERT(FALSE && "Unsupported shader stage type!");
     return 0;
 }
 
-VkDescriptorType box_renderbuffer_usage_to_vulkan_type(box_descriptor_type descriptor_type) {
+VkDescriptorType box_descriptor_type_to_vulkan_type(box_descriptor_type descriptor_type) {
     switch (descriptor_type) {
     case BOX_DESCRIPTOR_TYPE_STORAGE_BUFFER: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    case BOX_DESCRIPTOR_TYPE_UNIFORM_BUFFER: return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     case BOX_DESCRIPTOR_TYPE_IMAGE_SAMPLER:  return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     }
 
-    BX_ASSERT(TRUE && "Unsupported descriptor type!");
+    BX_ASSERT(FALSE && "Unsupported descriptor type!");
     return 0;
 }
 
@@ -57,7 +55,7 @@ VkIndexType box_format_to_vulkan_index_type(box_format_type data_type) {
         break;
     }
 
-    BX_ASSERT(TRUE && "Unsupported format type!");
+    BX_ASSERT(FALSE && "Unsupported format type!");
     return 0;
 }
 
@@ -67,7 +65,7 @@ VkFilter box_filter_to_vulkan_type(box_filter_type filter_type) {
     case BOX_FILTER_TYPE_LINEAR:  return VK_FILTER_LINEAR;
     }
 
-    BX_ASSERT(TRUE && "Unsupported filter type!");
+    BX_ASSERT(FALSE && "Unsupported filter type!");
     return 0;
 }
 
@@ -80,7 +78,7 @@ VkSamplerAddressMode box_address_mode_to_vulkan_type(box_address_mode address) {
     case BOX_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE: return VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE;
     }
 
-    BX_ASSERT(TRUE && "Unsupported address mode!");
+    BX_ASSERT(FALSE && "Unsupported address mode!");
     return 0;
 }
 
@@ -136,7 +134,7 @@ VkFormat box_format_to_vulkan_type(box_render_format format) {
         if (format.channel_count == 4) return VK_FORMAT_R8G8B8A8_SRGB;
     }
 
-    BX_ASSERT(TRUE && "Unsupported render format!");
+    BX_ASSERT(FALSE && "Unsupported render format!");
     return VK_FORMAT_UNDEFINED;
 }
 
@@ -194,7 +192,7 @@ const char* vulkan_result_string(VkResult result, b8 get_extended) {
     case VK_ERROR_FORMAT_NOT_SUPPORTED:
         return !get_extended ? "VK_ERROR_FORMAT_NOT_SUPPORTED" : "VK_ERROR_FORMAT_NOT_SUPPORTED A requested format is not supported on this device.";
     case VK_ERROR_FRAGMENTED_POOL:
-        return !get_extended ? "VK_ERROR_FRAGMENTED_POOL" : "VK_ERROR_FRAGMENTED_POOL A pool allocation has failed due to fragmentation of the pool’s memory. This must only be returned if no attempt to allocate host or device memory was made to accommodate the new allocation. This should be returned in preference to VK_ERROR_OUT_OF_POOL_MEMORY, but only if the implementation is certain that the pool allocation failure was due to fragmentation.";
+        return !get_extended ? "VK_ERROR_FRAGMENTED_POOL" : "VK_ERROR_FRAGMENTED_POOL A pool allocation has failed due to fragmentation of the poolï¿½s memory. This must only be returned if no attempt to allocate host or device memory was made to accommodate the new allocation. This should be returned in preference to VK_ERROR_OUT_OF_POOL_MEMORY, but only if the implementation is certain that the pool allocation failure was due to fragmentation.";
     case VK_ERROR_SURFACE_LOST_KHR:
         return !get_extended ? "VK_ERROR_SURFACE_LOST_KHR" : "VK_ERROR_SURFACE_LOST_KHR A surface is no longer available.";
     case VK_ERROR_NATIVE_WINDOW_IN_USE_KHR:
@@ -217,7 +215,7 @@ const char* vulkan_result_string(VkResult result, b8 get_extended) {
         //case VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS:
         //    return !get_extended ? "VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS" :"VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS A buffer creation or memory allocation failed because the requested address is not available. A shader group handle assignment failed because the requested shader group handle information is no longer valid.";
     case VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT:
-        return !get_extended ? "VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT" : "VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT An operation on a swapchain created with VK_FULL_SCREEN_EXCLUSIVE_APPLICATION_CONTROLLED_EXT failed as it did not have exlusive full-screen access. This may occur due to implementation-dependent reasons, outside of the application’s control.";
+        return !get_extended ? "VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT" : "VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT An operation on a swapchain created with VK_FULL_SCREEN_EXCLUSIVE_APPLICATION_CONTROLLED_EXT failed as it did not have exlusive full-screen access. This may occur due to implementation-dependent reasons, outside of the applicationï¿½s control.";
     case VK_ERROR_UNKNOWN:
         return !get_extended ? "VK_ERROR_UNKNOWN" : "VK_ERROR_UNKNOWN An unknown error has occurred; either the application has provided invalid input, or an implementation failure has occurred.";
     }

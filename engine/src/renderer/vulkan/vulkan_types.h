@@ -2,10 +2,7 @@
 
 #include "defines.h"
 
-#include "utils/darray.h"
-
 #include "renderer/renderer_backend.h"
-#include "renderer/renderer_types.h"
 
 #include <vulkan/vulkan.h>
 
@@ -69,7 +66,7 @@ typedef struct {
     VkCommandPool pool;
 
     // Renderer modes supported by this queue (graphics / compute).
-    renderer_mode supported_modes;
+    box_renderer_mode supported_modes;
 
     // Queue family index.
     i32 family_index;
@@ -271,7 +268,7 @@ i32 find_memory_index(vulkan_context* context, u32 type_filter, u32 property_fla
 VkShaderStageFlags box_shader_type_to_vulkan_type(box_shader_stage_type type);
 
 // Converts engine descriptor type to Vulkan descriptor type.
-VkDescriptorType box_renderbuffer_usage_to_vulkan_type(box_descriptor_type descriptor_type);
+VkDescriptorType box_descriptor_type_to_vulkan_type(box_descriptor_type descriptor_type);
 
 // Converts engine index format to Vulkan index type.
 VkIndexType box_format_to_vulkan_index_type(box_format_type data_type);

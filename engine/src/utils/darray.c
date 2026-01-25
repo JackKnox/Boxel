@@ -52,19 +52,34 @@ void* _darray_resize(void* array) {
 }
 
 void* _darray_push(void* array, const void* value_ptr) {
-    BX_ASSERT(array != NULL && value_ptr != NULL && "Invalid arguments passed to _darray_push");
+    BX_ASSERT(array != NULL && "Invalid arguments passed to _darray_push");
 
     u64 length = darray_length(array);
     u64 stride = darray_stride(array);
     if (length >= darray_capacity(array)) {
         array = _darray_resize(array);
     }
+    
+    if (value_ptr != NULL) {
+        u64 addr = (u64)array + (length * stride);
+        bcopy_memory((void*)addr, value_ptr, stride);
+    }
 
-    u64 addr = (u64)array;
-    addr += (length * stride);
-    bcopy_memory((void*)addr, value_ptr, stride);
     _darray_field_set(array, DARRAY_LENGTH, length + 1);
     return array;
+}
+
+void* _darray_push_empty(void** out_array) {
+    BX_ASSERT(out_array != NULL && "Invalid arguments passed to _darray_push_empty");
+
+    u64 length = darray_length(*out_array);
+    u64 stride = darray_stride(*out_array);
+    if (length >= darray_capacity(*out_array)) {
+        *out_array = _darray_resize(*out_array);
+    }
+    
+    _darray_field_set(*out_array, DARRAY_LENGTH, length + 1);
+    return (void*) (u64)*out_array + (length * stride);
 }
 
 void _darray_pop(void* array, void* dest) {

@@ -2,8 +2,6 @@
 
 #include "defines.h"
 
-#include "renderer/renderer_backend.h"
-
 // Describes a single vertex attribute within a vertex buffer layout.
 typedef struct {
 	// Data format of the vertex attribute (e.g. vec2, vec3, normalized, etc).
@@ -18,7 +16,7 @@ typedef struct {
 	// Type of descriptor (uniform buffer, sampler, storage buffer, etc).
 	box_descriptor_type descriptor_type;
 	
-	// Shader stage(s) this descriptor is visible to.
+	// Shader stage this descriptor is visible to.
 	box_shader_stage_type stage_type;
 } box_descriptor_desc;
 
@@ -32,12 +30,6 @@ typedef struct {
 
 	// Descriptor bindings used by the pipeline.
 	box_descriptor_desc descriptors[BOX_MAX_DESCRIPTORS];
-
-	// Index buffer format (if indexed rendering is used).
-	box_format_type index_type;
-
-	// Primitive topology used for rendering.
-	box_vertex_topology_type topology_type;
 
 	// Total size in bytes of a single vertex.
 	u64 stride;
@@ -60,12 +52,6 @@ void box_render_layout_add(box_render_layout* layout, box_render_format format);
 
 // Adds a descriptor to the descriptor set later to be created along with the renderstage.
 void box_render_layout_add_descriptor(box_render_layout* layout, box_descriptor_type descriptor_type, box_shader_stage_type stage_type);
-
-// Set the topology of the layout to be applied to connected buffers.
-void box_render_layout_set_topology(box_render_layout* layout, box_vertex_topology_type topology);
-
-// Set the index type of the later applied index buffer.
-void box_render_layout_set_index_type(box_render_layout* layout, box_format_type type);
 
 // Finalizes the render layout after all attributes have been added. After calling this function, the layout becomes immutable.
 void box_render_layout_end(box_render_layout* layout);

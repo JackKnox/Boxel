@@ -95,8 +95,8 @@ b8 platform_start(box_platform* plat_state, box_config* app_config) {
 	int monitorX, monitorY;
 	glfwGetMonitorPos(monitor, &monitorX, &monitorY);
 
-	uvec2 window_pos = app_config->window_position.absolute;
-	if (app_config->window_position.centered == TRUE) {
+	uvec2 window_pos = app_config->window_absolute;
+	if (app_config->window_centered) {
 		window_pos.x = monitorX + (mode->width - app_config->window_size.x) / 2;
 		window_pos.y = monitorY + (mode->height - app_config->window_size.y) / 2;
 	}

@@ -8,13 +8,17 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 void* platform_allocate(u64 size, b8 aligned) {
 	return malloc(size);
 }
 
 void platform_free(const void* block, b8 aligned) {
+	#pragma GCC diagnostic push
+	#pragma GCC diagnostic ignored "-Wdiscarded-qualifiers"
 	free(block);
+	#pragma GCC diagnostic pop
 }
 
 void* platform_copy_memory(void* dest, const void* source, u64 size) {

@@ -3,7 +3,8 @@
 
 #include "engine.h"
 #include "platform/filesystem.h"
-#include "renderer/renderer_cmd.h"
+
+#include "utils/darray.h"
 
 #include "vulkan_types.h"
 #include "vulkan_device.h"
@@ -355,7 +356,7 @@ b8 vulkan_renderer_backend_begin_frame(box_renderer_backend* backend, f32 delta_
 	return TRUE;
 }
 
-vulkan_queue_type box_renderer_mode_to_queue_type(renderer_mode mode) {
+vulkan_queue_type box_renderer_mode_to_queue_type(box_renderer_mode mode) {
 	switch (mode) {
 	case RENDERER_MODE_GRAPHICS: return VULKAN_QUEUE_TYPE_GRAPHICS;
 	case RENDERER_MODE_COMPUTE: return VULKAN_QUEUE_TYPE_COMPUTE;
@@ -403,28 +404,18 @@ void vulkan_renderer_playback_rendercmd(box_renderer_backend* backend, rendercmd
 	case RENDERCMD_BEGIN_RENDERSTAGE:
 		vulkan_pipeline_bind(command_buffer, context, pipeline);
 
-		if (current_shader->vertex_buffer != NULL) {
-			vulkan_buffer* vk_buffer = (vulkan_buffer*)current_shader->vertex_buffer->internal_data;
+		if (current_shader->mode == RENDERER_MODE_GRAPHICS) {
 			VkDeviceSize offset = 0;
 
-			vkCmdBindVertexBuffers(
-				command_buffer->handle, 
-				0, 
-				1, 
-				&vk_buffer->handle, 
-				&offset);
+			vulkan_buffer* vertex_buffer = (vulkan_buffer*)current_shader->graphics.vertex_buffer->internal_data;
+			vkCmdBindVertexBuffers(command_buffer->handle, 0, 1, &vertex_buffer->handle, &offset);
+
+			if (current_shader->graphics.index_buffer != NULL) {
+				vulkan_buffer* index_buffer = (vulkan_buffer*)current_shader->graphics.index_buffer->internal_data;
+				vkCmdBindIndexBuffer(command_buffer->handle, index_buffer->handle, offset, VK_INDEX_TYPE_UINT16);
+			}
 		}
 
-		if (current_shader->index_buffer != NULL) {
-			vulkan_buffer* vk_buffer = (vulkan_buffer*)current_shader->index_buffer->internal_data;
-			VkDeviceSize offset = 0;
-
-			vkCmdBindIndexBuffer(
-				command_buffer->handle, 
-				vk_buffer->handle, 
-				offset, 
-				box_format_to_vulkan_index_type(current_shader->layout.index_type));
-		}
 		break;
 
 	case RENDERCMD_DRAW:
@@ -540,47 +531,80 @@ b8 vulkan_renderer_create_renderstage(box_renderer_backend* backend, box_renders
 				out_stage),
 			"Failed to create Vulkan compute pipeline");
 		break;
+
+	default:
+		BX_ASSERT(FALSE && "Unsupported renderstage type in Vulkan");
+		break;
 	}
 
 	return TRUE;
 }
 
-b8 vulkan_renderer_write_renderstage_descriptors(box_renderer_backend* backend, box_renderstage* stage, resource_binding* descriptors) {
-	vulkan_context* context = (vulkan_context*)backend->internal_context;
-	vulkan_pipeline* pipeline = (vulkan_pipeline*)stage->internal_data;
+b8 vulkan_renderer_write_renderstage_descriptors(box_renderer_backend* backend, box_renderstage* stage, box_write_descriptors* writes, u64 write_count) {
+    vulkan_context* context = (vulkan_context*)backend->internal_context;
+    vulkan_pipeline* pipeline = (vulkan_pipeline*)stage->internal_data;
 
-	for (u32 i = 0; i < darray_length(descriptors); ++i) {
-		resource_binding* descriptor = &descriptors[i];
+    u32 image_count = context->swapchain.image_count;
+    u32 max_writes  = write_count * image_count;
 
-		VkDescriptorImageInfo image_info = { 0 };
-		VkDescriptorBufferInfo buffer_info = { 0 };
+    VkWriteDescriptorSet* write_commands = darray_reserve(VkWriteDescriptorSet, max_writes, MEMORY_TAG_RENDERER);
+    VkDescriptorBufferInfo* buffer_infos = darray_reserve(VkDescriptorBufferInfo, max_writes, MEMORY_TAG_RENDERER);
+    VkDescriptorImageInfo* image_infos = darray_reserve(VkDescriptorImageInfo, max_writes, MEMORY_TAG_RENDERER);
 
-		// Update descriptor sets.
-		VkWriteDescriptorSet descriptor_write = { VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
-		descriptor_write.dstSet = pipeline->descriptor_sets[context->image_index];
-		descriptor_write.dstBinding = descriptors->binding;
-		descriptor_write.dstArrayElement = 0;
-		descriptor_write.descriptorType = box_renderbuffer_usage_to_vulkan_type(descriptor->type);
-		descriptor_write.descriptorCount = 1;
+    for (u32 i = 0; i < write_count; ++i) {
+        box_write_descriptors* write = &writes[i];
+        const box_descriptor_desc* layout_desc = &stage->layout.descriptors[write->binding];
 
-		switch (descriptor->type) {
-		case BOX_DESCRIPTOR_TYPE_IMAGE_SAMPLER:
-			box_texture* user_texture = (box_texture*)descriptors->value;
-			vulkan_image* vk_image = (vulkan_image*)user_texture->internal_data;
+        if (write->type != layout_desc->descriptor_type) {
+            BX_ERROR("Descriptor type mismatch at binding %u (write=%u, layout=%u)", write->binding, write->type, layout_desc->descriptor_type);
+            continue;
+        }
 
-			image_info.sampler = vk_image->sampler;
-			image_info.imageView = vk_image->view;
-			image_info.imageLayout = vk_image->layout;
-			descriptor_write.pImageInfo = &image_info;
-			break;
+        for (u32 j = 0; j < image_count; ++j) {
+            VkWriteDescriptorSet* descriptor_write = darray_push_empty(write_commands);
+			descriptor_write->sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptor_write->dstSet          = pipeline->descriptor_sets[j];
+			descriptor_write->dstBinding      = write->binding;
+			descriptor_write->dstArrayElement = 0;
+			descriptor_write->descriptorType  = box_descriptor_type_to_vulkan_type(write->type);
+			descriptor_write->descriptorCount = 1;
 
-		default: BX_ASSERT(TRUE && "Unsupported descriptor type in render command buffer"); break;
-		}
+            switch (write->type) {
+                case BOX_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+                    vulkan_buffer* buffer = (vulkan_buffer*)((box_renderbuffer*)write->value)->internal_data;
 
-		vkUpdateDescriptorSets(context->device.logical_device, 1, &descriptor_write, 0, 0);
-	}
-	
-	return TRUE;
+                    VkDescriptorBufferInfo* buffer_info = darray_push_empty(buffer_infos);
+                    buffer_info->buffer = buffer->handle;
+                    buffer_info->offset = 0;
+                    buffer_info->range  = VK_WHOLE_SIZE;
+                    descriptor_write->pBufferInfo = buffer_info;
+					break;
+
+                case BOX_DESCRIPTOR_TYPE_IMAGE_SAMPLER:
+                    vulkan_image* image = (vulkan_image*)((box_texture*)write->value)->internal_data;
+
+                    VkDescriptorImageInfo* image_info = darray_push_empty(image_infos);
+                    image_info->sampler     = image->sampler;
+                    image_info->imageView   = image->view;
+                    image_info->imageLayout = image->layout;
+                    descriptor_write->pImageInfo = image_info;
+					break;
+
+                default:
+                    BX_ASSERT(FALSE && "Unsupported descriptor type");
+                    continue;
+            }
+        }
+    }
+
+    if (darray_length(write_commands) > 0)
+        vkUpdateDescriptorSets(context->device.logical_device, darray_length(write_commands), write_commands, 0, NULL);
+
+    darray_destroy(buffer_infos);
+    darray_destroy(image_infos);
+    darray_destroy(write_commands);
+
+    return TRUE;
 }
 
 void vulkan_renderer_destroy_renderstage(box_renderer_backend* backend, box_renderstage* stage) {

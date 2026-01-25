@@ -1,6 +1,8 @@
 #include "defines.h"
 #include "filesystem.h"
 
+#include "utils/string_utils.h"
+
 #include <stdio.h>
 #include <sys/stat.h>
 
@@ -77,7 +79,7 @@ b8 filesystem_read_line(file_handle* handle, u64 max_length, char** line_buf, u6
 
     char* buf = *line_buf;
     if (fgets(buf, max_length, (FILE*)handle->handle) != 0) {
-        *out_line_length = strlen(*line_buf);
+        *out_line_length = string_length(*line_buf);
         return TRUE;
     }
 

@@ -4,7 +4,7 @@
 #include "utils/darray.h"
 #include "utils/string_utils.h"
 
-renderer_mode queue_type_to_mode(vulkan_queue_type type) {
+box_renderer_mode queue_type_to_mode(vulkan_queue_type type) {
     switch (type) {
     case VULKAN_QUEUE_TYPE_GRAPHICS: return RENDERER_MODE_GRAPHICS;
     case VULKAN_QUEUE_TYPE_COMPUTE: return RENDERER_MODE_COMPUTE;
@@ -18,7 +18,7 @@ b8 select_physical_device(box_renderer_backend* backend);
 b8 physical_device_meets_requirements(
     VkPhysicalDevice device,
     box_renderer_backend* backend,
-    renderer_capabilities* out_capabilities,
+    box_renderer_capabilities* out_capabilities,
     vulkan_queue out_queue_support[]);
 
 VkResult vulkan_device_create(box_renderer_backend* backend) {
@@ -45,11 +45,11 @@ VkResult vulkan_device_create(box_renderer_backend* backend) {
         }
 
         if (!exists) {
-            VkDeviceQueueCreateInfo create_info = { VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO };
-            create_info.queueFamilyIndex = family;
-            create_info.queueCount = 1;
-            create_info.pQueuePriorities = &queue_priority;
-            queue_create_info = _darray_push(queue_create_info, &create_info);
+            VkDeviceQueueCreateInfo* create_info = darray_push_empty(queue_create_info);
+            create_info->sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+            create_info->queueFamilyIndex = family;
+            create_info->queueCount       = 1;
+            create_info->pQueuePriorities = &queue_priority;
         }
     }
 
@@ -113,7 +113,7 @@ void vulkan_device_destroy(box_renderer_backend* backend) {
     vulkan_context* context = (vulkan_context*)backend->internal_context;
     if (!context->device.logical_device) return;
 
-    BX_INFO("Destroying command pools...");
+    BX_TRACE("Destroying command pools...");
 
     for (u32 i = 0; i < VULKAN_QUEUE_TYPE_MAX; ++i) {
         vulkan_queue* queue = &context->device.mode_queues[i];
@@ -199,7 +199,7 @@ b8 select_physical_device(box_renderer_backend* backend) {
     VK_CHECK(vkEnumeratePhysicalDevices(context->instance, &physical_device_count, physical_devices));
 
     for (u32 i = 0; i < physical_device_count; ++i) {
-        renderer_capabilities capabilities = {0};
+        box_renderer_capabilities capabilities = {0};
         b8 result = physical_device_meets_requirements(
             physical_devices[i],
             backend,
@@ -250,7 +250,7 @@ b8 select_physical_device(box_renderer_backend* backend) {
 b8 physical_device_meets_requirements(
     VkPhysicalDevice device,
     box_renderer_backend* backend,
-    renderer_capabilities* out_capabilities,
+    box_renderer_capabilities* out_capabilities,
     vulkan_queue out_queue_support[]) {
     // Evaluate device properties to determine if it meets the needs of our applcation.
     vulkan_context* context = (vulkan_context*)backend->internal_context;
@@ -275,7 +275,7 @@ b8 physical_device_meets_requirements(
     VkPhysicalDeviceMemoryProperties memory;
     vkGetPhysicalDeviceMemoryProperties(device, &memory);
 
-    out_capabilities->device_type = (renderer_device_type)properties.deviceType;
+    out_capabilities->device_type = (box_renderer_device_type)properties.deviceType;
     out_capabilities->max_anisotropy = features.samplerAnisotropy;
 
     if (out_capabilities->device_name)
@@ -283,7 +283,7 @@ b8 physical_device_meets_requirements(
 
     u64 str_length = string_length(properties.deviceName) + 1;
     out_capabilities->device_name = ballocate(str_length, MEMORY_TAG_RENDERER);
-    strncpy(out_capabilities->device_name, properties.deviceName, str_length);
+    bcopy_memory(out_capabilities->device_name, properties.deviceName, str_length);
 
     // Discrete GPU?
     if (context->config.discrete_gpu) {

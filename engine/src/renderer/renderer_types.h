@@ -1,96 +1,135 @@
+// Front end to renderer, to use ther renderer features just include this one file.
+// Includes all basic structs / enums
 #pragma once
 
 #include "defines.h"
 
-#include "renderer/render_layout.h"
-#include "renderer/renderer_backend.h"
+// Type of graphics API or backend being used.
+typedef enum box_renderer_backend_type {
+    RENDERER_BACKEND_TYPE_VULKAN,  // Vulkan backend
+    RENDERER_BACKEND_TYPE_OPENGL,  // OpenGL backend
+    RENDERER_BACKEND_TYPE_DIRECTX, // DirectX backend
+} box_renderer_backend_type;
 
-#include "resource_system.h"
+// Type of GPU / Device.
+typedef enum box_renderer_device_type {
+    RENDERER_DEVICE_TYPE_OTHER,            // Unknown or generic device
+    RENDERER_DEVICE_TYPE_INTEGRATED_GPU,   // Integrated GPU (CPU + GPU on same chip)
+    RENDERER_DEVICE_TYPE_DISCRETE_GPU,     // Discrete graphics card
+    RENDERER_DEVICE_TYPE_VIRTUAL_GPU,      // Virtual GPU (e.g., in a VM)
+    RENDERER_DEVICE_TYPE_CPU,              // CPU as rendering device
+} box_renderer_device_type;
 
-// Container for a GPU-resident buffer resource. Acts as a backend-agnostic handle to vertex, index, uniform, or storage buffers.
-typedef struct box_renderbuffer {
-    box_resource_header header;
+// Modes the renderer can operate in.
+typedef enum box_renderer_mode {
+    RENDERER_MODE_GRAPHICS = 1 << 0,   // Standard graphics rendering
+    RENDERER_MODE_COMPUTE = 1 << 1,    // Compute operations (GPU compute shaders)
+    RENDERER_MODE_TRANSFER = 1 << 2,   // Data transfer mode (e.g., buffer copies)
+} box_renderer_mode;
 
-    // Intended usage of the buffer (vertex, index, uniform, etc).
-    box_renderbuffer_usage usage;
+// Supported format types for the renderer backend.
+typedef enum box_format_type {
+    BOX_FORMAT_TYPE_UINT8,   // Unsigned 8-bit integer
+    BOX_FORMAT_TYPE_UINT16,  // Unsigned 16-bit integer
+    BOX_FORMAT_TYPE_UINT32,  // Unsigned 32-bit integer
 
-    // Total size of the buffer in bytes.
-    u64 buffer_size;
+    BOX_FORMAT_TYPE_SINT8,   // Signed 8-bit integer
+    BOX_FORMAT_TYPE_SINT16,  // Signed 16-bit integer
+    BOX_FORMAT_TYPE_SINT32,  // Signed 32-bit integer
 
-    // Optional pointer to CPU-side data used during asynchronous creation.
-    void* temp_user_data;
+    BOX_FORMAT_TYPE_FLOAT32, // 32-bit floating point
+    BOX_FORMAT_TYPE_SRGB,    // sRGB color format
 
-    // Backend-specific buffer handle/state.
-    void* internal_data;
-} box_renderbuffer;
+    BOX_FORMAT_TYPE_BOOL,    // Boolean (true/false)
+} box_format_type;
 
-// Raw shader stage data loaded from disk or memory.
-typedef struct {
-    // Pointer to shader source or compiled bytecode.
-    const void* file_data;
+// Structure for format of general data in renderer backend.
+typedef struct box_render_format {
+    box_format_type type; // Data type
+    u8 channel_count;     // Number of components per element (e.g., RGBA = 4)
+    b8 normalized;        // Whether integer formats are normalized to [0,1] or [-1,1]
+} box_render_format;
 
-    // Size of the shader data in bytes.
-    u64 file_size;
-} shader_stage;
+// Supported topologys for vertex data.
+typedef enum box_vertex_topology_type {
+    BOX_VERTEX_TOPOLOGY_TRIANGLES, // Triangles
+    BOX_VERTEX_TOPOLOGY_POINTS,    // Points
+    BOX_VERTEX_TOPOLOGY_LINES,     // Lines
+} box_vertex_topology_type;
 
-// Container for one or more shader stages that form a render pipeline.
-typedef struct box_renderstage {
-    box_resource_header header;
+// Supported usages for a renderbuffer in host or local.
+typedef enum box_renderbuffer_usage {
+    BOX_RENDERBUFFER_USAGE_VERTEX  = 1 << 0, // Vertex buffer
+    BOX_RENDERBUFFER_USAGE_INDEX   = 1 << 1, // Index buffer
+    BOX_RENDERBUFFER_USAGE_STORAGE = 1 << 2, // Storage buffer for compute/other uses
+} box_renderbuffer_usage;
 
-    // Shader stages indexed by box_shader_stage_type.
-    shader_stage stages[BOX_SHADER_STAGE_TYPE_MAX];
-    
-    // Vertex input and descriptor layout expected by the shaders.
-    box_render_layout layout;
-    
-    // Optional vertex buffer bound to this renderstage.
-    box_renderbuffer* vertex_buffer;
+// Types of descriptors or uniforms in the renderer.
+typedef enum box_descriptor_type {
+    BOX_DESCRIPTOR_TYPE_STORAGE_BUFFER, // Storage buffer (SSBO)
+    BOX_DESCRIPTOR_TYPE_IMAGE_SAMPLER,  // Texture + sampler
+} box_descriptor_type;
 
-    // Optional index buffer bound to this renderstage.
-    box_renderbuffer* index_buffer;
+// Texture sampling filter types.
+typedef enum box_filter_type {
+    BOX_FILTER_TYPE_NEAREST, // Nearest-neighbor filtering
+    BOX_FILTER_TYPE_LINEAR,  // Linear interpolation filtering
+} box_filter_type;
 
-    // Backend-specific pipeline or program state.
-    void* internal_data;
+// Type of shader attached to a renderstage.
+typedef enum box_shader_stage_type {
+    BOX_SHADER_STAGE_TYPE_VERTEX,   // Vertex shader stage
+    BOX_SHADER_STAGE_TYPE_FRAGMENT, // Fragment/pixel shader stage
+    BOX_SHADER_STAGE_TYPE_COMPUTE,  // Compute shader stage
+    BOX_SHADER_STAGE_TYPE_MAX,      // Sentinel value (max number of shader stages)
+} box_shader_stage_type;
 
-    // Rendering mode (graphics, compute, etc).
-    renderer_mode mode;
-} box_renderstage;
+// Texture address / wrap modes.
+typedef enum box_address_mode {
+    BOX_ADDRESS_MODE_REPEAT,               // Repeat texture coordinates
+    BOX_ADDRESS_MODE_MIRRORED_REPEAT,      // Mirror and repeat
+    BOX_ADDRESS_MODE_CLAMP_TO_EDGE,        // Clamp to edge pixels
+    BOX_ADDRESS_MODE_CLAMP_TO_BORDER,      // Clamp to a border color
+    BOX_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE, // Mirror then clamp to edge
+} box_address_mode;
 
-// Container for GPU image data and sampling parameters.
-// Textures are backend-agnostic and converted to API-specific image
-// and sampler objects by the renderer backend.
-typedef struct box_texture {
-    box_resource_header header;
+// Structure used to write descriptor values (buffers or textures) to GPU.
+typedef struct box_write_descriptors {
+    u32 binding;              // Binding point in shader
+    const void* value;        // Pointer to buffer or texture
+    box_descriptor_type type; // Type of descriptor
+} box_write_descriptors;
 
-    // Dimensions of the texture in pixels.
-    uvec2 size;
-       
-    // Format of the stored image data.
-    box_render_format image_format;
+// Structure describing the capabilities of a renderer/device.
+typedef struct box_renderer_capabilities {
+    char* device_name;                // Human-readable device name
+    box_renderer_device_type device_type; // Device type (integrated, discrete, etc.)
+    f32 max_anisotropy;               // Maximum supported anisotropic filtering
+} box_renderer_capabilities;
 
-    // Texture filtering mode.
-    box_filter_type filter_type;
+// Configuration for render backend.
+typedef struct box_renderer_backend_config {
+    /// Enabled pipelines / modes for backend to prepare for.
+    box_renderer_mode modes;
 
-    // Texture address (wrap) mode.
-    box_address_mode address_mode;
+    // Send validation messages through out engine.
+    b8 enable_validation;
 
-    // Optional pointer to CPU-side data used during asynchronous creation.
-    void* temp_user_data;
+    // Enable sampler anisotropy on GPU.
+    b8 sampler_anisotropy;
 
-    // Backend-specific image and sampler state.
-    void* internal_data;
-} box_texture;
+    // Force renderer backend to use a discrete GPU.
+    b8 discrete_gpu;
 
-struct box_engine;
+    // Chosen type of API. Keep this in box_renderer_backend_config so backend knows what type is it.
+    box_renderer_backend_type api_type;
 
-// Creates a renderstage asynchronously and logs it with the resource system attached to the specified box_engine.
-box_renderstage* box_engine_create_renderstage(struct box_engine* engine, box_render_layout* layout, u8 shader_stages_count, const char* shader_stages[], box_renderbuffer* vertex_buffer, box_renderbuffer* index_buffer);
+    // Frame count for swapchain, must be greater than 1.
+    u32 frames_in_flight;
+} box_renderer_backend_config;
 
-// Create a buffer on the GPU asynchronously and logs it with the resource system attached to the specified box_engine.
-box_renderbuffer* box_engine_create_renderbuffer(struct box_engine* engine, box_renderbuffer_usage usage, u64 buffer_size, void* data_to_send);
+// Sets default configurtion for renderer backend.
+box_renderer_backend_config renderer_backend_default_config();
 
-// Create a texture in the resource system attached to the specified box_engine on the GPU asynchronously.
-box_texture* box_engine_create_texture(struct box_engine* engine, uvec2 size, box_render_format image_format, box_filter_type filter_type, box_address_mode address_mode, const void* data);
-
-// Gets total size of bytes storing internal texture data
-u64 box_texture_get_total_size(box_texture* texture);
+#include "render_layout.h"
+#include "render_objects.h"

@@ -1,6 +1,8 @@
 #include "defines.h"
 #include "vulkan_swapchain.h"
 
+#include "utils/darray.h"
+
 #include "vulkan_device.h"
 #include "vulkan_image.h"
 

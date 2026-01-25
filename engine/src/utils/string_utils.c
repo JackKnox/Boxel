@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "platform/platform.h"
+#include "string_utils.h"
 
 u64 string_length(const char* str) {
     return strlen(str);
@@ -52,7 +53,12 @@ char* string_duplicate(const char* str) {
     return copy;
 }
 
-i64 str_ncmp(const char* str0, const char* str1, u32 max_len) {
+const char* string_find_substr(const char* haystack, const char* needle) {
+    return strstr(haystack, needle);
+}
+
+i64 str_ncmp(const char* str0, const char* str1, u32 max_len)
+{
     if (!str0 && !str1) {
         return 0; // Technically equal since both are null.
     }

@@ -2,8 +2,6 @@
 
 #include "defines.h"
 
-#include "core/allocators.h"
-
 typedef struct {
     // 128 bytes
     union {

@@ -3,8 +3,6 @@
 #include "defines.h"
 
 #include "renderer/renderer_backend.h"
-#include "renderer/renderer_types.h"
-#include "renderer/renderer_cmd.h"
 
 b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, box_renderer_backend_config* config, uvec2 starting_size, const char* application_name);
 void vulkan_renderer_backend_shutdown(box_renderer_backend* backend);
@@ -17,7 +15,7 @@ void vulkan_renderer_playback_rendercmd(box_renderer_backend* backend, rendercmd
 b8 vulkan_renderer_backend_end_frame(box_renderer_backend* backend);
 
 b8 vulkan_renderer_create_renderstage(box_renderer_backend* backend, box_renderstage* out_stage);
-b8 vulkan_renderer_write_renderstage_descriptors(box_renderer_backend* backend, box_renderstage* stage, resource_binding* descriptors);
+b8 vulkan_renderer_write_renderstage_descriptors(box_renderer_backend* backend, box_renderstage* stage, box_write_descriptors* writes, u64 write_count);
 void vulkan_renderer_destroy_renderstage(box_renderer_backend* backend, box_renderstage* stage);
 
 b8 vulkan_renderer_create_renderbuffer(box_renderer_backend* backend, box_renderbuffer* out_buffer);
