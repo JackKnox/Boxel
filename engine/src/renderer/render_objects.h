@@ -1,149 +1,285 @@
-// Resources for renderer
-// Should include box_renderstage, box_renderbuffer, box_texture
+/**
+ * @file renderer_objects.h
+ * @brief Backend-agnostic GPU resource and render command abstractions.
+ *
+ * Defines core rendering resources such as buffers, textures,
+ * render stages (pipelines), and command buffers.
+ */
+
 #pragma once
 
 #include "defines.h"
-
 #include "utils/freelist.h"
 
-#include "resource_system.h"
-
-// Container for a GPU-resident buffer resource. Acts as a backend-agnostic handle to vertex, index, uniform, or storage buffers.
+/**
+ * @brief Backend-agnostic GPU buffer handle.
+ *
+ * Represents a GPU-resident buffer resource such as a vertex,
+ * index, uniform, or storage buffer.
+ */
 typedef struct box_renderbuffer {
-    box_resource_header header;
-
-    // Intended usage of the buffer (vertex, index, uniform, etc).
+    /** @brief Intended usage of the buffer (vertex, index, uniform, etc.). */
     box_renderbuffer_usage usage;
 
-    // Total size of the buffer in bytes.
+    /** @brief Total size of the buffer in bytes. */
     u64 buffer_size;
 
-    // Optional pointer to CPU-side data used during asynchronous creation.
-    void* temp_user_data;
-
-    // Backend-specific buffer handle/state.
+    /** @brief Backend-specific buffer state/handle. */
     void* internal_data;
 } box_renderbuffer;
 
-struct box_engine;
+/**
+ * @brief Creates a default-initialized render buffer.
+ *
+ * @return A zeroed/default render buffer instance.
+ */
+box_renderbuffer box_renderbuffer_default();
 
-// Create a buffer on the GPU asynchronously and logs it with the resource system attached to the specified box_engine.
-box_renderbuffer* box_engine_create_renderbuffer(struct box_engine* engine, box_renderbuffer_usage usage, u64 buffer_size, const void* data_to_send);
-
-// Raw shader stage data loaded from disk or memory.
+/**
+ * @brief Raw shader stage data.
+ *
+ * Contains shader source code or compiled bytecode
+ * loaded from disk or memory.
+ */
 typedef struct {
-    // Pointer to shader source or compiled bytecode.
+    /** @brief Pointer to shader source or compiled bytecode. */
     const void* file_data;
 
-    // Size of the shader data in bytes.
+    /** @brief Size of the shader data in bytes. */
     u64 file_size;
 } shader_stage;
 
-// Container for one or more shader stages that form a render pipeline.
-typedef struct box_renderstage {
-    box_resource_header header;
+#define BOX_MAX_VERTEX_ATTRIBS 8
+#define BOX_MAX_DESCRIPTORS 8
 
-    // Shader stages indexed by box_shader_stage_type.
+/**
+ * @brief Represents a render pipeline configuration.
+ *
+ * A render stage defines shader stages, vertex layout,
+ * descriptor bindings, and pipeline state.
+ *
+ * This structure is backend-agnostic and translated
+ * into API-specific pipeline objects internally.
+ */
+typedef struct box_renderstage {
+    /** @brief Shader stages indexed by box_shader_stage_type. */
     shader_stage stages[BOX_SHADER_STAGE_TYPE_MAX];
 
+    /** @brief Vertex attribute formats in binding order. */
+	box_render_format vertex_attributes[BOX_MAX_VERTEX_ATTRIBS];
+
+	/** @brief Descriptor binding descriptions used by the pipeline. */
+	box_descriptor_desc descriptors[BOX_MAX_DESCRIPTORS];
+    
+	/** @brief Number of active vertex attributes. */
+	u8 vertex_attribute_count;
+
+    /** @brief Number of active descriptor bindings. */
+	u8 descriptor_count;
+
+    /** @brief Rendering mode (graphics, compute, etc.). */
+    box_renderer_mode mode;
+
     union {
+        /**
+         * @brief Graphics pipeline configuration.
+         */
         struct {
-            // Optional vertex buffer bound to this renderstage.
+            /** @brief Optional vertex buffer bound to this render stage. */
             box_renderbuffer* vertex_buffer;
 
-            // Optional index buffer bound to this renderstage.
+            /** @brief Optional index buffer bound to this render stage. */
             box_renderbuffer* index_buffer;
 
-            // Primitive topology used for rendering.
+            /** @brief Primitive topology used for rendering. */
             box_vertex_topology_type topology_type;
         } graphics;
 
+        /**
+         * @brief Compute pipeline configuration.
+         */
         struct {
-
+            /* Future compute-specific configuration */
         } compute;
+
     };
 
-    // Vertex input and descriptor layout expected by the shaders.
-    box_render_layout layout;
-    
-    // Backend-specific pipeline or program state.
+    /** @brief Backend-specific pipeline or program state. */
     void* internal_data;
-
-    // Rendering mode (graphics, compute, etc).
-    box_renderer_mode mode;
 } box_renderstage;
 
-// Creates a renderstage with a graphics type asynchronously and logs it with the resource system attached to the specified box_engine.
-box_renderstage* box_engine_create_graphics_stage(struct box_engine* engine, box_render_layout* layout, const char** shader_stages, u32 shader_stage_count, box_vertex_topology_type topology, box_renderbuffer* vertex_buffer, box_renderbuffer* index_buffer);
+/**
+ * @brief Creates a default graphics render stage configuration.
+ *
+ * @param shader_stages Array of shader file paths or stage identifiers.
+ * @param shader_stage_count Number of shader stages provided.
+ *
+ * @return A default-initialized graphics render stage.
+ */
+box_renderstage box_renderstage_graphics_default(const char** shader_stages, u8 shader_stage_count);
 
-// Creates a renderstage with a compute type asynchronously and logs it with the resource system attached to the specified box_engine.
-box_renderstage* box_engine_create_compute_stage(struct box_engine* engine, box_render_layout* layout, const char** shader_stages, u32 shader_stage_count);
-
-// Container for GPU image data and sampling parameters.
-// Textures are backend-agnostic and converted to API-specific image
-// and sampler objects by the renderer backend.
+/**
+ * @brief Backend-agnostic texture resource.
+ *
+ * Represents GPU image data along with sampling configuration.
+ * Converted internally into API-specific image and sampler objects.
+ */
 typedef struct box_texture {
-    box_resource_header header;
-
-    // Dimensions of the texture in pixels.
+    /** @brief Dimensions of the texture in pixels. */
     uvec2 size;
        
-    // Format of the stored image data.
+    /** @brief Image format of the texture data. */
     box_render_format image_format;
 
-    // Texture filtering mode.
+    /** @brief Texture filtering mode. */
     box_filter_type filter_type;
 
-    // Texture address (wrap) mode.
+    /** @brief Texture address (wrap) mode. */
     box_address_mode address_mode;
 
-    // Optional pointer to CPU-side data used during asynchronous creation.
-    void* temp_user_data;
-
-    // Backend-specific image and sampler state.
+    /** @brief Backend-specific image and sampler state. */
     void* internal_data;
+
+    f32 max_anisotropy;
 } box_texture;
 
-// Create a texture in the resource system attached to the specified box_engine on the GPU asynchronously.
-box_texture* box_engine_create_texture(struct box_engine* engine, uvec2 size, box_render_format image_format, box_filter_type filter_type, box_address_mode address_mode, const void* data);
+/**
+ * @brief Creates a default-initialized texture configuration.
+ *
+ * @return A zeroed/default texture instance.
+ */
+box_texture box_texture_default();
 
-// Gets total size of bytes storing internal texture data.
-u64 box_texture_get_total_size(box_texture* texture);
+/**
+ * @brief Calculates the total memory size of a texture in bytes.
+ *
+ * @param texture Pointer to a valid box_texture instance.
+ *
+ * @return The total size of the texture in bytes.
+ */
+u64 box_texture_get_size_in_bytes(box_texture* texture);
 
-// Async container of commands to send to the render backend.
-// Written by the game thread and consumed by the render thread.
+/**
+ * @brief Describes a single descriptor update for a renderstage.
+ *
+ * This structure is used to update a descriptor binding within a
+ * box_renderstage. The descriptor type determines which union member
+ * is expected to be valid.
+ *
+ * @note Only one union member must be set, according to the value of @ref type.
+ */
 typedef struct {
-    // Linear allocator backing the render command buffer.
+    /** @brief Binding index as declared in the shader. */
+    u32 binding;
+
+    /** @brief Type of descriptor being updated (buffer, texture, etc.). */
+    box_descriptor_type type;
+
+    union {
+        /** @brief Render buffer resource (uniform or storage). */
+        box_renderbuffer* buffer;
+
+        /** @brief Texture resource (sampled or storage texture). */
+        box_texture* texture;
+    };
+} box_update_descriptors;
+
+/**
+ * @brief Render command buffer.
+ *
+ * Collects rendering commands for deferred execution
+ * by the renderer.
+ */
+typedef struct {
+    /** @brief Allocator backing the render command buffer. */
     freelist buffer;
 
-    // Indicates that no further commands may be written to this buffer.
+    /** @brief True if no further commands may be written. */
     b8 finished;
 } box_rendercmd;
 
-// Clears data with buffer without reallocating memory.
-void box_rendercmd_reset(box_rendercmd* cmd);
+/**
+ * @brief Resets the render command buffer without reallocating memory.
+ *
+ * Clears all recorded commands but preserves allocated capacity.
+ *
+ * @param cmd Pointer to the command buffer.
+ */
+void box_rendercmd_begin(box_rendercmd* cmd);
 
-// Destroys and resets memory in render command
+/**
+ * @brief Destroys and frees memory associated with the command buffer.
+ *
+ * @param cmd Pointer to the command buffer.
+ */
 void box_rendercmd_destroy(box_rendercmd* cmd);
 
-// Set the clear color for the framebuffer. This color will be used when clearing the screen before rendering.
+/**
+ * @brief Sets the framebuffer clear color.
+ *
+ * The specified color will be used when clearing the screen
+ * before rendering begins.
+ *
+ * @param cmd Pointer to the command buffer.
+ * @param clear_r Red component (0.0–1.0).
+ * @param clear_g Green component (0.0–1.0).
+ * @param clear_b Blue component (0.0–1.0).
+ */
 void box_rendercmd_set_clear_colour(box_rendercmd* cmd, f32 clear_r, f32 clear_g, f32 clear_b);
 
-// Begin a new render stage with specified shaders. Subsequent draw calls will use this stage.
+/**
+ * @brief Begins a render stage.
+ *
+ * Subsequent draw or dispatch calls will use this stage.
+ *
+ * @param cmd Pointer to the command buffer.
+ * @param renderstage Pointer to the render stage to bind.
+ */
 void box_rendercmd_begin_renderstage(box_rendercmd* cmd, box_renderstage* renderstage);
 
-// Issue a draw call with current bound state.
+/**
+ * @brief Issues a non-indexed draw call.
+ *
+ * @param cmd Pointer to the command buffer.
+ * @param vertex_count Number of vertices to draw.
+ * @param instance_count Number of instances to render.
+ */
 void box_rendercmd_draw(box_rendercmd* cmd, u32 vertex_count, u32 instance_count);
 
-// Issue a indexed draw call with current bound state.
+/**
+ * @brief Issues an indexed draw call.
+ *
+ * @param cmd Pointer to the command buffer.
+ * @param index_count Number of indices to draw.
+ * @param instance_count Number of instances to render.
+ */
 void box_rendercmd_draw_indexed(box_rendercmd* cmd, u32 index_count, u32 instance_count);
 
-// Issue a compute dispatch with current bound state.
+/**
+ * @brief Dispatches a compute workload.
+ *
+ * @param cmd Pointer to the command buffer.
+ * @param group_size_x Number of workgroups in X.
+ * @param group_size_y Number of workgroups in Y.
+ * @param group_size_z Number of workgroups in Z.
+ */
 void box_rendercmd_dispatch(box_rendercmd* cmd, u32 group_size_x, u32 group_size_y, u32 group_size_z);
 
-// End the current render stage and finalizes state.
+/**
+ * @brief Ends the current render stage.
+ *
+ * Finalizes state for the active stage.
+ *
+ * @param cmd Pointer to the command buffer.
+ */
 void box_rendercmd_end_renderstage(box_rendercmd* cmd);
 
-// Finalizes the render command buffer and prevents further modification.
-// Intended for internal use by the engine and renderer backend.
-void _box_rendercmd_end(box_rendercmd* cmd);
+/**
+ * @brief Finalizes the command buffer.
+ *
+ * Prevents further modification and marks it ready
+ * for consumption by the renderer backend.
+ *
+ * @param cmd Pointer to the command buffer.
+ */
+void box_rendercmd_end(box_rendercmd* cmd);

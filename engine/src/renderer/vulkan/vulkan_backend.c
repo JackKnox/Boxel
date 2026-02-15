@@ -17,9 +17,6 @@
 #include "vulkan_command_buffer.h"
 #include "vulkan_fence.h"
 
-VkResult platform_create_vulkan_surface(vulkan_context* context, box_platform* plat_state);
-void platform_get_vulkan_extensions(const char*** names_darray);
-
 VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
 	VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
 	VkDebugUtilsMessageTypeFlagsEXT message_types,
@@ -60,12 +57,15 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, box_rendere
 	app_info.engineVersion = VK_MAKE_API_VERSION(0, 0, 1, 0);
 	app_info.pEngineName = "Boxel";
 
+	const char** platform_extensions = NULL;
+	u32 platform_extensions_count = backend->plat_state->get_required_vulkan_extensions(backend->plat_state, &platform_extensions);
+
 	// Obtain a list of required extensions
-	const char** required_extensions = darray_create(const char*, MEMORY_TAG_RENDERER);
+	const char** required_extensions = darray_reserve(const char*, platform_extensions_count, MEMORY_TAG_RENDERER);
 	const char** required_validation_layer_names = darray_create(const char*, MEMORY_TAG_RENDERER);
 
-	// Platform-specific extension(s)
-	platform_get_vulkan_extensions(&required_extensions);
+	for (int i = 0; i < platform_extensions_count; ++i)
+		darray_push(required_extensions, platform_extensions[i]);
 
 	// Add debug extensions/layers if enabled
 	if (context->config.enable_validation) {
@@ -118,7 +118,7 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, box_rendere
 
 	// Create the Vulkan surface
 	CHECK_VKRESULT(
-		platform_create_vulkan_surface(context, backend->plat_state),
+		backend->plat_state->create_vulkan_surface(backend->plat_state, context->instance, context->allocator, &context->surface),
 		"Failed to create Vulkan platform surface");
 
 	BX_INFO("Vulkan surface created.");
@@ -292,6 +292,8 @@ void vulkan_renderer_backend_shutdown(box_renderer_backend* backend) {
 
 	vulkan_renderpass_destroy(context, &context->main_renderpass);
 
+	BX_INFO("Destroying Vulkan swapchain...");
+
 	vulkan_swapchain_destroy(backend, &context->swapchain);
 
 	vulkan_device_destroy(backend);
@@ -299,9 +301,11 @@ void vulkan_renderer_backend_shutdown(box_renderer_backend* backend) {
 	if (context->surface) vkDestroySurfaceKHR(context->instance, context->surface, context->allocator);
 
 	if (context->instance) {
-		PFN_vkDestroyDebugUtilsMessengerEXT func =
-			(PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(context->instance, "vkDestroyDebugUtilsMessengerEXT");
-		func(context->instance, context->debug_messenger, context->allocator);
+		if (context->config.enable_validation) {
+			PFN_vkDestroyDebugUtilsMessengerEXT func =
+				(PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(context->instance, "vkDestroyDebugUtilsMessengerEXT");
+			func(context->instance, context->debug_messenger, context->allocator);
+		}
 
 		vkDestroyInstance(context->instance, context->allocator);
 	}
@@ -366,7 +370,7 @@ vulkan_queue_type box_renderer_mode_to_queue_type(box_renderer_mode mode) {
 	return 0;
 }
 
-void vulkan_renderer_playback_rendercmd(box_renderer_backend* backend, rendercmd_context* rendercmd_context, rendercmd_header* header, rendercmd_payload* payload) {
+void vulkan_renderer_execute_command(box_renderer_backend* backend, box_rendercmd_context* rendercmd_context, rendercmd_header* header, rendercmd_payload* payload) {
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 	box_renderstage* current_shader = rendercmd_context->current_shader;
 
@@ -442,7 +446,7 @@ void vulkan_renderer_playback_rendercmd(box_renderer_backend* backend, rendercmd
 			payload->dispatch.group_size.z);
 		break;
 		
-	case _RENDERCMD_END:
+	case RENDERCMD_END:
 		if (context->main_renderpass.state == RENDER_PASS_STATE_RECORDING)
 			vulkan_renderpass_end(command_buffer, &context->main_renderpass);
 		break;
@@ -509,6 +513,13 @@ b8 vulkan_renderer_backend_end_frame(box_renderer_backend* backend) {
 b8 vulkan_renderer_create_renderstage(box_renderer_backend* backend, box_renderstage* out_stage) {
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 
+#if BOX_ENABLE_VALIDATION
+	if (!(context->config.modes & out_stage->mode)) {
+		BX_ERROR("Attempting to create renderstage without corrosponding mode.");
+		return FALSE;
+	}
+#endif
+
 	out_stage->internal_data = ballocate(sizeof(vulkan_pipeline), MEMORY_TAG_RENDERER);
 
 	switch (out_stage->mode) {
@@ -516,9 +527,9 @@ b8 vulkan_renderer_create_renderstage(box_renderer_backend* backend, box_renders
 		CHECK_VKRESULT(
 			vulkan_graphics_pipeline_create(
 				context,
-				out_stage->internal_data,
+				out_stage,
 				&context->main_renderpass,
-				out_stage),
+				(vulkan_pipeline*)out_stage->internal_data),
 			"Failed to create Vulkan graphics pipeline");
 		break;
 
@@ -526,9 +537,9 @@ b8 vulkan_renderer_create_renderstage(box_renderer_backend* backend, box_renders
 		CHECK_VKRESULT(
 			vulkan_compute_pipeline_create(
 				context,
-				out_stage->internal_data,
+				out_stage,
 				&context->main_renderpass,
-				out_stage),
+				(vulkan_pipeline*)out_stage->internal_data),
 			"Failed to create Vulkan compute pipeline");
 		break;
 
@@ -540,20 +551,20 @@ b8 vulkan_renderer_create_renderstage(box_renderer_backend* backend, box_renders
 	return TRUE;
 }
 
-b8 vulkan_renderer_write_renderstage_descriptors(box_renderer_backend* backend, box_renderstage* stage, box_write_descriptors* writes, u64 write_count) {
+b8 vulkan_renderer_update_renderstage_descriptors(box_renderer_backend* backend, box_renderstage* stage, box_update_descriptors* descriptors, u32 descriptor_count) {
     vulkan_context* context = (vulkan_context*)backend->internal_context;
     vulkan_pipeline* pipeline = (vulkan_pipeline*)stage->internal_data;
 
     u32 image_count = context->swapchain.image_count;
-    u32 max_writes  = write_count * image_count;
+    u32 max_writes  = descriptor_count * image_count;
 
     VkWriteDescriptorSet* write_commands = darray_reserve(VkWriteDescriptorSet, max_writes, MEMORY_TAG_RENDERER);
     VkDescriptorBufferInfo* buffer_infos = darray_reserve(VkDescriptorBufferInfo, max_writes, MEMORY_TAG_RENDERER);
     VkDescriptorImageInfo* image_infos = darray_reserve(VkDescriptorImageInfo, max_writes, MEMORY_TAG_RENDERER);
 
-    for (u32 i = 0; i < write_count; ++i) {
-        box_write_descriptors* write = &writes[i];
-        const box_descriptor_desc* layout_desc = &stage->layout.descriptors[write->binding];
+    for (u32 i = 0; i < descriptor_count; ++i) {
+        box_update_descriptors* write = &descriptors[i];
+        const box_descriptor_desc* layout_desc = &stage->descriptors[write->binding];
 
         if (write->type != layout_desc->descriptor_type) {
             BX_ERROR("Descriptor type mismatch at binding %u (write=%u, layout=%u)", write->binding, write->type, layout_desc->descriptor_type);
@@ -571,7 +582,7 @@ b8 vulkan_renderer_write_renderstage_descriptors(box_renderer_backend* backend, 
 
             switch (write->type) {
                 case BOX_DESCRIPTOR_TYPE_STORAGE_BUFFER:
-                    vulkan_buffer* buffer = (vulkan_buffer*)((box_renderbuffer*)write->value)->internal_data;
+                    vulkan_buffer* buffer = (vulkan_buffer*)write->buffer->internal_data;
 
                     VkDescriptorBufferInfo* buffer_info = darray_push_empty(buffer_infos);
                     buffer_info->buffer = buffer->handle;
@@ -581,7 +592,7 @@ b8 vulkan_renderer_write_renderstage_descriptors(box_renderer_backend* backend, 
 					break;
 
                 case BOX_DESCRIPTOR_TYPE_IMAGE_SAMPLER:
-                    vulkan_image* image = (vulkan_image*)((box_texture*)write->value)->internal_data;
+                    vulkan_image* image = (vulkan_image*)write->texture->internal_data;
 
                     VkDescriptorImageInfo* image_info = darray_push_empty(image_infos);
                     image_info->sampler     = image->sampler;
@@ -623,7 +634,8 @@ b8 vulkan_renderer_create_renderbuffer(box_renderer_backend* backend, box_render
 	out_buffer->internal_data = ballocate(sizeof(vulkan_buffer), MEMORY_TAG_RENDERER);
 	vulkan_buffer* buffer = (vulkan_buffer*)out_buffer->internal_data;
 
-	VkBufferUsageFlagBits buffer_usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+	VkBufferUsageFlags buffer_usage = 0;
+	if (context->config.modes & RENDERER_MODE_TRANSFER) buffer_usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
 	if (out_buffer->usage & BOX_RENDERBUFFER_USAGE_VERTEX)
 		buffer_usage |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
@@ -644,12 +656,12 @@ b8 vulkan_renderer_create_renderbuffer(box_renderer_backend* backend, box_render
 	return TRUE;
 }
 
-b8 vulkan_renderer_upload_to_renderbuffer(box_renderer_backend* backend, box_renderbuffer* buffer, void* data, u64 start_offset, u64 region) {
+b8 vulkan_renderer_upload_to_renderbuffer(box_renderer_backend* backend, box_renderbuffer* buffer, const void* data, u64 start_offset, u64 region) {
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 
 #if BOX_ENABLE_VALIDATION
 	if (!(context->config.modes & RENDERER_MODE_TRANSFER)) {
-		BX_ERROR("Attempting to upload to box_renderbuffer without enabling transfer mode.");
+		BX_ERROR("Attempting to upload to renderbuffer without enabling transfer mode.");
 		return FALSE;
 	}
 #endif
@@ -702,8 +714,16 @@ void vulkan_renderer_destroy_renderbuffer(box_renderer_backend* backend, box_ren
 b8 vulkan_renderer_create_texture(box_renderer_backend* backend, box_texture* out_texture) {
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 
+	if (out_texture->max_anisotropy > backend->capabilities.max_anisotropy) {
+		BX_ERROR("Attempted to set texture anisotropy higher than capabilities is set to.");
+		return FALSE;
+	}
+
 	out_texture->internal_data = ballocate(sizeof(vulkan_image), MEMORY_TAG_RENDERER);
 	vulkan_image* image = (vulkan_image*)out_texture->internal_data;
+
+	VkImageUsageFlags image_usage = VK_IMAGE_USAGE_SAMPLED_BIT;
+	if (context->config.modes & RENDERER_MODE_TRANSFER) image_usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
 	CHECK_VKRESULT(
 		vulkan_image_create(
@@ -712,7 +732,7 @@ b8 vulkan_renderer_create_texture(box_renderer_backend* backend, box_texture* ou
 			out_texture->size,
 			box_format_to_vulkan_type(out_texture->image_format),
 			VK_IMAGE_TILING_OPTIMAL,
-			VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+			image_usage,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
 			TRUE,
 			VK_IMAGE_LAYOUT_UNDEFINED,
@@ -723,57 +743,63 @@ b8 vulkan_renderer_create_texture(box_renderer_backend* backend, box_texture* ou
 	CHECK_VKRESULT(
 		vulkan_image_sampler_create(
 			context,
-			backend->capabilities.max_anisotropy,
+			out_texture->max_anisotropy,
 			out_texture->filter_type,
 			out_texture->address_mode,
 			image),
 		"Failed to create internal Vulkan sampler");
 
-	if (out_texture->temp_user_data != NULL) {
+	return TRUE;
+}
+
+b8 vulkan_renderer_upload_to_texure(box_renderer_backend* backend, box_texture* texture, const void* data, uvec2 offset, uvec2 region) {
+	vulkan_context* context = (vulkan_context*)backend->internal_context;
+
 #if BOX_ENABLE_VALIDATION
-		if (!(context->config.modes & RENDERER_MODE_TRANSFER)) {
-			BX_ERROR("Attempting to upload to box_renderbuffer without enabling transfer mode.");
-			return FALSE;
-		}
-#endif
-		 
-		u64 image_size = box_texture_get_total_size(out_texture);
-
-		vulkan_buffer staging_buffer = { 0 };
-		CHECK_VKRESULT(
-			vulkan_buffer_create(
-				context,
-				image_size,
-				VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-				&staging_buffer),
-			"Failed to create Vulkan staging buffer");
-
-		vulkan_buffer_map_data(context, &staging_buffer, image_size, out_texture->temp_user_data);
-
-		vulkan_queue* selected_mode = &context->device.mode_queues[VULKAN_QUEUE_TYPE_TRANSFER];
-		vulkan_command_buffer command_buffer;
-		vulkan_command_buffer_allocate_and_begin_single_use(context, selected_mode->pool, &command_buffer);
-
-		vulkan_image_transition_format(&command_buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-
-		VkBufferImageCopy copy_info = { 0 };
-		copy_info.imageExtent = (VkExtent3D){ out_texture->size.x, out_texture->size.y, 1 };
-		copy_info.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		copy_info.imageSubresource.layerCount = 1;
-		vkCmdCopyBufferToImage(command_buffer.handle, staging_buffer.handle, image->handle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_info);
-
-		vulkan_image_transition_format(&command_buffer, image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-		CHECK_VKRESULT(
-			vulkan_command_buffer_end_single_use(
-				context,
-				&command_buffer,
-				selected_mode->handle),
-			"Failed to transfer Vulkan renderbuffer to GPU");
-
-		vulkan_buffer_destroy(context, &staging_buffer);
+	if (!(context->config.modes & RENDERER_MODE_TRANSFER)) {
+		BX_ERROR("Attempting to upload to texture without enabling transfer mode.");
+		return FALSE;
 	}
+#endif
+
+	vulkan_image* image = (vulkan_image*)texture->internal_data;
+	u64 image_size = box_texture_get_size_in_bytes(texture);
+
+	vulkan_buffer staging_buffer = { 0 };
+	CHECK_VKRESULT(
+		vulkan_buffer_create(
+			context,
+			image_size,
+			VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			&staging_buffer),
+		"Failed to create Vulkan staging buffer");
+
+	vulkan_buffer_map_data(context, &staging_buffer, image_size, data);
+
+	vulkan_queue* selected_mode = &context->device.mode_queues[VULKAN_QUEUE_TYPE_TRANSFER];
+	vulkan_command_buffer command_buffer;
+	vulkan_command_buffer_allocate_and_begin_single_use(context, selected_mode->pool, &command_buffer);
+
+	vulkan_image_transition_layout(&command_buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+	VkBufferImageCopy copy_info = { 0 };
+	copy_info.imageOffset = (VkOffset3D) { offset.x, offset.y, 0 };
+	copy_info.imageExtent = (VkExtent3D){ region.x, region.y, 1 };
+	copy_info.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	copy_info.imageSubresource.layerCount = 1;
+	vkCmdCopyBufferToImage(command_buffer.handle, staging_buffer.handle, image->handle, image->layout, 1, &copy_info);
+
+	vulkan_image_transition_layout(&command_buffer, image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	CHECK_VKRESULT(
+		vulkan_command_buffer_end_single_use(
+			context,
+			&command_buffer,
+			selected_mode->handle),
+		"Failed to transfer Vulkan renderbuffer to GPU");
+
+	vulkan_buffer_destroy(context, &staging_buffer);
 	return TRUE;
 }
 

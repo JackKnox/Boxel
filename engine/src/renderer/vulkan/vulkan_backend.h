@@ -11,16 +11,17 @@ void vulkan_renderer_backend_wait_until_idle(box_renderer_backend* backend, u64 
 void vulkan_renderer_backend_on_resized(box_renderer_backend* backend, uvec2 new_size);
 
 b8 vulkan_renderer_backend_begin_frame(box_renderer_backend* backend, f32 delta_time);
-void vulkan_renderer_playback_rendercmd(box_renderer_backend* backend, rendercmd_context* rendercmd_context, rendercmd_header* header, rendercmd_payload* payload);
+void vulkan_renderer_execute_command(box_renderer_backend* backend, box_rendercmd_context* rendercmd_context, rendercmd_header* header, rendercmd_payload* payload);
 b8 vulkan_renderer_backend_end_frame(box_renderer_backend* backend);
 
 b8 vulkan_renderer_create_renderstage(box_renderer_backend* backend, box_renderstage* out_stage);
-b8 vulkan_renderer_write_renderstage_descriptors(box_renderer_backend* backend, box_renderstage* stage, box_write_descriptors* writes, u64 write_count);
+b8 vulkan_renderer_update_renderstage_descriptors(box_renderer_backend* backend, box_renderstage* stage, box_update_descriptors* descriptors, u32 descriptor_count);
 void vulkan_renderer_destroy_renderstage(box_renderer_backend* backend, box_renderstage* stage);
 
 b8 vulkan_renderer_create_renderbuffer(box_renderer_backend* backend, box_renderbuffer* out_buffer);
-b8 vulkan_renderer_upload_to_renderbuffer(box_renderer_backend* backend, box_renderbuffer* buffer, void* data, u64 start_offset, u64 region);
+b8 vulkan_renderer_upload_to_renderbuffer(box_renderer_backend* backend, box_renderbuffer* buffer, const void* data, u64 start_offset, u64 region);
 void vulkan_renderer_destroy_renderbuffer(box_renderer_backend* backend, box_renderbuffer* buffer);
 
 b8 vulkan_renderer_create_texture(box_renderer_backend* backend, box_texture* out_texture);
+b8 vulkan_renderer_upload_to_texure(box_renderer_backend* backend, box_texture* texture, const void* data, uvec2 offset, uvec2 region);
 void vulkan_renderer_destroy_texture(box_renderer_backend* backend, box_texture* texture);

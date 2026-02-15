@@ -1,135 +1,211 @@
-// Front end to renderer, to use ther renderer features just include this one file.
-// Includes all basic structs / enums
+/**
+ * @file renderer_types.h
+ * @brief Public renderer frontend types and configuration.
+ *
+ * Include this file to access renderer enums, formats,
+ * configuration structures, and capability descriptions.
+ */
+
 #pragma once
 
 #include "defines.h"
 
-// Type of graphics API or backend being used.
+/**
+ * @brief Supported renderer backend APIs.
+ */
 typedef enum box_renderer_backend_type {
-    RENDERER_BACKEND_TYPE_VULKAN,  // Vulkan backend
-    RENDERER_BACKEND_TYPE_OPENGL,  // OpenGL backend
-    RENDERER_BACKEND_TYPE_DIRECTX, // DirectX backend
+    RENDERER_BACKEND_TYPE_VULKAN,   /**< Vulkan backend */
+    RENDERER_BACKEND_TYPE_OPENGL,   /**< OpenGL backend */
+    RENDERER_BACKEND_TYPE_DIRECTX,  /**< DirectX backend */
 } box_renderer_backend_type;
 
-// Type of GPU / Device.
+/**
+ * @brief Type of physical or logical rendering device.
+ */
 typedef enum box_renderer_device_type {
-    RENDERER_DEVICE_TYPE_OTHER,            // Unknown or generic device
-    RENDERER_DEVICE_TYPE_INTEGRATED_GPU,   // Integrated GPU (CPU + GPU on same chip)
-    RENDERER_DEVICE_TYPE_DISCRETE_GPU,     // Discrete graphics card
-    RENDERER_DEVICE_TYPE_VIRTUAL_GPU,      // Virtual GPU (e.g., in a VM)
-    RENDERER_DEVICE_TYPE_CPU,              // CPU as rendering device
+    RENDERER_DEVICE_TYPE_OTHER,           /**< Unknown or generic device */
+    RENDERER_DEVICE_TYPE_INTEGRATED_GPU,  /**< Integrated GPU (shared memory) */
+    RENDERER_DEVICE_TYPE_DISCRETE_GPU,    /**< Dedicated graphics card */
+    RENDERER_DEVICE_TYPE_VIRTUAL_GPU,     /**< Virtualized GPU (e.g. VM) */
+    RENDERER_DEVICE_TYPE_CPU,             /**< CPU-based rendering device */
 } box_renderer_device_type;
 
-// Modes the renderer can operate in.
+/**
+ * @brief Operating modes supported by the renderer.
+ *
+ * Modes may be combined as bit flags.
+ */
 typedef enum box_renderer_mode {
-    RENDERER_MODE_GRAPHICS = 1 << 0,   // Standard graphics rendering
-    RENDERER_MODE_COMPUTE = 1 << 1,    // Compute operations (GPU compute shaders)
-    RENDERER_MODE_TRANSFER = 1 << 2,   // Data transfer mode (e.g., buffer copies)
+    RENDERER_MODE_GRAPHICS = 1 << 0,  /**< Graphics pipeline operations */
+    RENDERER_MODE_COMPUTE  = 1 << 1,  /**< Compute shader operations */
+    RENDERER_MODE_TRANSFER = 1 << 2,  /**< Data transfer operations */
 } box_renderer_mode;
 
-// Supported format types for the renderer backend.
+/**
+ * @brief Base data types supported by the renderer.
+ */
 typedef enum box_format_type {
-    BOX_FORMAT_TYPE_UINT8,   // Unsigned 8-bit integer
-    BOX_FORMAT_TYPE_UINT16,  // Unsigned 16-bit integer
-    BOX_FORMAT_TYPE_UINT32,  // Unsigned 32-bit integer
+    BOX_FORMAT_TYPE_UINT8,    /**< Unsigned 8-bit integer */
+    BOX_FORMAT_TYPE_UINT16,   /**< Unsigned 16-bit integer */
+    BOX_FORMAT_TYPE_UINT32,   /**< Unsigned 32-bit integer */
 
-    BOX_FORMAT_TYPE_SINT8,   // Signed 8-bit integer
-    BOX_FORMAT_TYPE_SINT16,  // Signed 16-bit integer
-    BOX_FORMAT_TYPE_SINT32,  // Signed 32-bit integer
+    BOX_FORMAT_TYPE_SINT8,    /**< Signed 8-bit integer */
+    BOX_FORMAT_TYPE_SINT16,   /**< Signed 16-bit integer */
+    BOX_FORMAT_TYPE_SINT32,   /**< Signed 32-bit integer */
 
-    BOX_FORMAT_TYPE_FLOAT32, // 32-bit floating point
-    BOX_FORMAT_TYPE_SRGB,    // sRGB color format
+    BOX_FORMAT_TYPE_FLOAT32,  /**< 32-bit floating point */
+    BOX_FORMAT_TYPE_SRGB,     /**< sRGB color format */
 
-    BOX_FORMAT_TYPE_BOOL,    // Boolean (true/false)
+    BOX_FORMAT_TYPE_BOOL,     /**< Boolean type */
 } box_format_type;
 
-// Structure for format of general data in renderer backend.
+/**
+ * @brief Describes a data format used by the renderer.
+ *
+ * Used for vertex attributes, textures, and general GPU data.
+ */
 typedef struct box_render_format {
-    box_format_type type; // Data type
-    u8 channel_count;     // Number of components per element (e.g., RGBA = 4)
-    b8 normalized;        // Whether integer formats are normalized to [0,1] or [-1,1]
+    /** @brief Underlying data type. */
+    box_format_type type;
+
+    /** @brief Number of components per element (e.g., RGBA = 4). */
+    u8 channel_count;
+
+    /**
+     * @brief Whether integer formats are normalized.
+     *
+     * If true, integer values are mapped to [0,1] or [-1,1]
+     * when accessed in shaders.
+     */
+    b8 normalized;
 } box_render_format;
 
-// Supported topologys for vertex data.
+/**
+ * @brief Returns the size in bytes of a render format element.
+ *
+ * @param format Format description.
+ * @return Size in bytes of a single element.
+ */
+u64 box_render_format_size(box_render_format format);
+
+/**
+ * @brief Supported primitive topologies.
+ */
 typedef enum box_vertex_topology_type {
-    BOX_VERTEX_TOPOLOGY_TRIANGLES, // Triangles
-    BOX_VERTEX_TOPOLOGY_POINTS,    // Points
-    BOX_VERTEX_TOPOLOGY_LINES,     // Lines
+    BOX_VERTEX_TOPOLOGY_TRIANGLES, /**< Triangle primitives */
+    BOX_VERTEX_TOPOLOGY_POINTS,    /**< Point primitives */
+    BOX_VERTEX_TOPOLOGY_LINES,     /**< Line primitives */
 } box_vertex_topology_type;
 
-// Supported usages for a renderbuffer in host or local.
+/**
+ * @brief Intended usage of a render buffer.
+ *
+ * Usage flags may be combined.
+ */
 typedef enum box_renderbuffer_usage {
-    BOX_RENDERBUFFER_USAGE_VERTEX  = 1 << 0, // Vertex buffer
-    BOX_RENDERBUFFER_USAGE_INDEX   = 1 << 1, // Index buffer
-    BOX_RENDERBUFFER_USAGE_STORAGE = 1 << 2, // Storage buffer for compute/other uses
+    BOX_RENDERBUFFER_USAGE_VERTEX  = 1 << 0, /**< Vertex buffer */
+    BOX_RENDERBUFFER_USAGE_INDEX   = 1 << 1, /**< Index buffer */
+    BOX_RENDERBUFFER_USAGE_STORAGE = 1 << 2, /**< Storage buffer */
 } box_renderbuffer_usage;
 
-// Types of descriptors or uniforms in the renderer.
+/**
+ * @brief Descriptor types supported by shaders.
+ */
 typedef enum box_descriptor_type {
-    BOX_DESCRIPTOR_TYPE_STORAGE_BUFFER, // Storage buffer (SSBO)
-    BOX_DESCRIPTOR_TYPE_IMAGE_SAMPLER,  // Texture + sampler
+    BOX_DESCRIPTOR_TYPE_STORAGE_BUFFER, /**< Storage buffer (SSBO) */
+    BOX_DESCRIPTOR_TYPE_IMAGE_SAMPLER,  /**< Combined image + sampler */
 } box_descriptor_type;
 
-// Texture sampling filter types.
+/**
+ * @brief Texture filtering modes.
+ */
 typedef enum box_filter_type {
-    BOX_FILTER_TYPE_NEAREST, // Nearest-neighbor filtering
-    BOX_FILTER_TYPE_LINEAR,  // Linear interpolation filtering
+    BOX_FILTER_TYPE_NEAREST, /**< Nearest-neighbor filtering */
+    BOX_FILTER_TYPE_LINEAR,  /**< Linear interpolation filtering */
 } box_filter_type;
 
-// Type of shader attached to a renderstage.
+/**
+ * @brief Shader stage types.
+ */
 typedef enum box_shader_stage_type {
-    BOX_SHADER_STAGE_TYPE_VERTEX,   // Vertex shader stage
-    BOX_SHADER_STAGE_TYPE_FRAGMENT, // Fragment/pixel shader stage
-    BOX_SHADER_STAGE_TYPE_COMPUTE,  // Compute shader stage
-    BOX_SHADER_STAGE_TYPE_MAX,      // Sentinel value (max number of shader stages)
+    BOX_SHADER_STAGE_TYPE_VERTEX,   /**< Vertex shader */
+    BOX_SHADER_STAGE_TYPE_FRAGMENT, /**< Fragment/pixel shader */
+    BOX_SHADER_STAGE_TYPE_COMPUTE,  /**< Compute shader */
+    BOX_SHADER_STAGE_TYPE_MAX,      /**< Sentinel (max stages) */
 } box_shader_stage_type;
 
-// Texture address / wrap modes.
+/**
+ * @brief Texture address (wrap) modes.
+ */
 typedef enum box_address_mode {
-    BOX_ADDRESS_MODE_REPEAT,               // Repeat texture coordinates
-    BOX_ADDRESS_MODE_MIRRORED_REPEAT,      // Mirror and repeat
-    BOX_ADDRESS_MODE_CLAMP_TO_EDGE,        // Clamp to edge pixels
-    BOX_ADDRESS_MODE_CLAMP_TO_BORDER,      // Clamp to a border color
-    BOX_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE, // Mirror then clamp to edge
+    BOX_ADDRESS_MODE_REPEAT,               /**< Repeat texture coordinates */
+    BOX_ADDRESS_MODE_MIRRORED_REPEAT,      /**< Mirrored repeat */
+    BOX_ADDRESS_MODE_CLAMP_TO_EDGE,        /**< Clamp to edge */
+    BOX_ADDRESS_MODE_CLAMP_TO_BORDER,      /**< Clamp to border color */
+    BOX_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE, /**< Mirror then clamp to edge */
 } box_address_mode;
 
-// Structure used to write descriptor values (buffers or textures) to GPU.
-typedef struct box_write_descriptors {
-    u32 binding;              // Binding point in shader
-    const void* value;        // Pointer to buffer or texture
-    box_descriptor_type type; // Type of descriptor
-} box_write_descriptors;
+/**
+ * @brief Describes a single descriptor binding.
+ */
+typedef struct {
+    /** @brief Binding index within the shader. */
+    u32 binding;
 
-// Structure describing the capabilities of a renderer/device.
+    /** @brief Descriptor resource type. */
+    box_descriptor_type descriptor_type;
+
+    /** @brief Shader stage this descriptor is visible to. */
+    box_shader_stage_type stage_type;
+} box_descriptor_desc;
+
+/**
+ * @brief Describes the capabilities of the active renderer device.
+ */
 typedef struct box_renderer_capabilities {
-    char* device_name;                // Human-readable device name
-    box_renderer_device_type device_type; // Device type (integrated, discrete, etc.)
-    f32 max_anisotropy;               // Maximum supported anisotropic filtering
+    /** @brief Human-readable device name. */
+    char* device_name;
+
+    /** @brief Device classification. */
+    box_renderer_device_type device_type;
+
+    /** @brief Maximum supported anisotropic filtering level. */
+    f32 max_anisotropy;
 } box_renderer_capabilities;
 
-// Configuration for render backend.
+/**
+ * @brief Configuration for creating a renderer backend.
+ */
 typedef struct box_renderer_backend_config {
-    /// Enabled pipelines / modes for backend to prepare for.
+    /** @brief Enabled renderer modes (bitmask). */
     box_renderer_mode modes;
 
-    // Send validation messages through out engine.
+    /** @brief Enable validation and debug messages. */
     b8 enable_validation;
 
-    // Enable sampler anisotropy on GPU.
+    /** @brief Enable sampler anisotropy if supported. */
     b8 sampler_anisotropy;
 
-    // Force renderer backend to use a discrete GPU.
+    /** @brief Prefer or require a discrete GPU. */
     b8 discrete_gpu;
 
-    // Chosen type of API. Keep this in box_renderer_backend_config so backend knows what type is it.
+    /** @brief Selected backend API type. */
     box_renderer_backend_type api_type;
 
-    // Frame count for swapchain, must be greater than 1.
+    /**
+     * @brief Number of frames processed concurrently.
+     *
+     * Must be greater than 1.
+     */
     u32 frames_in_flight;
 } box_renderer_backend_config;
 
-// Sets default configurtion for renderer backend.
-box_renderer_backend_config renderer_backend_default_config();
+/**
+ * @brief Returns a default-initialized renderer backend configuration.
+ *
+ * @return Default configuration values.
+ */
+box_renderer_backend_config box_renderer_backend_default_config();
 
-#include "render_layout.h"
+/* Include public render object definitions */
 #include "render_objects.h"

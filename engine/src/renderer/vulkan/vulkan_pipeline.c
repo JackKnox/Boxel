@@ -3,17 +3,17 @@
 
 #include "utils/darray.h"
 
-VkResult create_pipeline_layout(vulkan_context* context, box_renderstage* shader, vulkan_pipeline* out_pipeline) {
-	if (shader->layout.descriptor_count > 0) {
-		VkDescriptorSetLayoutBinding* descriptor_bindings = darray_reserve(VkDescriptorSetLayoutBinding, shader->layout.descriptor_count, MEMORY_TAG_RENDERER);
-		VkDescriptorPoolSize* descriptor_pools = darray_reserve(VkDescriptorPoolSize, shader->layout.descriptor_count, MEMORY_TAG_RENDERER);
+VkResult create_pipeline_layout(vulkan_context* context, box_renderstage* renderstage, vulkan_pipeline* out_pipeline) {
+	if (renderstage->descriptor_count > 0) {
+		VkDescriptorSetLayoutBinding* descriptor_bindings = darray_reserve(VkDescriptorSetLayoutBinding, renderstage->descriptor_count, MEMORY_TAG_RENDERER);
+		VkDescriptorPoolSize* descriptor_pools = darray_reserve(VkDescriptorPoolSize,renderstage->descriptor_count, MEMORY_TAG_RENDERER);
 
-		for (u32 i = 0; i < shader->layout.descriptor_count; ++i) {
+		for (u32 i = 0; i < renderstage->descriptor_count; ++i) {
 			VkDescriptorSetLayoutBinding* binding = darray_push_empty(descriptor_bindings);
-			binding->binding = i;
+			binding->binding = renderstage->descriptors[i].binding;
+			binding->descriptorType = box_descriptor_type_to_vulkan_type(renderstage->descriptors[i].descriptor_type);
+			binding->stageFlags = box_shader_type_to_vulkan_type(renderstage->descriptors[i].stage_type);
 			binding->descriptorCount = 1;
-			binding->descriptorType = box_descriptor_type_to_vulkan_type(shader->layout.descriptors[i].descriptor_type);
-			binding->stageFlags = box_shader_type_to_vulkan_type(shader->layout.descriptors[i].stage_type);
 
 			VkDescriptorPoolSize* pool_size = darray_push_empty(descriptor_pools);
 			pool_size->descriptorCount = context->swapchain.image_count;
@@ -57,7 +57,7 @@ VkResult create_pipeline_layout(vulkan_context* context, box_renderstage* shader
 	}
 
 	VkPipelineLayoutCreateInfo create_info = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
-	if (shader->layout.descriptor_count > 0) {
+	if (renderstage->descriptor_count > 0) {
 		create_info.setLayoutCount = 1;
 		create_info.pSetLayouts = &out_pipeline->descriptor;
 	}
@@ -71,13 +71,13 @@ VkResult create_pipeline_layout(vulkan_context* context, box_renderstage* shader
 
 VkResult vulkan_graphics_pipeline_create(
 	vulkan_context* context, 
-	vulkan_pipeline* out_pipeline, 
-	vulkan_renderpass* renderpass, 
-	box_renderstage* shader) {
+	box_renderstage* renderstage,
+	vulkan_renderpass* renderpass,
+	vulkan_pipeline* out_pipeline) {
 	// Fill shader stages with data from shader array
 	VkPipelineShaderStageCreateInfo* shader_stages = darray_create(VkPipelineShaderStageCreateInfo, MEMORY_TAG_RENDERER);
 	for (int i = 0; i < BOX_SHADER_STAGE_TYPE_MAX; ++i) {
-		shader_stage* stage = &shader->stages[i];
+		shader_stage* stage = &renderstage->stages[i];
 		if (stage->file_size == 0) {
 			BX_ASSERT(stage->file_data == NULL && "Shader stage says file size is zero but contains data?");
 			continue;
@@ -178,34 +178,37 @@ VkResult vulkan_graphics_pipeline_create(
 	VkVertexInputAttributeDescription* attributes = darray_create(VkVertexInputAttributeDescription, MEMORY_TAG_RENDERER);
 	VkVertexInputBindingDescription binding_desc = { 0 };
 
-	if (shader->layout.attrib_count > 0 && shader->layout.initialized) {
-		binding_desc.binding = 0;
-		binding_desc.stride = box_render_layout_stride(&shader->layout);
-		binding_desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+	if (renderstage->vertex_attribute_count > 0) {
+		u32 stride = 0;
 
-		for (u32 i = 0; i < box_render_layout_count(&shader->layout); ++i) {
-			box_vertex_attrib_desc* attribute = &shader->layout.attribs[i];
+		for (u32 i = 0; i < renderstage->vertex_attribute_count; ++i) {
+			box_render_format attribute = renderstage->vertex_attributes[i];
 
 			VkVertexInputAttributeDescription* descriptor = darray_push_empty(attributes);
 			descriptor->binding = 0;
 			descriptor->location = i;
-			descriptor->format = box_format_to_vulkan_type(attribute->type);
-			descriptor->offset = attribute->offset;
+			descriptor->format = box_format_to_vulkan_type(attribute);
+			descriptor->offset = stride;
+			stride += box_render_format_size(attribute);
 		}
-	}
-	
-	vertex_input_info.vertexBindingDescriptionCount = 1;
-	vertex_input_info.pVertexBindingDescriptions = &binding_desc;
 
-	vertex_input_info.vertexAttributeDescriptionCount = darray_length(attributes);
-	vertex_input_info.pVertexAttributeDescriptions = attributes;
+		binding_desc.binding = 0;
+		binding_desc.stride = stride;
+		binding_desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+		vertex_input_info.vertexBindingDescriptionCount = 1;
+		vertex_input_info.pVertexBindingDescriptions = &binding_desc;
+
+		vertex_input_info.vertexAttributeDescriptionCount = darray_length(attributes);
+		vertex_input_info.pVertexAttributeDescriptions = attributes;
+	}
 
 	// Input assembly
 	input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 	input_assembly.primitiveRestartEnable = VK_FALSE;
 
 	// Pipeline layout
-	VkResult result = create_pipeline_layout(context, shader, out_pipeline);
+	VkResult result = create_pipeline_layout(context, renderstage, out_pipeline);
 	if (!vulkan_result_is_success(result)) return result;
 
 	// Pipeline create
@@ -246,11 +249,11 @@ VkResult vulkan_graphics_pipeline_create(
 
 VkResult vulkan_compute_pipeline_create(
 	vulkan_context* context, 
-	vulkan_pipeline* out_pipeline, 
-	vulkan_renderpass* renderpass, 
-	box_renderstage* shader) {
+	box_renderstage* renderstage,
+	vulkan_renderpass* renderpass,
+	vulkan_pipeline* out_pipeline) {
 	// Fill shader stages with data from shader array
-	shader_stage* stage = &shader->stages[BOX_SHADER_STAGE_TYPE_COMPUTE];
+	shader_stage* stage = &renderstage->stages[BOX_SHADER_STAGE_TYPE_COMPUTE];
 	if (stage->file_size == 0 || stage->file_data == NULL) {
 		BX_ERROR("Renderstage does not has connected compute shader stage");
 		return VK_ERROR_UNKNOWN;
@@ -271,7 +274,7 @@ VkResult vulkan_compute_pipeline_create(
 	bfree(stage->file_data, stage->file_size, MEMORY_TAG_CORE); // Comes from filesystem_read_entire_binary_file
 
 	// Pipeline layout
-	result = create_pipeline_layout(context, shader, out_pipeline);
+	result = create_pipeline_layout(context, renderstage, out_pipeline);
 	if (!vulkan_result_is_success(result)) return result;
 
 	VkComputePipelineCreateInfo pipelineInfo = { VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO };

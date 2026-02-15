@@ -41,7 +41,7 @@ VkResult vulkan_buffer_create(
 		
 }
 
-b8 vulkan_buffer_map_data(vulkan_context* context, vulkan_buffer* buffer, VkDeviceSize buf_size, void* buf_data) {
+b8 vulkan_buffer_map_data(vulkan_context* context, vulkan_buffer* buffer, VkDeviceSize buf_size, const void* buf_data) {
 	void* data;
 	if (!vulkan_result_is_success(vkMapMemory(context->device.logical_device, buffer->memory, 0, buf_size, 0, &data))) {
 		return FALSE;

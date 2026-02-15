@@ -17,7 +17,7 @@ VkResult vulkan_image_create(
     VkImageAspectFlags view_aspect_flags,
     vulkan_image* out_image);
 
-void vulkan_image_transition_format(
+void vulkan_image_transition_layout(
     vulkan_command_buffer* cmd, 
     vulkan_image* image, 
     VkImageLayout new_layout);

@@ -31,6 +31,7 @@ u64 _darray_field_get(void* array, u64 field) {
 
 void _darray_field_set(void* array, u64 field, u64 value) {
     BX_ASSERT(array != NULL && field < DARRAY_FIELD_LENGTH && "Invalid arguments passed to _darray_field_set");
+    BX_ASSERT(value <= _darray_field_get(array, DARRAY_CAPACITY) && "Tried to a darray's length higher than it's capacity");
 
     u64* header = (u64*)array - DARRAY_FIELD_LENGTH;
     header[field] = value;

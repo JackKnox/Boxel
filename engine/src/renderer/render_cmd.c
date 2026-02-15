@@ -32,8 +32,8 @@ rendercmd_payload* add_command(box_rendercmd* cmd, box_renderer_mode mode, rende
     return payload_size > 0 ? (rendercmd_payload*)((u8*)user_memory + sizeof(rendercmd_header)) : NULL;
 }
 
-void box_rendercmd_reset(box_rendercmd* cmd) {
-    BX_ASSERT(cmd != NULL && "Invalid arguments passed to box_rendercmd_reset");
+void box_rendercmd_begin(box_rendercmd* cmd) {
+    if (!cmd) return;
     if (!freelist_empty(&cmd->buffer))
         freelist_reset(&cmd->buffer, FALSE, FALSE);
 
@@ -41,7 +41,7 @@ void box_rendercmd_reset(box_rendercmd* cmd) {
 }
 
 void box_rendercmd_destroy(box_rendercmd* cmd) {
-    BX_ASSERT(cmd != NULL && "Invalid arguments passed to box_rendercmd_destroy");
+    if (!cmd) return;
     freelist_destroy(&cmd->buffer);
     bzero_memory(cmd, sizeof(box_rendercmd));
 }
@@ -100,9 +100,9 @@ void box_rendercmd_end_renderstage(box_rendercmd* cmd) {
     add_command(cmd, 0, RENDERCMD_END_RENDERSTAGE, 0);
 }
 
-void _box_rendercmd_end(box_rendercmd* cmd) {
+void box_rendercmd_end(box_rendercmd* cmd) {
     CHECK_FINISHED();
 
-    add_command(cmd, 0, _RENDERCMD_END, 0);
+    add_command(cmd, 0, RENDERCMD_END, 0);
     cmd->finished = TRUE;
 }

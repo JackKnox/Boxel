@@ -54,7 +54,7 @@ typedef struct box_engine {
 	u64 render_read_idx;  // Read by render thread
 
 	// Current render command context (shader, mode, descriptors, etc.).
-	rendercmd_context command_context;
+	box_rendercmd_context command_context;
 
 	// Ring buffer for render commands. Fixed size; never resized at runtime.
 	box_rendercmd* command_ring;

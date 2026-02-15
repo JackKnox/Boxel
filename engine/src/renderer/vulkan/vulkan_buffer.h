@@ -15,7 +15,7 @@ b8 vulkan_buffer_map_data(
 	vulkan_context* context,
 	vulkan_buffer* buffer,
 	VkDeviceSize buf_size,
-	void* buf_data);
+	const void* buf_data);
 
 void vulkan_buffer_destroy(
 	vulkan_context* context,

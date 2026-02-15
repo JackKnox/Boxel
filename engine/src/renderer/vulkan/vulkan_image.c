@@ -67,7 +67,7 @@ VkResult vulkan_image_create(
     return result;
 }
 
-void vulkan_image_transition_format(vulkan_command_buffer* cmd, vulkan_image* image, VkImageLayout new_layout) {
+void vulkan_image_transition_layout(vulkan_command_buffer* cmd, vulkan_image* image, VkImageLayout new_layout) {
     if (image->layout == new_layout) return;
 
     VkImageMemoryBarrier barrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
@@ -126,6 +126,11 @@ VkResult vulkan_image_sampler_create(
     box_filter_type filter_type,
     box_address_mode address_mode,
     vulkan_image* out_image) {
+    if (!context->config.sampler_anisotropy && max_anisotropy > 0.0f) {
+        BX_ERROR("Attempting set anisotropy without enabling sampler anisotropy.");
+        return VK_ERROR_UNKNOWN;
+    }
+
     VkSamplerCreateInfo sampler_info = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
     sampler_info.magFilter = sampler_info.minFilter 
         = box_filter_to_vulkan_type(filter_type);

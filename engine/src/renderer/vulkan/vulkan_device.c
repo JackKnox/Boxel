@@ -130,7 +130,7 @@ void vulkan_device_destroy(box_renderer_backend* backend) {
     }
 
     // Destroy logical device
-    BX_INFO("Destroying rendering device...");
+    BX_INFO("Destroying Vulkan device...");
     if (context->device.logical_device) {
         vkDestroyDevice(context->device.logical_device, context->allocator);
         context->device.logical_device = 0;

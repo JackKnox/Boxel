@@ -78,6 +78,22 @@ void on_window_resize(GLFWwindow* window, int width, int height) {
 	event_fire(EVENT_CODE_RESIZED, 0, context);
 }
 
+VkResult platform_create_vulkan_surface(box_platform* plat_state, VkInstance instance, const VkAllocationCallbacks* allocator, VkSurfaceKHR* surface) {
+	BX_ASSERT(plat_state != NULL && instance != 0 && allocator != NULL && surface != NULL && "Invalid arguments passed to platform_create_vulkan_surface");
+
+	internal_state* state = (internal_state*)plat_state->internal_state;
+	return glfwCreateWindowSurface(instance, state->window, allocator, surface);
+}
+
+u32 platform_get_vulkan_extensions(const char*** out_array) {
+	BX_ASSERT(out_array != NULL && "Invalid arguments passed to platform_get_vulkan_extensions");
+	uint32_t count;
+	const char** extensions = glfwGetRequiredInstanceExtensions(&count);
+
+    *out_array = extensions;
+	return count;
+}
+
 b8 platform_start(box_platform* plat_state, box_config* app_config) {
 	BX_ASSERT(plat_state != NULL && app_config != NULL && "Invalid arguments passed to platform_start");
 	plat_state->internal_state = ballocate(sizeof(internal_state), MEMORY_TAG_PLATFORM);
@@ -129,6 +145,8 @@ b8 platform_start(box_platform* plat_state, box_config* app_config) {
 	glfwSetScrollCallback(state->window, on_scroll);
 	glfwSetWindowSizeCallback(state->window, on_window_resize);
 
+	plat_state->create_vulkan_surface = platform_create_vulkan_surface;
+	plat_state->get_required_vulkan_extensions = platform_get_vulkan_extensions;
 	return TRUE;
 }
 
@@ -149,20 +167,4 @@ b8 platform_pump_messages(box_platform* plat_state) {
 
 f64 platform_get_absolute_time() {
 	return 1000.0f * glfwGetTime();
-}
-
-VkResult platform_create_vulkan_surface(vulkan_context* context, box_platform* plat_state) {
-	BX_ASSERT(context != NULL && plat_state != NULL && "Invalid arguments passed to platform_create_vulkan_surface");
-	internal_state* state = (internal_state*)plat_state->internal_state;
-	return glfwCreateWindowSurface(context->instance, state->window, context->allocator, &context->surface);
-}
-
-void platform_get_vulkan_extensions(const char*** names_darray) {
-	BX_ASSERT(names_darray != NULL && "Invalid arguments passed to platform_get_vulkan_extensions");
-	uint32_t count;
-	const char** extensions = glfwGetRequiredInstanceExtensions(&count);
-
-	for (u32 i = 0; i < count; ++i) {
-		darray_push(*names_darray, extensions[i]);
-	}
 }

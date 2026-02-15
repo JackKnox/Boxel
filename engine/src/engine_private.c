@@ -27,67 +27,6 @@ box_rendercmd* get_next_rendercmd(box_engine* engine) {
 	return rendercmd;
 }
 
-b8 playback_rendercmd(box_engine* engine, box_rendercmd* rendercmd) {
-	rendercmd_context* context = &engine->command_context;
-	bzero_memory(context, sizeof(rendercmd_context));
-
-	u8* cursor = 0;
-	while (freelist_next_block(&rendercmd->buffer, &cursor)) {
-		rendercmd_header* hdr = (rendercmd_header*)cursor;
-		rendercmd_payload* payload = (rendercmd_payload*)(cursor + sizeof(rendercmd_header));
-
-		if (hdr->supported_mode)
-			context->current_mode = hdr->supported_mode;
-
-#if BOX_ENABLE_VALIDATION
-		if (hdr->supported_mode != 0) {
-			if ((engine->config.render_config.modes & hdr->supported_mode) == 0) {
-				BX_ERROR("Render command in box_rendercmd isn't supported by renderer configuration");
-				return FALSE;
-			}
-		}
-#endif
-
-		switch (hdr->type) {
-		case RENDERCMD_BEGIN_RENDERSTAGE:
-#if BOX_ENABLE_VALIDATION
-			if (context->current_shader != NULL) {
-				BX_ERROR("Tried to begin renderstage twice in box_rendercmd.");
-				return FALSE;
-			}
-#endif
-
-			context->current_shader = payload->begin_renderstage.renderstage;
-			break;
-
-		case RENDERCMD_END_RENDERSTAGE:
-#if BOX_ENABLE_VALIDATION
-			if (context->current_shader == NULL) {
-				BX_ERROR("Tried to end renderstage twice in box_rendercmd.");
-				return FALSE;
-			}
-#endif
-
-			break;
-
-		case RENDERCMD_DRAW:
-		case RENDERCMD_DRAW_INDEXED:
-		case RENDERCMD_DISPATCH:
-#if BOX_ENABLE_VALIDATION
-			if (context->current_shader == NULL) {
-				BX_ERROR("Tried to dispatch draw call without a renderstage in box_rendercmd.");
-				return FALSE;
-			}
-#endif
-			break;
-		}
-
-		engine->renderer.playback_rendercmd(&engine->renderer, context, hdr, payload);
-	}
-
-	return TRUE;
-}
-
 b8 engine_thread_init(box_engine* engine) {
 	if (!platform_start(&engine->platform_state, &engine->config)) {
 		BX_ERROR("Failed to start platform.");
@@ -124,23 +63,24 @@ b8 engine_thread_init(box_engine* engine) {
 		box_rendercmd* command = get_next_rendercmd(engine);
 
 		if (command != NULL && backend->begin_frame(backend, engine->delta_time)) {
-			b8 succeceded = playback_rendercmd(engine, command);
-			if (!succeceded) {
-				BX_WARN("Could not playback render command.");
+			bzero_memory(&engine->command_context, sizeof(box_rendercmd_context));
+
+			if (box_renderer_backend_submit_rendercmd(backend, &engine->command_context, command)) {
+				// After successful playback:
+				mutex_lock(&engine->rendercmd_mutex);
+				command->finished = FALSE; // Mark slot free for reuse
+
+				cond_signal(&engine->rendercmd_cnd);
+				mutex_unlock(&engine->rendercmd_mutex);
+
+				// Finish frame after sending validated rendercmd
+				if (!backend->end_frame(backend)) {
+					BX_ERROR("Could not finish render frame.");
+					goto exit_and_cleanup;
+				}
 			}
-
-			// After successful playback:
-			mutex_lock(&engine->rendercmd_mutex);
-
-			command->finished = FALSE; // Mark slot free for reuse
-			cond_signal(&engine->rendercmd_cnd);
-
-			mutex_unlock(&engine->rendercmd_mutex);
-
-			// Finish frame after sending validated rendercmd
-			if (succeceded && !backend->end_frame(backend)) {
-				BX_ERROR("Could not finish render frame.");
-				goto exit_and_cleanup;
+			else {
+				BX_WARN("Could not playback render command.");
 			}
 		}
 
@@ -151,9 +91,9 @@ b8 engine_thread_init(box_engine* engine) {
 			f64 frame_end = platform_get_absolute_time();
 			f64 elapsed = frame_end - frame_start;
 			f64 remaining = target_frame_time - elapsed;
-			if (remaining > 0.0) {
+			
+			if (remaining > 0.0)
 				platform_sleep(remaining);
-			}
 		}
 	}
 
@@ -175,7 +115,9 @@ void engine_thread_shutdown(box_engine* engine) {
 	if (!engine) return;
 	// Destroy in the opposite order of creation.
 
-	engine->renderer.wait_until_idle(&engine->renderer, UINT64_MAX);
+	if (engine->renderer.internal_context != NULL) {
+		engine->renderer.wait_until_idle(&engine->renderer, UINT64_MAX);
+	}
 
 	BX_INFO("Destroying engine resources...");
 	resource_system_shutdown(engine->resource_system);

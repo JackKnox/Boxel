@@ -20,7 +20,7 @@ box_config box_default_config() {
 	configuration.output_diagnostics = FALSE;
 #endif
 
-	configuration.render_config = renderer_backend_default_config();
+	configuration.render_config = box_renderer_backend_default_config();
 	configuration.render_config.api_type = RENDERER_BACKEND_TYPE_VULKAN;
 	configuration.render_config.discrete_gpu = TRUE;
 	return configuration;
@@ -28,7 +28,7 @@ box_config box_default_config() {
 
 b8 render_thread_loop(void* arg) {
 	box_engine* engine = (box_engine*)arg;
-	BX_ASSERT(engine != NULL && "Invalid box_engine passed to thread argument");
+	BX_ASSERT(engine != NULL && "Invalid box_engine passed to render thread argument");
 
 	if (!engine_thread_init(engine)) {
 		// Error message already printed
@@ -169,7 +169,7 @@ box_rendercmd* box_engine_next_frame(box_engine* engine) {
 
 	// Begin new frame
 	box_rendercmd* cmd = &engine->command_ring[engine->game_write_idx];
-	box_rendercmd_reset(cmd);
+	box_rendercmd_begin(cmd);
 
 	engine->has_open_frame = TRUE;
 
@@ -183,7 +183,7 @@ void box_engine_end_frame(box_engine* engine) {
 	mutex_lock(&engine->rendercmd_mutex);
 
 	box_rendercmd* prev = &engine->command_ring[engine->game_write_idx];
-	_box_rendercmd_end(prev);
+	box_rendercmd_end(prev);
 
 	engine->game_write_idx = (engine->game_write_idx + 1) % engine->command_ring_length;
 	engine->has_open_frame = FALSE;
