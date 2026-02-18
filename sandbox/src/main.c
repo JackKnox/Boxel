@@ -89,7 +89,7 @@ int main(int argc, char** argv) {
     };
     renderstage.descriptor_count = 1;
 
-    if (!backend.create_renderstage(&backend, &renderstage)) {
+    if (!backend.create_renderstage(&backend, &backend.main_rendertarget, &renderstage)) {
         printf("Failed to create renderstage\n");
         return 1;
     }
@@ -123,6 +123,8 @@ int main(int argc, char** argv) {
         return 1;
 	}
 
+	print_memory_usage();
+
 	box_rendercmd rendercmd = {};
 	box_rendercmd_context submit_context = {};
 
@@ -136,7 +138,7 @@ int main(int argc, char** argv) {
 
 			// ------------------
 			box_rendercmd_begin(&rendercmd);
-			box_rendercmd_set_clear_colour(&rendercmd, 0.1f, 0.1f, 0.1f);
+			box_rendercmd_bind_rendertarget(&rendercmd, &backend.main_rendertarget);
 
 			box_rendercmd_begin_renderstage(&rendercmd, &renderstage);
 			box_rendercmd_draw_indexed(&rendercmd, 6, 1);
@@ -159,10 +161,9 @@ int main(int argc, char** argv) {
 		glfwPollEvents();
 	}
 
-	backend.wait_until_idle(&backend, 0);
-
     box_rendercmd_destroy(&rendercmd);
 
+	backend.wait_until_idle(&backend, UINT64_MAX);
 	backend.destroy_texture(&backend, &texture);
 	backend.destroy_renderbuffer(&backend, &index_buffer);
 	backend.destroy_renderbuffer(&backend, &vert_buffer);
@@ -170,5 +171,6 @@ int main(int argc, char** argv) {
     box_renderer_backend_destroy(&backend);
 
     glfwTerminate();
+	memory_shutdown();
     return 0;
 }

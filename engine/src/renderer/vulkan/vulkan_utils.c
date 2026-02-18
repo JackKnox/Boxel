@@ -1,19 +1,70 @@
 #include "defines.h"
 #include "vulkan_types.h"
 
-i32 find_memory_index(vulkan_context* context, u32 type_filter, u32 property_flags) {
-     VkPhysicalDeviceMemoryProperties memory_properties;
-     vkGetPhysicalDeviceMemoryProperties(context->device.physical_device, &memory_properties);
+b8 create_staging_buffer(
+    vulkan_context* context, 
+    const void* map_ptr, 
+    box_renderbuffer* out_buffer) {
+    out_buffer->internal_data = ballocate(sizeof(internal_vulkan_renderbuffer), MEMORY_TAG_RENDERER);
+    internal_vulkan_renderbuffer* internal_buffer = (internal_vulkan_renderbuffer*)out_buffer->internal_data;
 
-     for (u32 i = 0; i < memory_properties.memoryTypeCount; ++i) {
-         // Check each memory type to see if its bit is set to 1.
-         if (type_filter & (1 << i) && (memory_properties.memoryTypes[i].propertyFlags & property_flags) == property_flags) {
-             return i;
-         }
-     }
+    VkBufferCreateInfo create_info = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    create_info.size = out_buffer->buffer_size;
+    create_info.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // TODO: Make configurable.
+    VkResult result = vkCreateBuffer(context->device.logical_device, &create_info, context->allocator, &internal_buffer->handle);
+    if (!vulkan_result_is_success(result)) return FALSE;
 
-     BX_WARN("Unable to find suitable memory type!");
-     return -1;
+    vkGetBufferMemoryRequirements(context->device.logical_device, internal_buffer->handle, &internal_buffer->memory_requirements);
+    i32 memory_index = find_memory_index(context, internal_buffer->memory_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    if (memory_index == -1) {
+        BX_ERROR("Failed to create Vulkan buffer: Unable to find suitable memory type.");
+        return FALSE;
+    }
+
+    VkMemoryAllocateInfo alloc_info = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
+    alloc_info.allocationSize = internal_buffer->memory_requirements.size;
+    alloc_info.memoryTypeIndex = memory_index;
+
+    result = vkAllocateMemory(context->device.logical_device, &alloc_info, context->allocator, &internal_buffer->memory);
+    if (!vulkan_result_is_success(result)) return FALSE;
+
+    result = vkBindBufferMemory(context->device.logical_device, internal_buffer->handle, internal_buffer->memory, 0);
+    if (!vulkan_result_is_success(result)) return FALSE;
+
+    if (map_ptr != NULL) {
+        void* mapped_ptr = NULL;
+        CHECK_VKRESULT(
+            vkMapMemory(
+                context->device.logical_device, 
+                internal_buffer->memory, 
+                0, out_buffer->buffer_size, 
+                0, &mapped_ptr), 
+            "Failed to map memory to Vulkan staging buffer");
+        
+        bcopy_memory(mapped_ptr, map_ptr, out_buffer->buffer_size);
+        vkUnmapMemory(context->device.logical_device, internal_buffer->memory);
+    }
+    return TRUE;
+}
+
+i32 find_memory_index(vulkan_context *context, u32 type_filter, u32 property_flags)
+{
+    VkPhysicalDeviceMemoryProperties memory_properties;
+    vkGetPhysicalDeviceMemoryProperties(context->device.physical_device, &memory_properties);
+
+    for (u32 i = 0; i < memory_properties.memoryTypeCount; ++i)
+    {
+        // Check each memory type to see if its bit is set to 1.
+        if (type_filter & (1 << i) && (memory_properties.memoryTypes[i].propertyFlags & property_flags) == property_flags)
+        {
+            return i;
+        }
+    }
+
+    BX_WARN("Unable to find suitable memory type!");
+    return -1;
 }
 
 VkShaderStageFlags box_shader_type_to_vulkan_type(box_shader_stage_type type) {

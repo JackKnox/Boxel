@@ -4,68 +4,6 @@
 #include "utils/darray.h"
 
 #include "vulkan_device.h"
-#include "vulkan_image.h"
-
-VkResult create(box_renderer_backend* backend, VkExtent2D size, vulkan_swapchain* swapchain);
-void destroy(box_renderer_backend* backend, vulkan_swapchain* swapchain);
-
-VkResult vulkan_swapchain_create(
-    box_renderer_backend* backend,
-    vec2 size,
-    vulkan_swapchain* out_swapchain) {
-    // Simply create a new one.
-    return create(backend, (VkExtent2D) { size.width, size.height }, out_swapchain);
-}
-
-VkResult vulkan_swapchain_recreate(
-    box_renderer_backend* backend,
-    vec2 size,
-    vulkan_swapchain* swapchain) {
-    // Destroy the old and create a new one.
-    destroy(backend, swapchain);
-    return create(backend, (VkExtent2D) { size.width, size.height }, swapchain);
-}
-
-void vulkan_swapchain_destroy(
-    box_renderer_backend* backend,
-    vulkan_swapchain* swapchain) {
-    destroy(backend, swapchain);
-}
-
-VkResult vulkan_swapchain_acquire_next_image_index(
-    vulkan_context* context,
-    vulkan_swapchain* swapchain,
-    u64 timeout_ns,
-    VkSemaphore image_available_semaphore,
-    VkFence fence,
-    u32* out_image_index) {
-
-    return vkAcquireNextImageKHR(
-        context->device.logical_device,
-        swapchain->handle,
-        timeout_ns,
-        image_available_semaphore,
-        fence,
-        out_image_index);
-}
-
-VkResult vulkan_swapchain_present(
-    vulkan_context* context,
-    vulkan_swapchain* swapchain,
-    VkQueue present_queue,
-    VkSemaphore render_complete_semaphore,
-    u32 present_image_index) {
-    // Return the image to the swapchain for presentation.
-    VkPresentInfoKHR present_info = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
-    present_info.waitSemaphoreCount = 1;
-    present_info.pWaitSemaphores = &render_complete_semaphore;
-    present_info.swapchainCount = 1;
-    present_info.pSwapchains = &swapchain->handle;
-    present_info.pImageIndices = &present_image_index;
-    present_info.pResults = 0;
-
-    return vkQueuePresentKHR(present_queue, &present_info);
-}
 
 VkSurfaceFormatKHR find_swapchain_format(vulkan_swapchain_support_info* swapchain_info) {
     for (u32 i = 0; i < darray_length(swapchain_info->formats); ++i) {
@@ -80,9 +18,7 @@ VkSurfaceFormatKHR find_swapchain_format(vulkan_swapchain_support_info* swapchai
     return swapchain_info->formats[0];
 }
 
-VkResult create(box_renderer_backend* backend, VkExtent2D size, vulkan_swapchain* swapchain) {
-    vulkan_context* context = (vulkan_context*)backend->internal_context;
-
+VkResult create(vulkan_context* context, VkExtent2D size, vulkan_swapchain* swapchain) {
     // Choose a swap surface format.
     swapchain->image_format = find_swapchain_format(&context->device.swapchain_support);
 
@@ -168,9 +104,7 @@ VkResult create(box_renderer_backend* backend, VkExtent2D size, vulkan_swapchain
     return VK_SUCCESS;
 }
 
-void destroy(box_renderer_backend* backend, vulkan_swapchain* swapchain) {
-    vulkan_context* context = (vulkan_context*)backend->internal_context;
-
+void destroy(vulkan_context* context, vulkan_swapchain* swapchain) {
     if (swapchain && swapchain->handle) {
         vkDeviceWaitIdle(context->device.logical_device);
 
@@ -188,4 +122,62 @@ void destroy(box_renderer_backend* backend, vulkan_swapchain* swapchain) {
 
         vkDestroySwapchainKHR(context->device.logical_device, swapchain->handle, context->allocator);
     }
+}
+
+VkResult vulkan_swapchain_create(
+    vulkan_context* context,
+    vec2 size,
+    vulkan_swapchain* out_swapchain) {
+    // Simply create a new one.
+    return create(context, (VkExtent2D) { size.width, size.height }, out_swapchain);
+}
+
+VkResult vulkan_swapchain_recreate(
+    vulkan_context* context,
+    vec2 size,
+    vulkan_swapchain* swapchain) {
+    // Destroy the old and create a new one.
+    destroy(context, swapchain);
+    return create(context, (VkExtent2D) { size.width, size.height }, swapchain);
+}
+
+void vulkan_swapchain_destroy(
+    vulkan_context* context,
+    vulkan_swapchain* swapchain) {
+    destroy(context, swapchain);
+}
+
+VkResult vulkan_swapchain_acquire_next_image_index(
+    vulkan_context* context,
+    vulkan_swapchain* swapchain,
+    u64 timeout_ns,
+    VkSemaphore image_available_semaphore,
+    VkFence fence,
+    u32* out_image_index) {
+
+    return vkAcquireNextImageKHR(
+        context->device.logical_device,
+        swapchain->handle,
+        timeout_ns,
+        image_available_semaphore,
+        fence,
+        out_image_index);
+}
+
+VkResult vulkan_swapchain_present(
+    vulkan_context* context,
+    vulkan_swapchain* swapchain,
+    VkQueue present_queue,
+    VkSemaphore render_complete_semaphore,
+    u32 present_image_index) {
+    // Return the image to the swapchain for presentation.
+    VkPresentInfoKHR present_info = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
+    present_info.waitSemaphoreCount = 1;
+    present_info.pWaitSemaphores = &render_complete_semaphore;
+    present_info.swapchainCount = 1;
+    present_info.pSwapchains = &swapchain->handle;
+    present_info.pImageIndices = &present_image_index;
+    present_info.pResults = 0;
+
+    return vkQueuePresentKHR(present_queue, &present_info);
 }

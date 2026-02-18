@@ -28,262 +28,393 @@
         }                                                 \
     }
 
-// Types of Vulkan queues used by the renderer backend.
-typedef enum {
-    // Queue capable of graphics operations such as draw calls, render passes, and graphics pipeline execution.
+/**
+ * @brief Identifies the different Vulkan queue roles used by the backend.
+ *
+ * Each queue type corresponds to a queue family that supports a specific
+ * class of operations. Not all physical devices expose separate families
+ * for each role.
+ */
+typedef enum vulkan_queue_type {
+    /** @brief Queue capable of graphics operations such as draw calls, render passes, and graphics pipeline execution. */
     VULKAN_QUEUE_TYPE_GRAPHICS,
 
-    // Queue capable of compute dispatches and compute pipeline execution.
+    /** @brief Queue capable of compute dispatches and compute pipeline execution. */
     VULKAN_QUEUE_TYPE_COMPUTE,
 
-    // Queue dedicated to transfer operations such as buffer and image copies.
+    /** @brief Queue dedicated to transfer operations such as buffer and image copies. */
     VULKAN_QUEUE_TYPE_TRANSFER,
 
-    // Queue capable of presenting rendered images to a surface.
+    /** @brief Queue capable of presenting rendered images to a surface. */
     VULKAN_QUEUE_TYPE_PRESENT,
 
     VULKAN_QUEUE_TYPE_MAX,
 } vulkan_queue_type;
 
-// Swapchain capability information queried from the physical device.
-typedef struct {
-    // Surface capabilities (extent, image count limits, transforms, etc).
+/**
+ * @brief Stores swapchain support details for a physical device.
+ *
+ * Queried during device selection to determine swapchain compatibility
+ * with a given surface.
+ */
+typedef struct vulkan_swapchain_support_info {
+     /** @brief Surface capabilities. */
     VkSurfaceCapabilitiesKHR capabilities;
 
-    // Supported surface formats (darray).
+    /** @brief Supported surface formats. */
     VkSurfaceFormatKHR* formats;
 
-    // Supported presentation modes (darray).
+    /** @brief Supported presentation modes. */
     VkPresentModeKHR* present_modes;
 } vulkan_swapchain_support_info;
 
-// Represents a logical queue and its associated command pool.
-typedef struct {
-    // Vulkan queue handle.
+/**
+ * @brief Represents a Vulkan queue and its associated command pool.
+ *
+ * Wraps a VkQueue handle together with the command pool used to allocate
+ * command buffers for that queue family.
+ */
+typedef struct vulkan_queue {
+    /** @brief Vulkan queue handle. */
     VkQueue handle;
 
-    // Command pool owned by this queue family.
+    /** @brief Command pool associated with this queue family. */
     VkCommandPool pool;
 
-    // Renderer modes supported by this queue (graphics / compute).
+    /** @brief Supported renderer modes for this queue. */
     box_renderer_mode supported_modes;
 
-    // Queue family index.
+    /** @brief Queue family index. */
     i32 family_index;
 } vulkan_queue;
 
-// Encapsulates Vulkan device state and queue ownership.
-typedef struct {
-    // Selected physical device.
-    VkPhysicalDevice physical_device;
-
-    // Logical device created from the physical device.
-    VkDevice logical_device;
-
-    // Cached swapchain support details.
-    vulkan_swapchain_support_info swapchain_support;
-
-    // Queues grouped by intended usage.
-    vulkan_queue mode_queues[VULKAN_QUEUE_TYPE_MAX];
-} vulkan_device;
-
-// Backend representation of an image resource.
-typedef struct {
-    VkImage handle;
-    VkImageLayout layout;
-    VkDeviceMemory memory;
-    VkImageView view;
-    VkSampler sampler;
-
-    // Dimensions of the image.
-    uvec2 size;
-} vulkan_image;
-
-// Backend representation of a buffer resource.
-typedef struct {
-    VkBuffer handle;
-    VkDeviceMemory memory;
-
-    // Vulkan usage flags (vertex, index, uniform, etc).
-    VkBufferUsageFlags usage;
-
-    // Memory property flags (host-visible, device-local, etc).
-    VkMemoryPropertyFlags properties;
-
-    // Cached memory requirements for allocation.
-    VkMemoryRequirements memory_requirements;
-} vulkan_buffer;
-
-// Render pass lifecycle states.
-typedef enum {
-    // Render pass has not been created or has been explicitly destroyed.
+/**
+ * @brief Lifecycle state of a Vulkan render pass instance.
+ */
+typedef enum vulkan_render_pass_state {
+    /** @brief Render pass has not been allocated. */
     RENDER_PASS_STATE_NOT_ALLOCATED,
 
-    // Render pass is created and ready to be begun.
+    /** @brief Render pass is ready for recording. */
     RENDER_PASS_STATE_READY,
 
-    // Render pass is actively recording commands.
+    /** @brief Render pass is currently recording commands. */
     RENDER_PASS_STATE_RECORDING,
 
-    // Render pass recording has ended.
+    /** @brief Recording has ended. */
     RENDER_PASS_STATE_RECORDING_ENDED,
 } vulkan_render_pass_state;
 
-// Backend representation of a Vulkan render pass.
-typedef struct {
-    VkRenderPass handle;
-
-    // Render area origin and size.
-    vec2 origin, size;
-
-    // Current render pass state.
-    vulkan_render_pass_state state;
-
-    // Packed clear colour used at render pass begin.
-    u32 clear_colour;
-} vulkan_renderpass;
-
-// Framebuffer associated with a render pass.
-typedef struct {
+/**
+ * @brief Wraps a VkFramebuffer and its attachments.
+ */
+typedef struct vulkan_framebuffer {
+    /** @brief Framebuffer handle. */
     VkFramebuffer handle;
 
-    // Image views used as framebuffer attachments.
+    /** @brief Image view attachments. */
     VkImageView* attachments;
 
-    // Owning render pass.
-    vulkan_renderpass* renderpass;
-
-    // Number of attachments.
+    /** @brief Number of attachments. */
     u32 attachment_count;
 } vulkan_framebuffer;
 
-// Backend representation of a graphics or compute pipeline.
-typedef struct {
-    VkPipeline handle;
-    VkPipelineLayout layout;
-
-    VkDescriptorSetLayout descriptor;
-    VkDescriptorPool descriptor_pool;
-    VkDescriptorSet* descriptor_sets;
-    VkPipelineBindPoint bind_point;
-} vulkan_pipeline;
-
-// Swapchain and its associated image resources.
-typedef struct {
+/**
+ * @brief Represents the Vulkan swapchain and its associated images.
+ */
+typedef struct vulkan_swapchain {
+    /** @brief Selected surface format. */
     VkSurfaceFormatKHR image_format;
+
+    /** @brief Swapchain handle. */
     VkSwapchainKHR handle;
 
-    // Swapchain images and image views (darray).
+    /** @brief Swapchain images. */
     VkImage* images;
-    VkImageView* views;
-    u32 image_count;
 
-    // Framebuffers used for on-screen rendering.
-    vulkan_framebuffer* framebuffers;
+    /** @brief Image views for swapchain images. */
+    VkImageView* views;
+
+    /** @brief Number of swapchain images. */
+    u32 image_count;
 } vulkan_swapchain;
 
-// Command buffer lifecycle states.
-typedef enum {
-    // Command buffer is allocated and reset, ready to begin recording.
+/**
+ * @brief Tracks the state of a Vulkan command buffer.
+ */
+typedef enum vulkan_command_buffer_state {
+    /** @brief Ready for recording. */
     COMMAND_BUFFER_STATE_READY,
 
-    // Command buffer is actively recording commands via vkBeginCommandBuffer.
+    /** @brief Currently recording. */
     COMMAND_BUFFER_STATE_RECORDING,
 
-    // Command buffer is currently inside an active render pass.
+    /** @brief Inside a render pass. */
     COMMAND_BUFFER_STATE_IN_RENDER_PASS,
 
-    // Command buffer recording has finished via vkEndCommandBuffer.
+    /** @brief Recording has ended. */
     COMMAND_BUFFER_STATE_RECORDING_ENDED,
 
-    // Command buffer has been submitted to a queue for execution.
+    /** @brief Submitted to a queue. */
     COMMAND_BUFFER_STATE_SUBMITTED,
 
-    // Command buffer has not been allocated or has been explicitly freed.
+    /** @brief Not allocated. */
     COMMAND_BUFFER_STATE_NOT_ALLOCATED
 } vulkan_command_buffer_state;
 
-// Wrapper around a Vulkan command buffer with state tracking.
-typedef struct {
+/**
+ * @brief Wraps a Vulkan command buffer and tracks its usage state.
+ */
+typedef struct vulkan_command_buffer {
+    /** @brief Command buffer handle. */
     VkCommandBuffer handle;
 
-    // Command pool which owns this buffer.
+    /** @brief Owning command pool. */
     VkCommandPool owner;
 
-    // Current state of the command buffer.
+    /** @brief Current command buffer state. */
     vulkan_command_buffer_state state;
 
-    // Indicates whether the buffer has been used this frame.
+    /** @brief Indicates whether the buffer has been used this frame. */
     b8 used;
 } vulkan_command_buffer;
 
-// Fence wrapper with cached signal state.
-typedef struct {
+/**
+ * @brief Wraps a Vulkan fence used for GPU/CPU synchronization.
+ */
+typedef struct vulkan_fence {
+    /** @brief Fence handle. */
     VkFence handle;
+
+    /** @brief Cached signal state. */
     b8 is_signaled;
 } vulkan_fence;
 
-// Global Vulkan renderer context.
-typedef struct {
-    // Backend configuration provided by the engine.
+/**
+ * @brief Represents a logical Vulkan device and associated resources.
+ */
+typedef struct vulkan_device {
+    /** @brief Selected physical device. */
+    VkPhysicalDevice physical_device;
+
+    /** @brief Logical device handle. */
+    VkDevice logical_device;
+
+    /** @brief Swapchain support details. */
+    vulkan_swapchain_support_info swapchain_support;
+
+    /** @brief Queues indexed by vulkan_queue_type. */
+    vulkan_queue mode_queues[VULKAN_QUEUE_TYPE_MAX];
+} vulkan_device;
+
+/**
+ * @brief Internal Vulkan implementation of a box_renderbuffer.
+ */
+typedef struct internal_vulkan_renderbuffer {
+    /** @brief Buffer handle. */
+    VkBuffer handle;
+
+    /** @brief Allocated device memory. */
+    VkDeviceMemory memory;
+
+    /** @brief Buffer usage flags. */
+    VkBufferUsageFlags usage;
+
+    /** @brief Memory property flags. */
+    VkMemoryPropertyFlags properties;
+
+    /** @brief Memory requirements for allocation. */
+    VkMemoryRequirements memory_requirements;
+} internal_vulkan_renderbuffer;
+
+/**
+ * @brief Internal Vulkan implementation of a box_renderstage.
+ */
+typedef struct internal_vulkan_renderstage {
+    /** @brief Pipeline handle. */
+    VkPipeline handle;
+
+    /** @brief Pipeline layout. */
+    VkPipelineLayout layout;
+
+    /** @brief Descriptor pool. */
+    VkDescriptorPool descriptor_pool;
+
+    /** @brief Allocated descriptor sets. */
+    VkDescriptorSet* descriptor_sets;
+
+    /** @brief Descriptor set layout. */
+    VkDescriptorSetLayout descriptor;
+} internal_vulkan_renderstage;
+
+/**
+ * @brief Internal Vulkan implementation of a box_texture.
+ */
+typedef struct internal_vulkan_texture {
+    /** @brief Image handle. */
+    VkImage handle;
+
+    /** @brief Current image layout. */
+    VkImageLayout layout;
+
+    /** @brief Allocated device memory. */
+    VkDeviceMemory memory;
+
+    /** @brief Image view. */
+    VkImageView view;
+
+    /** @brief Sampler object. */
+    VkSampler sampler;
+} internal_vulkan_texture;
+
+/**
+ * @brief Internal Vulkan render target implementation.
+ *
+ * Wraps a render pass and its framebuffers.
+ */
+typedef struct internal_vulkan_rendertarget {
+    /** @brief Render pass handle. */
+    VkRenderPass handle;
+
+    /** @brief Current render pass state. */
+    vulkan_render_pass_state state;
+
+    /** @brief Associated framebuffers. */
+    vulkan_framebuffer* framebuffers;
+} internal_vulkan_rendertarget;
+
+/**
+ * @brief Global Vulkan backend context.
+ *
+ * Owns the Vulkan instance, device, swapchain, synchronization primitives,
+ * and per-frame resources. One context exists per renderer backend instance.
+ */
+typedef struct vulkan_context {
+    /** @brief Backend configuration. */
     box_renderer_backend_config config;
 
-    // Current framebuffer dimensions.
+    /** @brief Has the backend rendered anything this frame? */
+    b8 rendered_this_frame;
+
+    /** @brief Current framebuffer size. */
     vec2 framebuffer_size;
 
-    // Current swapchain image index.
+    /** @brief Current swapchain image index. */
     u32 image_index;
 
-    // Frame-in-flight index.
+    /** @brief Current frame-in-flight index. */
     u32 current_frame;
 
+    /** @brief Vulkan instance handle. */
     VkInstance instance;
+
+    /** @brief Custom allocator callbacks (optional). */
     VkAllocationCallbacks* allocator;
+
+    /** @brief Presentation surface. */
     VkSurfaceKHR surface;
 
-    // Debug messenger (validation layers).
+    /** @brief Debug messenger for validation layers. */
     VkDebugUtilsMessengerEXT debug_messenger;
 
+    /** @brief Logical device and queues. */
     vulkan_device device;
-    vulkan_swapchain swapchain;
-    vulkan_renderpass main_renderpass;
 
-    // Command buffers per frame (darray).
+    /** @brief Swapchain. */
+    vulkan_swapchain swapchain;
+
+    /** @brief Per-frame command buffers. */
     vulkan_command_buffer* command_buffer_ring[2];
 
-    // Synchronization primitives (darrays).
+    /** @brief Image-available semaphores. */
     VkSemaphore* image_available_semaphores;
+
+    /** @brief Render-complete semaphores. */
     VkSemaphore* queue_complete_semaphores;
+
+    /** @brief Per-frame fences. */
     vulkan_fence* in_flight_fences;
 
-    // Tracks which fence is associated with each swapchain image (darray).
-    // Pointers refer to fences owned elsewhere.
+    /** @brief Fence tracking per swapchain image. */
     vulkan_fence** images_in_flight;
 } vulkan_context;
 
-// Finds a compatible memory type index on the physical device.
-i32 find_memory_index(vulkan_context* context, u32 type_filter, u32 property_flags);
+/**
+ * @brief Creates a CPU-visible staging buffer and optionally uploads data to it.
+ *
+ * Typically used for transferring data (e.g., vertex/index/texture data)
+ * to device-local GPU buffers via a copy operation.
+ *
+ * @param context Pointer to the Vulkan context.
+ * @param buf_size Size of the buffer in bytes.
+ * @param map_ptr Optional pointer to data to copy into the buffer (can be NULL).
+ * @param out_buffer Pointer that receives the created render buffer.
+ *
+ * @return True if creation succeeded, otherwise false.
+ */
+b8 create_staging_buffer(
+    vulkan_context* context,
+    const void* map_ptr,
+    box_renderbuffer* out_buffer);
 
-// Converts engine shader stage flags to Vulkan shader stage flags.
+/**
+ * @brief Finds a compatible memory type index on the physical device.
+ *
+ * Searches the physical device memory properties for a memory type
+ * that satisfies the given type filter and property flags.
+ *
+ * @param context Pointer to the Vulkan context.
+ * @param type_filter Bitmask of acceptable memory types.
+ * @param property_flags Required memory property flags.
+ *
+ * @return The matching memory type index, or -1 if none is found.
+ */
+i32 find_memory_index(
+    vulkan_context* context,
+    u32 type_filter,
+    u32 property_flags);
+
+/**
+ * @brief Converts engine shader stage flags to Vulkan shader stage flags.
+ */
 VkShaderStageFlags box_shader_type_to_vulkan_type(box_shader_stage_type type);
 
-// Converts engine descriptor type to Vulkan descriptor type.
+/**
+ * @brief Converts engine descriptor type to a Vulkan descriptor type.
+ */
 VkDescriptorType box_descriptor_type_to_vulkan_type(box_descriptor_type descriptor_type);
 
-// Converts engine index format to Vulkan index type.
+/**
+ * @brief Converts engine index format to a Vulkan index type.
+ */
 VkIndexType box_format_to_vulkan_index_type(box_format_type data_type);
 
-// Converts engine filter mode to Vulkan filter.
+/**
+ * @brief Converts engine filter mode to a Vulkan filter.
+ */
 VkFilter box_filter_to_vulkan_type(box_filter_type filter_type);
 
-// Converts engine address mode to Vulkan sampler address mode.
+/**
+ * @brief Converts engine address mode to a Vulkan sampler address mode.
+ */
 VkSamplerAddressMode box_address_mode_to_vulkan_type(box_address_mode address);
 
-// Converts engine render format to Vulkan format.
+/**
+ * @brief Converts engine render format to a Vulkan format.
+ */
 VkFormat box_format_to_vulkan_type(box_render_format format);
 
-// Returns a human-readable string for a Vulkan result code.
+/**
+ * @brief Returns a human-readable string for a Vulkan result code.
+ *
+ * @param result Vulkan result code.
+ * @param get_extended If true, returns a more descriptive message when available.
+ *
+ * @return Constant string describing the result.
+ */
 const char* vulkan_result_string(VkResult result, b8 get_extended);
 
-// Returns true if the Vulkan result represents a success code.
+/**
+ * @brief Determines whether a Vulkan result represents a success code.
+ */
 b8 vulkan_result_is_success(VkResult result);

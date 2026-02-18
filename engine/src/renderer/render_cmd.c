@@ -2,6 +2,7 @@
 #include "renderer_backend.h"
 
 #include "engine.h"
+#include "render_objects.h"
 
 #if BOX_ENABLE_VALIDATION
 #   define CHECK_FINISHED() if (!cmd) return; if (cmd->finished) { BX_ERROR("Adding to render command after ending, users should not be calling _box_rendercmd_end."); return; }
@@ -46,16 +47,12 @@ void box_rendercmd_destroy(box_rendercmd* cmd) {
     bzero_memory(cmd, sizeof(box_rendercmd));
 }
 
-void box_rendercmd_set_clear_colour(box_rendercmd* cmd, f32 clear_r, f32 clear_g, f32 clear_b) {
+void box_rendercmd_bind_rendertarget(box_rendercmd* cmd, box_rendertarget* rendertarget) {
     CHECK_FINISHED();
 
     rendercmd_payload* payload;
-    payload = add_command(cmd, RENDERER_MODE_GRAPHICS, RENDERCMD_SET_CLEAR_COLOUR, sizeof(payload->set_clear_colour));
-    payload->set_clear_colour.clear_colour =
-        ((u32)(clear_r * 255.0f + 0.5f) << 24) |
-        ((u32)(clear_g * 255.0f + 0.5f) << 16) |
-        ((u32)(clear_b * 255.0f + 0.5f) << 8)  |
-         (u32)(1.0f * 255.0f + 0.5f);
+    payload = add_command(cmd, RENDERER_MODE_GRAPHICS, RENDERCMD_BIND_RENDERTARGET, sizeof(payload->bind_rendertarget));
+    payload->bind_rendertarget.rendertarget = rendertarget;
 }
 
 void box_rendercmd_begin_renderstage(box_rendercmd* cmd, box_renderstage* renderstage) {

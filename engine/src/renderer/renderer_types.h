@@ -180,15 +180,6 @@ typedef struct box_renderer_backend_config {
     /** @brief Enabled renderer modes (bitmask). */
     box_renderer_mode modes;
 
-    /** @brief Enable validation and debug messages. */
-    b8 enable_validation;
-
-    /** @brief Enable sampler anisotropy if supported. */
-    b8 sampler_anisotropy;
-
-    /** @brief Prefer or require a discrete GPU. */
-    b8 discrete_gpu;
-
     /** @brief Selected backend API type. */
     box_renderer_backend_type api_type;
 
@@ -198,6 +189,15 @@ typedef struct box_renderer_backend_config {
      * Must be greater than 1.
      */
     u32 frames_in_flight;
+
+    /** @brief Enable validation and debug messages. */
+    b8 enable_validation;
+
+    /** @brief Enable sampler anisotropy if supported. */
+    b8 sampler_anisotropy;
+
+    /** @brief Prefer or require a discrete GPU. */
+    b8 discrete_gpu;
 } box_renderer_backend_config;
 
 /**

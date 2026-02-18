@@ -18,14 +18,14 @@
  * index, uniform, or storage buffer.
  */
 typedef struct box_renderbuffer {
-    /** @brief Intended usage of the buffer (vertex, index, uniform, etc.). */
-    box_renderbuffer_usage usage;
-
     /** @brief Total size of the buffer in bytes. */
     u64 buffer_size;
 
     /** @brief Backend-specific buffer state/handle. */
     void* internal_data;
+
+    /** @brief Intended usage of the buffer (vertex, index, uniform, etc.). */
+    box_renderbuffer_usage usage;
 } box_renderbuffer;
 
 /**
@@ -119,6 +119,30 @@ typedef struct box_renderstage {
 box_renderstage box_renderstage_graphics_default(const char** shader_stages, u8 shader_stage_count);
 
 /**
+ * @brief Represents a render target used by the renderer backend.
+ *
+ * A render target is the destination for rendering operations. It can either
+ * represent a window-backed surface (such as a swapchain image) or an
+ * offscreen render target (such as a framebuffer or texture).
+ */
+typedef struct box_rendertarget {
+    /** @brief Clear colour value used when beginning a render pass. */
+    u32 clear_colour;
+
+    /** @brief Render area origin. */
+    vec2 origin;
+
+    /** @brief Render area size. */
+    vec2 size;
+
+    /** @brief Indicates whether this render target represents a window surface. */
+    b8 is_window;
+
+    /** @brief Backend-specific internal data. */
+    void* internal_data;
+} box_rendertarget;
+
+/**
  * @brief Backend-agnostic texture resource.
  *
  * Represents GPU image data along with sampling configuration.
@@ -131,6 +155,9 @@ typedef struct box_texture {
     /** @brief Image format of the texture data. */
     box_render_format image_format;
 
+    /** @brief Backend-specific image and sampler state. */
+    void* internal_data;
+
     /** @brief Texture filtering mode. */
     box_filter_type filter_type;
 
@@ -139,9 +166,6 @@ typedef struct box_texture {
 
     /** @brief Max anisotropy of attached sampler in backend, ignored if sampled is set to false. */
     f32 max_anisotropy;
-
-    /** @brief Backend-specific image and sampler state. */
-    void* internal_data;
 } box_texture;
 
 /**
@@ -216,17 +240,15 @@ void box_rendercmd_begin(box_rendercmd* cmd);
 void box_rendercmd_destroy(box_rendercmd* cmd);
 
 /**
- * @brief Sets the framebuffer clear color.
+ * @brief Binds a render target to a render command.
  *
- * The specified color will be used when clearing the screen
- * before rendering begins.
+ * This function sets the specified render target as the current target
+ * for subsequent rendering operations associated with the given render command.
  *
- * @param cmd Pointer to the command buffer.
- * @param clear_r Red component (0.0–1.0).
- * @param clear_g Green component (0.0–1.0).
- * @param clear_b Blue component (0.0–1.0).
+ * @param cmd Pointer to the render command to bind the render target to.
+ * @param rendertarget Pointer to the render target to bind.
  */
-void box_rendercmd_set_clear_colour(box_rendercmd* cmd, f32 clear_r, f32 clear_g, f32 clear_b);
+void box_rendercmd_bind_rendertarget(box_rendercmd* cmd, box_rendertarget* rendertarget);
 
 /**
  * @brief Begins a render stage.

@@ -113,7 +113,7 @@ void vulkan_device_destroy(box_renderer_backend* backend) {
     vulkan_context* context = (vulkan_context*)backend->internal_context;
     if (!context->device.logical_device) return;
 
-    BX_TRACE("Destroying command pools...");
+    BX_TRACE("Freeing command pools...");
 
     for (u32 i = 0; i < VULKAN_QUEUE_TYPE_MAX; ++i) {
         vulkan_queue* queue = &context->device.mode_queues[i];

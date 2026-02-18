@@ -18,7 +18,7 @@
  * into backend-specific API calls (OpenGL, Vulkan, etc.).
  */
 enum {
-    RENDERCMD_SET_CLEAR_COLOUR,
+    RENDERCMD_BIND_RENDERTARGET,
     RENDERCMD_BEGIN_RENDERSTAGE,
     RENDERCMD_END_RENDERSTAGE,
     RENDERCMD_DRAW,
@@ -61,9 +61,9 @@ typedef union rendercmd_payload {
      * @brief Clear color command payload.
      */
     struct {
-        /** @brief Packed RGBA clear color value. */
-        u32 clear_colour;
-    } set_clear_colour;
+        /** @brief Render target to bind for subsequent operations. */
+        box_rendertarget* rendertarget;
+    } bind_rendertarget;
 
     /**
      * @brief Begin render stage command payload.
@@ -113,6 +113,9 @@ typedef union rendercmd_payload {
  * Tracks currently active render state while commands are executed.
  */
 typedef struct box_rendercmd_context {
+    /** @brief Currently bound render target. */
+    box_rendertarget* current_target;
+
     /** @brief Currently bound render stage. */
     box_renderstage* current_shader;
 
@@ -135,6 +138,9 @@ typedef struct box_renderer_backend {
 
     /** @brief Renderer capabilities supported by this backend. */
     box_renderer_capabilities capabilities;
+    
+    /** @brief Main render target that connects to platform surface. */
+    box_rendertarget main_rendertarget;
 
     /**
      * @brief Initializes the renderer backend.
@@ -198,7 +204,7 @@ typedef struct box_renderer_backend {
     /** @{ */
 
     /** @brief Creates a render stage. */
-    b8 (*create_renderstage)(struct box_renderer_backend* backend, box_renderstage* out_stage);
+    b8 (*create_renderstage)(struct box_renderer_backend* backend, box_rendertarget* bound_rendertarget, box_renderstage* out_stage);
 
     /**
      * @brief Updates one or more descriptor bindings for a renderstage.
@@ -246,6 +252,10 @@ typedef struct box_renderer_backend {
 
     /** @brief Destroys a texture resource. */
     void (*destroy_texture)(struct box_renderer_backend* backend, box_texture* texture);
+
+    b8 (*create_rendertarget)(struct box_renderer_backend* backend, box_rendertarget* rendertarget);
+
+    void (*destroy_rendertarget)(struct box_renderer_backend* backend, box_rendertarget* rendertarget);
 
     /** @} */
 } box_renderer_backend;
