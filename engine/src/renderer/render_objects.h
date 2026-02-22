@@ -252,6 +252,21 @@ void box_rendercmd_destroy(box_rendercmd* cmd);
 void box_rendercmd_bind_rendertarget(box_rendercmd* cmd, box_rendertarget* rendertarget);
 
 /**
+ * @brief Inserts a GPU memory barrier between two render stages.
+ *
+ * Ensures that memory writes performed in the source render stage
+ * become visible to subsequent memory accesses in the destination
+ * render stage.
+ * 
+ * @param cmd Pointer to the command buffer.
+ * @param src_renderstage The render stage that performed the writes.
+ * @param dst_renderstage The render stage that will perform subsequent reads/writes.
+ * @param src_access The type of access performed in the source stage (typically write flags).
+ * @param dst_access The type of access that will occur in the destination stage.
+ */
+void box_rendercmd_memory_barrier(box_rendercmd* cmd, box_renderstage* src_renderstage, box_renderstage* dst_renderstage, box_access_flags src_access, box_access_flags dst_access);
+
+/**
  * @brief Begins a render stage.
  *
  * Subsequent draw or dispatch calls will use this stage.

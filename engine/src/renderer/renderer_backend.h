@@ -9,6 +9,8 @@
 #pragma once
 
 #include "defines.h"
+
+#include "platform/platform.h"
 #include "renderer/renderer_types.h"
 
 /**
@@ -19,6 +21,7 @@
  */
 enum {
     RENDERCMD_BIND_RENDERTARGET,
+    RENDERCMD_MEMORY_BARRIER,
     RENDERCMD_BEGIN_RENDERSTAGE,
     RENDERCMD_END_RENDERSTAGE,
     RENDERCMD_DRAW,
@@ -64,6 +67,11 @@ typedef union rendercmd_payload {
         /** @brief Render target to bind for subsequent operations. */
         box_rendertarget* rendertarget;
     } bind_rendertarget;
+
+    struct {
+        box_renderstage* src_renderstage, * dst_renderstage;
+        box_access_flags src_access, dst_access;
+    } memory_barrier;
 
     /**
      * @brief Begin render stage command payload.
@@ -134,7 +142,7 @@ typedef struct box_renderer_backend {
     void* internal_context;
 
     /** @brief Platform state associated with this backend. */
-    struct box_platform* plat_state;
+    box_platform* plat_state;
 
     /** @brief Renderer capabilities supported by this backend. */
     box_renderer_capabilities capabilities;

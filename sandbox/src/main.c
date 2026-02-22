@@ -16,7 +16,7 @@ int main(int argc, char** argv) {
 	}
 
     box_renderer_backend_config config = box_renderer_backend_default_config();
-	config.modes = RENDERER_MODE_GRAPHICS | RENDERER_MODE_TRANSFER;
+	config.modes = RENDERER_MODE_GRAPHICS | RENDERER_MODE_COMPUTE | RENDERER_MODE_TRANSFER;
 	config.sampler_anisotropy = TRUE;
 
     box_renderer_backend backend = {};
@@ -26,15 +26,39 @@ int main(int argc, char** argv) {
     }
 
 	f32 vertices[] = {
-		-0.5f, -0.5f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f,
-		 0.5f, -0.5f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f,
-		 0.5f,  0.5f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f,
-		-0.5f,  0.5f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f
+	//    x,     y,    r,    g,    b,    u,    v
+		-1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, // Bottom-Left
+		 1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, // Bottom-Right
+		 1.0f,  1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, // Top-Right
+		-1.0f,  1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f  // Top-Left
 	};
 
 	u16 indices[] = { 0, 1, 2, 2, 3, 0 };
 
-    const char* shaders[] = { "assets/shader_base.vert.spv", "assets/shader_base.frag.spv" };
+    const char* gfx_shaders[] = { "assets/shader_base.vert.spv", "assets/shader_base.frag.spv" };
+    const char* comp_shaders = "assets/test_compute.comp.spv";
+
+	box_texture storage_image = box_texture_default();
+	storage_image.image_format = (box_render_format) { .type = BOX_FORMAT_TYPE_FLOAT32, .channel_count = 4, .normalized = TRUE };
+	storage_image.usage = BOX_TEXTURE_USAGE_STORAGE | BOX_TEXTURE_USAGE_SAMPLED;
+	storage_image.size = window_config.window_size;
+	if (!backend.create_texture(&backend, &storage_image)) {
+		printf("Failed to create storage image\n");
+		return 1;
+	}
+
+	box_renderstage compstage = box_renderstage_compute_default(&comp_shaders, 1);
+	compstage.descriptors[0] = (box_descriptor_desc) {
+		// Storage image
+		.binding = 0,
+		.descriptor_type = BOX_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		.stage_type = BOX_SHADER_STAGE_TYPE_COMPUTE,
+	};
+	compstage.descriptor_count = 1;
+	if (!backend.create_renderstage(&backend, &backend.main_rendertarget, &compstage)) {
+        printf("Failed to create compute stage\n");
+        return 1;
+	}
 
 	box_renderbuffer vert_buffer = box_renderbuffer_default();
 	vert_buffer.usage = BOX_RENDERBUFFER_USAGE_VERTEX;
@@ -56,7 +80,7 @@ int main(int argc, char** argv) {
         return 1;
 	}
 
-    box_renderstage renderstage =  box_renderstage_graphics_default(shaders, BX_ARRAYSIZE(shaders));
+	box_renderstage renderstage = box_renderstage_graphics_default(gfx_shaders, BX_ARRAYSIZE(gfx_shaders));
     renderstage.graphics.vertex_attributes[0] = (box_render_format) { .type = BOX_FORMAT_TYPE_FLOAT32, .channel_count = 2 }; // Position (X, Y)
     renderstage.graphics.vertex_attributes[1] = (box_render_format) { .type = BOX_FORMAT_TYPE_FLOAT32, .channel_count = 3 }; // Colour   (R, G, B)
     renderstage.graphics.vertex_attributes[2] = (box_render_format) { .type = BOX_FORMAT_TYPE_FLOAT32, .channel_count = 2 }; // Texcoord (tX, tY)
@@ -65,56 +89,48 @@ int main(int argc, char** argv) {
 	renderstage.graphics.vertex_buffer = &vert_buffer;
 	renderstage.graphics.index_buffer = &index_buffer;
 
-    renderstage.descriptors[0] = (box_descriptor_desc) {
-        // Texture Sampler
-        .binding = 0,
-        .descriptor_type = BOX_DESCRIPTOR_TYPE_IMAGE_SAMPLER,
-        .stage_type = BOX_SHADER_STAGE_TYPE_FRAGMENT,
-    };
-    renderstage.descriptor_count = 1;
-
-    if (!backend.create_renderstage(&backend, &backend.main_rendertarget, &renderstage)) {
-        printf("Failed to create renderstage\n");
-        return 1;
-    }
-
-	int width, height, channels;
-
-	stbi_set_flip_vertically_on_load(1);
-	stbi_uc* data = stbi_load("assets/eyeball.png", &width, &height, &channels, 0);
-
-	box_texture texture = box_texture_default();
-	texture.max_anisotropy = backend.capabilities.max_anisotropy;
-	texture.image_format = (box_render_format) { .type = BOX_FORMAT_TYPE_SRGB, .channel_count = channels, .normalized = TRUE };
-	texture.size = (uvec2) { width, height };
-
-	if (!backend.create_texture(&backend, &texture) ||
-		!backend.upload_to_texture(&backend, &texture, data, (uvec2) { 0, 0 }, texture.size)) {
-        printf("Failed to create texture\n");
+	renderstage.descriptors[0] = (box_descriptor_desc) {
+		// Sampled image
+		.binding = 0,
+		.descriptor_type = BOX_DESCRIPTOR_TYPE_IMAGE_SAMPLER,
+		.stage_type = BOX_SHADER_STAGE_TYPE_FRAGMENT,
+	};
+	renderstage.descriptor_count = 1;
+	if (!backend.create_renderstage(&backend, &backend.main_rendertarget, &renderstage)) {
+        printf("Failed to create compute stage\n");
         return 1;
 	}
 
-	box_update_descriptors descriptors[] = {
-    	{
+	box_update_descriptors comp_descriptors[] = {
+		{
 			.binding = 0,
-			.type = BOX_DESCRIPTOR_TYPE_IMAGE_SAMPLER,
-			.texture = &texture,
-		}
+			.type = BOX_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			.texture = &storage_image,
+		},
 	};
-
-	if (!backend.update_renderstage_descriptors(&backend, &renderstage, descriptors, BX_ARRAYSIZE(descriptors))) {
+	if (!backend.update_renderstage_descriptors(&backend, &compstage, comp_descriptors, BX_ARRAYSIZE(comp_descriptors))) {
         printf("Failed to update renderstage descriptors\n");
         return 1;
 	}
 
-	print_memory_usage();
+	box_update_descriptors gfx_descriptors[] = {
+		{
+			.binding = 0,
+			.type = BOX_DESCRIPTOR_TYPE_IMAGE_SAMPLER,
+			.texture = &storage_image,
+		},
+	};
+	if (!backend.update_renderstage_descriptors(&backend, &renderstage, gfx_descriptors, BX_ARRAYSIZE(gfx_descriptors))) {
+        printf("Failed to update renderstage descriptors\n");
+        return 1;
+	}
 
 	box_rendercmd rendercmd = {};
 	box_rendercmd_context submit_context = {};
 
-    f64 last_time = glfwGetTime() * 1000.0;
-	while (!glfwWindowShouldClose(window)) {
-        f64 now = glfwGetTime() * 1000.0;
+    f64 last_time = platform_get_absolute_time();
+	while (!platform_should_close_window(&platform)) {
+        f64 now = platform_get_absolute_time();
         f64 delta_time = now - last_time;
         last_time = now;
 
@@ -122,6 +138,24 @@ int main(int argc, char** argv) {
 
 			// ------------------
 			box_rendercmd_begin(&rendercmd);
+			box_rendercmd_begin_renderstage(&rendercmd, &compstage);
+			box_rendercmd_dispatch(&rendercmd, 
+				(window_config.window_size.x + 7) / 8,
+				(window_config.window_size.y + 7) / 8,
+				1);
+			box_rendercmd_end_renderstage(&rendercmd);
+			
+			// Says the current submission and the submission  renderstage will be on will wait on it, so
+			// box_rendercmd_begin_renderstage will also transfer ownership 
+			box_rendercmd_memory_barrier(&rendercmd, 
+				&compstage,                    &renderstage,
+				BOX_ACCESS_FLAGS_SHADER_WRITE, BOX_ACCESS_FLAGS_SHADER_READ);
+			
+			// Transfer ownership of descriptors...
+			// vkCmdPipelineBarrier(send to renderstage) 
+			// Signal / wait on queues
+			// vkCmdPipelineBarrier(receive from compstage) 
+			
 			box_rendercmd_bind_rendertarget(&rendercmd, &backend.main_rendertarget);
 
 			box_rendercmd_begin_renderstage(&rendercmd, &renderstage);
@@ -142,16 +176,17 @@ int main(int argc, char** argv) {
 			}
 		}
 
-		glfwPollEvents();
+		platform_pump_messages(&platform);
 	}
 
     box_rendercmd_destroy(&rendercmd);
 
 	backend.wait_until_idle(&backend, UINT64_MAX);
-	backend.destroy_texture(&backend, &texture);
-	backend.destroy_renderbuffer(&backend, &index_buffer);
 	backend.destroy_renderbuffer(&backend, &vert_buffer);
-    backend.destroy_renderstage(&backend, &renderstage);
+	backend.destroy_renderbuffer(&backend, &index_buffer);
+	backend.destroy_renderstage(&backend, &renderstage);
+	backend.destroy_texture(&backend, &storage_image);
+	backend.destroy_renderstage(&backend, &compstage);
     box_renderer_backend_destroy(&backend);
 
 	platform_shutdown(&platform);

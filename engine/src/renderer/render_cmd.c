@@ -54,6 +54,17 @@ void box_rendercmd_bind_rendertarget(box_rendercmd* cmd, box_rendertarget* rende
     payload->bind_rendertarget.rendertarget = rendertarget;
 }
 
+void box_rendercmd_memory_barrier(box_rendercmd* cmd, box_renderstage* src_renderstage, box_renderstage* dst_renderstage, box_access_flags src_access, box_access_flags dst_access) {
+    CHECK_FINISHED();
+
+    rendercmd_payload* payload;
+    payload = add_command(cmd, 0, RENDERCMD_MEMORY_BARRIER, sizeof(payload->memory_barrier));
+    payload->memory_barrier.src_renderstage = src_renderstage;
+    payload->memory_barrier.dst_renderstage = dst_renderstage;
+    payload->memory_barrier.src_access = src_access;
+    payload->memory_barrier.dst_access = dst_access;
+}
+
 void box_rendercmd_begin_renderstage(box_rendercmd* cmd, box_renderstage* renderstage) {
     CHECK_FINISHED();
 
