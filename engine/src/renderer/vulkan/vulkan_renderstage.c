@@ -296,12 +296,9 @@ b8 vulkan_renderstage_create(
 
 b8 vulkan_renderstage_update_descriptors(
     box_renderer_backend* backend, 
-    box_renderstage* renderstage, 
     box_update_descriptors* descriptors, 
     u32 descriptor_count) {
     vulkan_context* context = (vulkan_context*)backend->internal_context;
-
-    internal_vulkan_renderstage* internal_renderstage = (internal_vulkan_renderstage*)renderstage->internal_data;
 
     u32 image_count = context->swapchain.image_count;
     u32 max_writes  = descriptor_count * image_count;
@@ -312,12 +309,14 @@ b8 vulkan_renderstage_update_descriptors(
 
     for (u32 i = 0; i < descriptor_count; ++i) {
         box_update_descriptors* write = &descriptors[i];
-        const box_descriptor_desc* layout_desc = &renderstage->descriptors[write->binding];
+        const box_descriptor_desc* layout_desc = &write->renderstage->descriptors[write->binding];
 
         if (write->type != layout_desc->descriptor_type) {
             BX_ERROR("Descriptor type mismatch at binding %u (write=%u, layout=%u)", write->binding, write->type, layout_desc->descriptor_type);
             continue;
         }
+
+        internal_vulkan_renderstage* internal_renderstage = (internal_vulkan_renderstage*)write->renderstage->internal_data;
 
         for (u32 j = 0; j < image_count; ++j) {
             VkWriteDescriptorSet* descriptor_write = darray_push_empty(write_commands);

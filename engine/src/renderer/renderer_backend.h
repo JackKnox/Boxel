@@ -222,7 +222,7 @@ typedef struct box_renderer_backend {
      * @param descriptors       Array of descriptor update descriptions.
      * @param descriptor_count  Number of elements in @p descriptors.
      */
-    b8 (*update_renderstage_descriptors) (struct box_renderer_backend* backend, box_renderstage* stage, box_update_descriptors* descriptors, u32 descriptor_count);
+    b8 (*update_renderstage_descriptors) (struct box_renderer_backend* backend, box_update_descriptors* descriptors, u32 descriptor_count);
 
     /** @brief Destroys a render stage. */
     void (*destroy_renderstage)(struct box_renderer_backend* backend, box_renderstage* stage);

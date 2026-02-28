@@ -10,8 +10,7 @@ b8 vulkan_renderstage_create(
 	box_renderstage* out_renderstage);
 
 b8 vulkan_renderstage_update_descriptors(
-    box_renderer_backend* backend, 
-    box_renderstage* renderstage, 
+    box_renderer_backend* backend,
     box_update_descriptors* descriptors, 
     u32 descriptor_count);
 

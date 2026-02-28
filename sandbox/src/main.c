@@ -101,26 +101,22 @@ int main(int argc, char** argv) {
         return 1;
 	}
 
-	box_update_descriptors comp_descriptors[] = {
+	box_update_descriptors update_descriptors[] = {
 		{
 			.binding = 0,
 			.type = BOX_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 			.texture = &storage_image,
+			.renderstage = &compstage,
 		},
-	};
-	if (!backend.update_renderstage_descriptors(&backend, &compstage, comp_descriptors, BX_ARRAYSIZE(comp_descriptors))) {
-        printf("Failed to update renderstage descriptors\n");
-        return 1;
-	}
 
-	box_update_descriptors gfx_descriptors[] = {
 		{
 			.binding = 0,
 			.type = BOX_DESCRIPTOR_TYPE_IMAGE_SAMPLER,
 			.texture = &storage_image,
+			.renderstage = &renderstage,
 		},
 	};
-	if (!backend.update_renderstage_descriptors(&backend, &renderstage, gfx_descriptors, BX_ARRAYSIZE(gfx_descriptors))) {
+	if (!backend.update_renderstage_descriptors(&backend, update_descriptors, BX_ARRAYSIZE(update_descriptors))) {
         printf("Failed to update renderstage descriptors\n");
         return 1;
 	}

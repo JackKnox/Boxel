@@ -195,6 +195,9 @@ u64 box_texture_get_size_in_bytes(box_texture* texture);
  * @note Only one union member must be set, according to the value of @ref type.
  */
 typedef struct {
+    /** @brief Renderstage to update descriptor to. */
+    box_renderstage* renderstage;
+
     /** @brief Binding index as declared in the shader. */
     u32 binding;
 
