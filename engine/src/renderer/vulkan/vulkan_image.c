@@ -31,7 +31,7 @@ VkResult vulkan_image_create(
     VkMemoryRequirements memory_requirements;
     vkGetImageMemoryRequirements(context->device.logical_device, out_image->handle, &memory_requirements);
 
-    i32 memory_index = find_memory_index(context, memory_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    i32 memory_index = find_memory_index(context, memory_requirements.memoryTypeBits, memory_flags);
     if (memory_index == -1) {
         BX_ERROR("Required memory type not found. Image not valid.");
         return VK_ERROR_OUT_OF_DEVICE_MEMORY;
