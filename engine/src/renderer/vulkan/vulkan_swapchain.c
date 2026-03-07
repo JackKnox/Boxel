@@ -31,7 +31,7 @@ VkResult vulkan_swapchain_create(
     size.width = BX_CLAMP(size.width, min.width, max.width);
     size.height = BX_CLAMP(size.height, min.height, max.height);
 
-    u32 image_count = swapchain_info->capabilities.minImageCount + 1;
+    u32 image_count = context->config.frames_in_flight;
     image_count = BX_CLAMP(image_count, 0, swapchain_info->capabilities.maxImageCount);
     
     u32 queueFamilyIndices[] = {
@@ -68,30 +68,14 @@ VkResult vulkan_swapchain_create(
     result = vkGetSwapchainImagesKHR(context->device.logical_device, out_swapchain->handle, &out_swapchain->image_count, 0);
     if (!vulkan_result_is_success(result)) return result;
 
-    if (!out_swapchain->images) out_swapchain->images = (VkImage*)ballocate(sizeof(VkImage) * out_swapchain->image_count, MEMORY_TAG_RENDERER);
-    result = vkGetSwapchainImagesKHR(context->device.logical_device, out_swapchain->handle, &out_swapchain->image_count, out_swapchain->images);
-    if (!vulkan_result_is_success(result)) return result;
-
-    if (!out_swapchain->views) 
-        out_swapchain->views = (VkImageView*)ballocate(sizeof(VkImageView) * out_swapchain->image_count, MEMORY_TAG_RENDERER);
-
-    // Views
-    for (u32 i = 0; i < out_swapchain->image_count; ++i) {
-        VkImageViewCreateInfo view_info = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
-        view_info.image = out_swapchain->images[i];
-        view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        view_info.format = out_swapchain->image_format.format;
-        view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        view_info.subresourceRange.baseMipLevel = 0;
-        view_info.subresourceRange.levelCount = 1;
-        view_info.subresourceRange.baseArrayLayer = 0;
-        view_info.subresourceRange.layerCount = 1;
-
-        result = vkCreateImageView(context->device.logical_device, &view_info, context->allocator, &out_swapchain->views[i]);
-        if (!vulkan_result_is_success(result)) return result;
-    }
-
-    return VK_SUCCESS;
+    if (!out_swapchain->images) 
+        out_swapchain->images = (VkImage*)ballocate(sizeof(VkImage) * out_swapchain->image_count, MEMORY_TAG_RENDERER);
+    
+    return vkGetSwapchainImagesKHR(
+        context->device.logical_device, 
+        out_swapchain->handle, 
+        &out_swapchain->image_count, 
+        out_swapchain->images);
 }
 
 void vulkan_swapchain_destroy(
@@ -100,16 +84,8 @@ void vulkan_swapchain_destroy(
     if (swapchain->handle) {
         vkDeviceWaitIdle(context->device.logical_device);
 
-        // Only destroy the views, not the images, since those are owned by the swapchain and are thus
-        // destroyed when it is.
-        for (u32 i = 0; i < swapchain->image_count; ++i) {
-            vkDestroyImageView(context->device.logical_device, swapchain->views[i], context->allocator);
-        }
-
         bfree(swapchain->images, sizeof(VkImage) * swapchain->image_count, MEMORY_TAG_RENDERER);
-        bfree(swapchain->views, sizeof(VkImageView) * swapchain->image_count, MEMORY_TAG_RENDERER);
         swapchain->images = 0;
-        swapchain->views = 0;
         swapchain->image_count = 0;
 
         vkDestroySwapchainKHR(context->device.logical_device, swapchain->handle, context->allocator);
