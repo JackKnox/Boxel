@@ -54,7 +54,7 @@ VkResult vulkan_device_create(box_renderer_backend* backend) {
     }
 
     const char** required_extensions = darray_create(const char*, MEMORY_TAG_RENDERER);
-    darray_push(required_extensions, VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+    if (backend->plat_state != NULL) darray_push(required_extensions, VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
     // Request device features.
     VkPhysicalDeviceFeatures device_features = {0};
@@ -134,51 +134,6 @@ void vulkan_device_destroy(box_renderer_backend* backend) {
 
     bfree(backend->capabilities.device_name, string_length(backend->capabilities.device_name) + 1, MEMORY_TAG_RENDERER);
     context->device.physical_device = 0;
-
-    darray_destroy(context->device.swapchain_support.formats);
-    darray_destroy(context->device.swapchain_support.present_modes);
-}
-
-void vulkan_device_query_swapchain_support(
-    VkPhysicalDevice physical_device,
-    VkSurfaceKHR surface,
-    vulkan_swapchain_support_info* out_support_info) {
-    // Surface capabilities
-    VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, &out_support_info->capabilities));
-
-    // Surface formats
-    u32 format_count = 0;
-    VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &format_count, 0));
-
-    if (format_count != 0) {
-        if (!out_support_info->formats)
-            out_support_info->formats = darray_reserve(VkSurfaceFormatKHR, format_count, MEMORY_TAG_RENDERER);
-
-        VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(
-            physical_device,
-            surface,
-            &format_count,
-            out_support_info->formats));
-
-        darray_length_set(out_support_info->formats, format_count);
-    }
-
-    // Present modes
-    u32 present_mode_count = 0;
-    VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, surface, &present_mode_count, 0));
-
-    if (present_mode_count != 0) {
-        if (!out_support_info->present_modes)
-            out_support_info->present_modes = darray_reserve(VkPresentModeKHR, present_mode_count, MEMORY_TAG_RENDERER);
-
-        VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(
-            physical_device,
-            surface,
-            &present_mode_count,
-            out_support_info->present_modes));
-
-        darray_length_set(out_support_info->present_modes, present_mode_count);
-    }
 }
 
 b8 select_physical_device(box_renderer_backend* backend) {
@@ -250,12 +205,6 @@ b8 physical_device_meets_requirements(
     vulkan_queue out_queue_support[]) {
     // Evaluate device properties to determine if it meets the needs of our applcation.
     vulkan_context* context = (vulkan_context*)backend->internal_context;
-    vulkan_swapchain_support_info* support = &context->device.swapchain_support;
-
-    if (support->formats) darray_destroy(support->formats);
-    if (support->present_modes) darray_destroy(support->present_modes);
-    support->formats = 0;
-    support->present_modes = 0;
 
     for (u32 i = 0; i < VULKAN_QUEUE_TYPE_MAX; ++i) {
         out_queue_support[i].family_index = -1;
@@ -326,9 +275,7 @@ b8 physical_device_meets_requirements(
         }
 
         // Present queue?
-        VkBool32 supports_present = VK_FALSE;
-        VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(device, i, context->surface, &supports_present));
-        if (supports_present) {
+        if (vulkan_platform_presentation_support(context->instance, device, i)) {
             out_queue_support[VULKAN_QUEUE_TYPE_PRESENT].family_index = i;
             out_queue_support[VULKAN_QUEUE_TYPE_PRESENT].supported_modes |= RENDERER_MODE_GRAPHICS;
         }
@@ -344,11 +291,9 @@ b8 physical_device_meets_requirements(
         out_queue_support[VULKAN_QUEUE_TYPE_TRANSFER].family_index != -1,
         properties.deviceName);
 
-    b8 needs_present = context->config.modes & RENDERER_MODE_GRAPHICS;
-
     if (
         (!(context->config.modes & RENDERER_MODE_GRAPHICS) || ((context->config.modes & RENDERER_MODE_GRAPHICS) && out_queue_support[VULKAN_QUEUE_TYPE_GRAPHICS].family_index != -1)) &&
-        (!needs_present                                     || (needs_present                                    && out_queue_support[VULKAN_QUEUE_TYPE_PRESENT].family_index != -1)) &&
+        (!(backend->plat_state != NULL)                    || ((backend->plat_state != NULL)                    && out_queue_support[VULKAN_QUEUE_TYPE_PRESENT].family_index != -1)) &&
         (!(context->config.modes & RENDERER_MODE_COMPUTE)  || ((context->config.modes & RENDERER_MODE_COMPUTE)  && out_queue_support[VULKAN_QUEUE_TYPE_COMPUTE].family_index != -1)) &&
         (!(context->config.modes & RENDERER_MODE_TRANSFER) || ((context->config.modes & RENDERER_MODE_TRANSFER) && out_queue_support[VULKAN_QUEUE_TYPE_TRANSFER].family_index != -1))) {
         BX_INFO("Device meets queue requirements.");
@@ -356,17 +301,6 @@ b8 physical_device_meets_requirements(
         BX_TRACE("Present Family Index:  %i", out_queue_support[VULKAN_QUEUE_TYPE_PRESENT].family_index);
         BX_TRACE("Transfer Family Index: %i", out_queue_support[VULKAN_QUEUE_TYPE_TRANSFER].family_index);
         BX_TRACE("Compute Family Index:  %i", out_queue_support[VULKAN_QUEUE_TYPE_COMPUTE].family_index);
-
-        // Query swapchain support.
-        vulkan_device_query_swapchain_support(
-            device,
-            context->surface,
-            &context->device.swapchain_support);
-
-        if (darray_length(context->device.swapchain_support.formats) < 1 || darray_length(context->device.swapchain_support.present_modes) < 1) {
-            BX_INFO("Required swapchain support not present, skipping device.");
-            return FALSE;
-        }
 
         // Sampler anisotropy
         if (context->config.sampler_anisotropy && !features.samplerAnisotropy) {

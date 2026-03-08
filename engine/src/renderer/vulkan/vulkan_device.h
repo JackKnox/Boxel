@@ -26,19 +26,3 @@ VkResult vulkan_device_create(
  */
 void vulkan_device_destroy(
     box_renderer_backend* backend);
-
-/**
- * @brief Queries swapchain support details for a given physical device and surface.
- *
- * Retrieves surface capabilities, supported surface formats, and available
- * presentation modes. The results are written to the provided
- * vulkan_swapchain_support_info structure.
- *
- * @param physical_device The physical device to query.
- * @param surface The surface to check compatibility against.
- * @param out_support_info Pointer to a structure that receives swapchain support details.
- */
-void vulkan_device_query_swapchain_support(
-    VkPhysicalDevice physical_device,
-    VkSurfaceKHR surface,
-    vulkan_swapchain_support_info* out_support_info);

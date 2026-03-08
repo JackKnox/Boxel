@@ -44,19 +44,21 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, box_rendere
 	backend->internal_context = ballocate(sizeof(vulkan_context), MEMORY_TAG_RENDERER);
 
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
-	context->framebuffer_size = (vec2){ starting_size.x, starting_size.y };
 	context->config = *config; // TODO: Remove
 	context->allocator = 0; // TODO: Custom allocator
 	
 	VkApplicationInfo app_info = { VK_STRUCTURE_TYPE_APPLICATION_INFO };
-	app_info.apiVersion = VK_API_VERSION_1_2; // TODO: Does it need to be this low??
-	app_info.pApplicationName = application_name;
 	app_info.applicationVersion = VK_MAKE_API_VERSION(0, 1, 0, 0);
 	app_info.engineVersion = VK_MAKE_API_VERSION(0, 0, 1, 0);
+	app_info.pApplicationName = application_name;
 	app_info.pEngineName = "Boxel";
 
+	CHECK_VKRESULT(
+		vkEnumerateInstanceVersion(&app_info.apiVersion),
+		"Failed to load Vulkan API successfully");
+
 	const char** platform_extensions = NULL;
-	u32 platform_extensions_count = backend->plat_state->get_required_vulkan_extensions(backend->plat_state, &platform_extensions);
+	u32 platform_extensions_count = vulkan_platform_get_required_extensions(&platform_extensions);
 
 	// Obtain a list of required extensions
 	const char** required_extensions = darray_reserve(const char*, platform_extensions_count, MEMORY_TAG_RENDERER);
@@ -114,13 +116,6 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, box_rendere
 			"Failed to create Vulkan debug messanger");
 	}
 
-	// Create the Vulkan surface
-	CHECK_VKRESULT(
-		backend->plat_state->create_vulkan_surface(backend->plat_state, context->instance, context->allocator, &context->surface),
-		"Failed to create Vulkan platform surface");
-
-	BX_INFO("Vulkan surface created.");
-
 	// Create the Vulkan device
 	CHECK_VKRESULT(
 		vulkan_device_create(backend),
@@ -136,20 +131,9 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, box_rendere
 	// Create intermediate objects.
 	context->images_in_flight = darray_reserve(VkFence*, context->swapchain.image_count, MEMORY_TAG_RENDERER);
 
-	context->image_available_semaphores = darray_reserve(VkSemaphore, context->config.frames_in_flight, MEMORY_TAG_RENDERER);
 	context->in_flight_fences = darray_reserve(VkFence, context->config.frames_in_flight, MEMORY_TAG_RENDERER);
 
 	for (u32 i = 0; i < context->config.frames_in_flight; ++i) {
-		VkSemaphoreCreateInfo semaphore_create_info = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
-		
-		CHECK_VKRESULT(
-			vkCreateSemaphore(
-				context->device.logical_device, 
-				&semaphore_create_info, 
-				context->allocator,
-				&context->image_available_semaphores[i]),
-			"Failed to create Vulkan sync objects");
-		
 		VkFenceCreateInfo fence_create_info = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
 		fence_create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 		
@@ -166,9 +150,9 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, box_rendere
 
 	if (context->config.modes & RENDERER_MODE_GRAPHICS) {
 		vulkan_queue_type queue_type = VULKAN_QUEUE_TYPE_GRAPHICS;
-		context->command_buffer_ring[queue_type] = darray_reserve(vulkan_command_buffer, context->swapchain.image_count, MEMORY_TAG_RENDERER);
+		context->command_buffer_ring[queue_type] = darray_reserve(vulkan_command_buffer, context->config.frames_in_flight, MEMORY_TAG_RENDERER);
 
-		for (u32 i = 0; i < context->swapchain.image_count; ++i) {
+		for (u32 i = 0; i < context->config.frames_in_flight; ++i) {
 			// TODO: Allocate command buffer all at once.
 			CHECK_VKRESULT(
 				vulkan_command_buffer_allocate(
@@ -183,9 +167,9 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, box_rendere
 
 	if (context->config.modes & RENDERER_MODE_COMPUTE) {
 		vulkan_queue_type queue_type = VULKAN_QUEUE_TYPE_COMPUTE;
-		context->command_buffer_ring[queue_type] = darray_reserve(vulkan_command_buffer, context->swapchain.image_count, MEMORY_TAG_RENDERER);
+		context->command_buffer_ring[queue_type] = darray_reserve(vulkan_command_buffer, context->config.frames_in_flight, MEMORY_TAG_RENDERER);
 
-		for (u32 i = 0; i < context->swapchain.image_count; ++i) {
+		for (u32 i = 0; i < context->config.frames_in_flight; ++i) {
 			// TODO: Allocate command buffer all at once.
 			CHECK_VKRESULT(
 				vulkan_command_buffer_allocate(
@@ -252,17 +236,8 @@ void vulkan_renderer_backend_shutdown(box_renderer_backend* backend) {
 				context->in_flight_fences[i],
 				context->allocator);
 		}
-		
-		if (context->image_available_semaphores[i]) {
-			vkDestroySemaphore(
-				context->device.logical_device,
-				context->image_available_semaphores[i],
-				context->allocator);
-		}
 	}
 
-	darray_destroy(context->images_in_flight);
-	darray_destroy(context->image_available_semaphores);
 	darray_destroy(context->in_flight_fences);	
 
 	BX_INFO("Destroying Vulkan swapchain...");
@@ -270,8 +245,6 @@ void vulkan_renderer_backend_shutdown(box_renderer_backend* backend) {
 	vulkan_swapchain_destroy(context, &context->swapchain);
 
 	vulkan_device_destroy(backend);
-
-	if (context->surface) vkDestroySurfaceKHR(context->instance, context->surface, context->allocator);
 
 	if (context->instance) {
 		if (context->config.enable_validation) {
@@ -305,36 +278,13 @@ b8 vulkan_renderer_backend_begin_frame(box_renderer_backend* backend, f32 delta_
 			1, &context->in_flight_fences[context->current_frame],
 			TRUE,
 			UINT64_MAX),
-		"Failed to wait on internal Vulkan fence");
+		"Failed to wait or reset internal Vulkan fence");
 
 	CHECK_VKRESULT(
 		vkResetFences(
 			context->device.logical_device, 
 			1, &context->in_flight_fences[context->current_frame]),
-		"Failed to wait on reset Vulkan fence");
-
-	CHECK_VKRESULT(
-		vulkan_swapchain_acquire_next_image_index(
-			context,
-			&context->swapchain,
-			UINT64_MAX,
-			context->image_available_semaphores[context->current_frame],
-			0,
-			&context->image_index),
-		"Failed to acquire next Vulkan swapchain image");
-
-	// If this swapchain image is still in flight, wait for it
-	if (context->images_in_flight[context->image_index] != VK_NULL_HANDLE) {
-		CHECK_VKRESULT(
-			vkWaitForFences(
-				context->device.logical_device,
-				1, context->images_in_flight[context->image_index],
-				TRUE,
-				UINT64_MAX),
-			"Failed to wait on internal Vulkan fence");
-	}
-
-	context->images_in_flight[context->image_index] = &context->in_flight_fences[context->current_frame];
+		"Failed to wait or reset Vulkan fence");
 
 	darray_length_set(context->memory_barriers, 0);
 	darray_length_set(context->queued_submissions, 0);
@@ -447,8 +397,6 @@ void vulkan_renderer_execute_command(box_renderer_backend* backend, box_rendercm
 b8 vulkan_renderer_backend_end_frame(box_renderer_backend* backend) {
     vulkan_context* context = (vulkan_context*)backend->internal_context;
 
-	VkSemaphore render_complete_semaphore;
-
 	for (u32 i = 0; i < darray_length(context->queued_submissions); ++i) {
 		vulkan_queue_submission* submission = &context->queued_submissions[i];
 		VkFence signal_fence = VK_NULL_HANDLE;
@@ -456,9 +404,6 @@ b8 vulkan_renderer_backend_end_frame(box_renderer_backend* backend) {
 		vulkan_command_buffer_end(submission->command_buffer);
 		// TODO: Propbably change this at some point...
 		VkPipelineStageFlags wait_flags[] = { VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT };
-
-		if (i == 0)
-			darray_push(submission->wait_semaphores, context->image_available_semaphores[context->current_frame]);
 
 		if (i == darray_length(context->queued_submissions) - 1)
 			signal_fence = context->in_flight_fences[context->current_frame];
@@ -472,18 +417,8 @@ b8 vulkan_renderer_backend_end_frame(box_renderer_backend* backend) {
 				signal_fence),
 			"Failed to submit Vulkan command buffer");
 		
-		render_complete_semaphore = submission->signal_semaphore;
 		darray_destroy(submission->wait_semaphores);
 	}
-    
-	CHECK_VKRESULT(
-		vulkan_swapchain_present(
-			context,
-			&context->swapchain,
-			context->device.mode_queues[VULKAN_QUEUE_TYPE_PRESENT].handle,
-			render_complete_semaphore,
-			context->image_index),
-		"Failed to present Vulkan swapchain");
 
 	// Advance to next frame
     context->current_frame = (context->current_frame + 1) % context->config.frames_in_flight;

@@ -58,23 +58,6 @@ typedef enum vulkan_queue_type {
 } vulkan_queue_type;
 
 /**
- * @brief Stores swapchain support details for a physical device.
- *
- * Queried during device selection to determine swapchain compatibility
- * with a given surface.
- */
-typedef struct vulkan_swapchain_support_info {
-     /** @brief Surface capabilities. */
-    VkSurfaceCapabilitiesKHR capabilities;
-
-    /** @brief Supported surface formats. */
-    VkSurfaceFormatKHR* formats;
-
-    /** @brief Supported presentation modes. */
-    VkPresentModeKHR* present_modes;
-} vulkan_swapchain_support_info;
-
-/**
  * @brief Represents a Vulkan queue and its associated command pool.
  *
  * Wraps a VkQueue handle together with the command pool used to allocate
@@ -129,26 +112,6 @@ typedef enum vulkan_render_pass_state {
 } vulkan_render_pass_state;
 
 /**
- * @brief Represents the Vulkan swapchain and its associated images.
- */
-typedef struct vulkan_swapchain {
-    /** @brief Selected surface format. */
-    VkSurfaceFormatKHR image_format;
-
-    /** @brief Swapchain handle. */
-    VkSwapchainKHR handle;
-
-    /** @brief Swapchain images. */
-    VkImage* images;
-
-    /** @brief Image views for swapchain images. */
-    VkImageView* views;
-
-    /** @brief Number of swapchain images. */
-    u32 image_count;
-} vulkan_swapchain;
-
-/**
  * @brief Tracks the state of a Vulkan command buffer.
  */
 typedef enum vulkan_command_buffer_state {
@@ -197,9 +160,6 @@ typedef struct vulkan_device {
 
     /** @brief Logical device handle. */
     VkDevice logical_device;
-
-    /** @brief Swapchain support details. */
-    vulkan_swapchain_support_info swapchain_support;
 
     /** @brief Queues indexed by vulkan_queue_type. */
     vulkan_queue mode_queues[VULKAN_QUEUE_TYPE_MAX];
@@ -297,15 +257,6 @@ typedef struct vulkan_context {
     /** @brief Backend configuration. */
     box_renderer_backend_config config;
 
-    /** @brief Has the backend rendered anything this frame? */
-    b8 rendered_this_frame;
-
-    /** @brief Current framebuffer size. */
-    vec2 framebuffer_size;
-
-    /** @brief Current swapchain image index. */
-    u32 image_index;
-
     /** @brief Current frame-in-flight index. */
     u32 current_frame;
 
@@ -315,32 +266,20 @@ typedef struct vulkan_context {
     /** @brief Custom allocator callbacks (optional). */
     VkAllocationCallbacks* allocator;
 
-    /** @brief Presentation surface. */
-    VkSurfaceKHR surface;
-
     /** @brief Debug messenger for validation layers. */
     VkDebugUtilsMessengerEXT debug_messenger;
 
     /** @brief Logical device and queues. */
     vulkan_device device;
 
-    /** @brief Swapchain. */
-    vulkan_swapchain swapchain;
-
     /** @brief Per-frame command buffers. */
     vulkan_command_buffer* command_buffer_ring[2];
-
-    /** @brief Image-available semaphores. */
-    VkSemaphore* image_available_semaphores;
 
     /** @brief Render-complete semaphores. */
     VkSemaphore* queue_complete_semaphores;
 
     /** @brief Per-frame fences. */
     VkFence* in_flight_fences;
-
-    /** @brief Fence tracking per swapchain image. */
-    VkFence** images_in_flight;
 
     VkSemaphore* semaphore_pool;
     u64 semaphore_next_index;

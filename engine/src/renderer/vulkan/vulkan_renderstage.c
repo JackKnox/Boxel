@@ -43,7 +43,7 @@ VkResult vulkan_pipeline_layout_create(box_renderer_backend* backend, VkPipeline
 			binding->descriptorCount = 1;
 
 			VkDescriptorPoolSize* pool_size = darray_push_empty(descriptor_pools);
-			pool_size->descriptorCount = context->swapchain.image_count;
+			pool_size->descriptorCount = context->config.frames_in_flight;
 			pool_size->type = binding->descriptorType;
 		}
         // ------------------------------------------
@@ -61,17 +61,17 @@ VkResult vulkan_pipeline_layout_create(box_renderer_backend* backend, VkPipeline
 		VkDescriptorPoolCreateInfo pool_info = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
 		pool_info.poolSizeCount = darray_length(descriptor_pools);
 		pool_info.pPoolSizes = descriptor_pools;
-		pool_info.maxSets = context->swapchain.image_count;
+		pool_info.maxSets = context->config.frames_in_flight;
 
 		result = vkCreateDescriptorPool(context->device.logical_device, &pool_info, context->allocator, &internal_renderstage->descriptor_pool);
 		if (!vulkan_result_is_success(result)) return result;
         // ------------------------------------------
 
         // Create descriptor sets per frame in flight.
-		internal_renderstage->descriptor_sets = darray_reserve(VkDescriptorSet, context->swapchain.image_count, MEMORY_TAG_RENDERER);
+		internal_renderstage->descriptor_sets = darray_reserve(VkDescriptorSet, context->config.frames_in_flight, MEMORY_TAG_RENDERER);
 
-        VkDescriptorSetLayout* layouts = darray_reserve(VkDescriptorSetLayout, context->swapchain.image_count, MEMORY_TAG_RENDERER);
-		for (u32 i = 0; i < context->swapchain.image_count; ++i)
+        VkDescriptorSetLayout* layouts = darray_reserve(VkDescriptorSetLayout, context->config.frames_in_flight, MEMORY_TAG_RENDERER);
+		for (u32 i = 0; i < context->config.frames_in_flight; ++i)
 			darray_push(layouts, internal_renderstage->descriptor);
 
         VkDescriptorSetAllocateInfo alloc_info = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
@@ -300,7 +300,7 @@ b8 vulkan_renderstage_update_descriptors(
     u32 descriptor_count) {
     vulkan_context* context = (vulkan_context*)backend->internal_context;
 
-    u32 image_count = context->swapchain.image_count;
+    u32 image_count = context->config.frames_in_flight;
     u32 max_writes  = descriptor_count * image_count;
 
     VkWriteDescriptorSet* write_commands = darray_reserve(VkWriteDescriptorSet, max_writes, MEMORY_TAG_RENDERER);
@@ -386,7 +386,7 @@ void vulkan_renderstage_bind(
 	vkCmdBindPipeline(command_buffer->handle, bind_point, internal_renderstage->handle);
 
 	if (internal_renderstage->descriptor_sets)
-		vkCmdBindDescriptorSets(command_buffer->handle, bind_point, internal_renderstage->layout, 0, 1, &internal_renderstage->descriptor_sets[context->image_index], 0, 0);
+		vkCmdBindDescriptorSets(command_buffer->handle, bind_point, internal_renderstage->layout, 0, 1, &internal_renderstage->descriptor_sets[context->current_frame], 0, 0);
 
     if (renderstage->mode == RENDERER_MODE_GRAPHICS && renderstage->graphics.vertex_buffer != NULL) {
         VkDeviceSize offset = 0;
