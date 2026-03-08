@@ -59,6 +59,7 @@ b8 box_renderer_backend_create(box_renderer_backend_config* config, uvec2 starti
     if (config->api_type == RENDERER_BACKEND_TYPE_VULKAN) {
         out_renderer_backend->initialize      = vulkan_renderer_backend_initialize;
         out_renderer_backend->shutdown        = vulkan_renderer_backend_shutdown;
+		out_renderer_backend->create_rendertarget_on_platform = vulkan_renderer_backend_create_rendertarget_on_platform;
         out_renderer_backend->wait_until_idle = vulkan_renderer_backend_wait_until_idle;
         out_renderer_backend->resized         = vulkan_renderer_backend_on_resized;
 
@@ -85,9 +86,8 @@ b8 box_renderer_backend_create(box_renderer_backend_config* config, uvec2 starti
         BX_ERROR("Unsupported renderer backend type (%i).", config->api_type);
         return FALSE;
     }
-
-    out_renderer_backend->initialize(out_renderer_backend, config, starting_size, application_name);
-    return TRUE;
+	
+    return out_renderer_backend->initialize(out_renderer_backend, config, starting_size, application_name);
 }
 
 void box_renderer_backend_destroy(box_renderer_backend* renderer_backend) {

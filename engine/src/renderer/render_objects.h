@@ -215,6 +215,8 @@ typedef struct box_rendertarget {
     void* internal_data;
 } box_rendertarget;
 
+box_rendertarget box_rendertarget_default();
+
 /**
  * @brief Describes a single descriptor update for a renderstage.
  *

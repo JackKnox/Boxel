@@ -15,7 +15,7 @@ b8 vulkan_renderstage_update_descriptors(
     u32 descriptor_count);
 
 void vulkan_renderstage_bind(
-	box_renderer_backend* backend,
+	vulkan_context* context,
     vulkan_command_buffer* command_buffer,
 	box_renderstage* renderstage);
 

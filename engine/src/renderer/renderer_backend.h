@@ -171,6 +171,8 @@ typedef struct box_renderer_backend {
      */
     void (*wait_until_idle)(struct box_renderer_backend* backend, u64 timeout);
 
+    b8 (*create_rendertarget_on_platform)(struct box_renderer_backend* backend, box_rendertarget** out_rendertarget);
+
     /**
      * @brief Notifies the backend of a framebuffer resize.
      *
@@ -186,7 +188,7 @@ typedef struct box_renderer_backend {
      * @param delta_time Time elapsed since last frame.
      * @return True if frame preparation succeeded.
      */
-    b8 (*begin_frame)(struct box_renderer_backend* backend, f32 delta_time);
+    b8 (*begin_frame)(struct box_renderer_backend* backend, f64 delta_time);
 
     /**
      * @brief Executes a single render command.

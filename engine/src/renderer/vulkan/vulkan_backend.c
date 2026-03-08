@@ -8,12 +8,12 @@
 #include "vulkan_types.h"
 
 #include "vulkan_command_buffer.h"
+#include "vulkan_device.h"
 #include "vulkan_renderbuffer.h"
 #include "vulkan_renderstage.h"
 #include "vulkan_rendertarget.h"
 #include "vulkan_texture.h"
-#include "vulkan_device.h"
-#include "vulkan_swapchain.h"
+#include "vulkan_window_system.h"
 
 VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
 	VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
@@ -46,16 +46,13 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, box_rendere
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 	context->config = *config; // TODO: Remove
 	context->allocator = 0; // TODO: Custom allocator
-	
+
 	VkApplicationInfo app_info = { VK_STRUCTURE_TYPE_APPLICATION_INFO };
+	app_info.apiVersion = VK_API_VERSION_1_2;
 	app_info.applicationVersion = VK_MAKE_API_VERSION(0, 1, 0, 0);
 	app_info.engineVersion = VK_MAKE_API_VERSION(0, 0, 1, 0);
 	app_info.pApplicationName = application_name;
 	app_info.pEngineName = "Boxel";
-
-	CHECK_VKRESULT(
-		vkEnumerateInstanceVersion(&app_info.apiVersion),
-		"Failed to load Vulkan API successfully");
 
 	const char** platform_extensions = NULL;
 	u32 platform_extensions_count = vulkan_platform_get_required_extensions(&platform_extensions);
@@ -81,16 +78,9 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, box_rendere
 	create_info.enabledLayerCount = darray_length(required_validation_layer_names);
 	create_info.ppEnabledLayerNames = required_validation_layer_names;
 
-	BX_TRACE("Required extensions:");
-	for (u32 i = 0; i < darray_length(required_extensions); ++i) {
-		BX_TRACE("    %s", required_extensions[i]);
-	}
-
 	CHECK_VKRESULT(
 		vkCreateInstance(&create_info, context->allocator, &context->instance), 
 		"Failed to create Vulkan instance");
-
-	BX_INFO("Vulkan Instance created.");
 
 	// Clean up temp arrays
 	darray_destroy(required_extensions);
@@ -109,7 +99,8 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, box_rendere
 			VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
 		debug_create_info.pfnUserCallback = vk_debug_callback;
 
-		PFN_vkCreateDebugUtilsMessengerEXT func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(context->instance, "vkCreateDebugUtilsMessengerEXT");
+		PFN_vkCreateDebugUtilsMessengerEXT func = 
+			(PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(context->instance, "vkCreateDebugUtilsMessengerEXT");
 
 		CHECK_VKRESULT(
 			func(context->instance, &debug_create_info, context->allocator, &context->debug_messenger),
@@ -121,32 +112,31 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, box_rendere
 		vulkan_device_create(backend),
 		"Failed to create Vulkan device");
 
-	BX_INFO("Vulkan device created.");
+	if (backend->plat_state != NULL) {
+		backend->plat_state->internal_renderer_state = ballocate(sizeof(vulkan_window_system), MEMORY_TAG_RENDERER);
+		vulkan_window_system* window_system = (vulkan_window_system*)backend->plat_state->internal_renderer_state;
 
-	// Create the Vulkan swapchain
-	CHECK_VKRESULT(
-		vulkan_swapchain_create(context, context->framebuffer_size, &context->swapchain),
-		"Failed to create Vulkan swapchain");
-	
-	// Create intermediate objects.
-	context->images_in_flight = darray_reserve(VkFence*, context->swapchain.image_count, MEMORY_TAG_RENDERER);
+		if (!vulkan_window_system_create(context, backend->plat_state, starting_size, window_system)) {
+			BX_ERROR("Failed to connect Vulkan to platform surface");
+			return FALSE;
+		}
+	}
 
 	context->in_flight_fences = darray_reserve(VkFence, context->config.frames_in_flight, MEMORY_TAG_RENDERER);
 
+	VkFenceCreateInfo fence_create_info = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
+	fence_create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 	for (u32 i = 0; i < context->config.frames_in_flight; ++i) {
-		VkFenceCreateInfo fence_create_info = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
-		fence_create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-		
+		VkFence* fence = darray_push_empty(context->in_flight_fences);
+
 		CHECK_VKRESULT(
 			vkCreateFence(
 				context->device.logical_device,
 				&fence_create_info,
 				context->allocator,
-				&context->in_flight_fences[i]),
+				fence),
 			"Failed to create Vulkan sync objects");
 	}
-
-	BX_TRACE("Vulkan synchronization objects created.");
 
 	if (context->config.modes & RENDERER_MODE_GRAPHICS) {
 		vulkan_queue_type queue_type = VULKAN_QUEUE_TYPE_GRAPHICS;
@@ -197,10 +187,6 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, box_rendere
 				semaphore),
 			"Failed to create Vulkan semaphore in pool");
 	}
-
-	BX_TRACE("Vulkan command buffers created.");
-
-	BX_INFO("Vulkan renderer initialized successfully.");
 	return TRUE;
 }
 
@@ -209,13 +195,21 @@ void vulkan_renderer_backend_shutdown(box_renderer_backend* backend) {
 
 	// Destroy in the opposite order of creation.
 
-	for (u32 i = 0; i < darray_capacity(context->semaphore_pool); ++i) {
-		vkDestroySemaphore(context->device.logical_device, context->semaphore_pool[i], context->allocator);
+	if (context->semaphore_pool != NULL) {
+		for (u32 i = 0; i < darray_length(context->semaphore_pool); ++i) {
+			if (!context->semaphore_pool[i]) continue;
+
+			vkDestroySemaphore(
+				context->device.logical_device, 
+				context->semaphore_pool[i], 
+				context->allocator);
+		}
+
+		darray_destroy(context->semaphore_pool);
 	}
 
-	darray_destroy(context->semaphore_pool);
-	darray_destroy(context->memory_barriers);
-	darray_destroy(context->queued_submissions);
+	if (context->memory_barriers != NULL) darray_destroy(context->memory_barriers);
+	if (context->queued_submissions != NULL) darray_destroy(context->queued_submissions);
 
 	for (u32 i = 0; i < BX_ARRAYSIZE(context->command_buffer_ring); ++i) {
 		if (!context->command_buffer_ring[i]) continue;
@@ -229,27 +223,34 @@ void vulkan_renderer_backend_shutdown(box_renderer_backend* backend) {
 		darray_destroy(context->command_buffer_ring[i]);
 	}
 
-	for (u32 i = 0; i < context->config.frames_in_flight; ++i) {
-		if (context->in_flight_fences[i]) {
+	if (context->in_flight_fences != NULL) {
+		for (u32 i = 0; i < darray_length(context->in_flight_fences); ++i) {
+			if (!context->in_flight_fences[i]) continue;
+
 			vkDestroyFence(
 				context->device.logical_device,
 				context->in_flight_fences[i],
 				context->allocator);
 		}
+
+		darray_destroy(context->in_flight_fences);
 	}
 
-	darray_destroy(context->in_flight_fences);	
+	if (backend->plat_state->internal_renderer_state != NULL) {
+		vulkan_window_system* window_system = (vulkan_window_system*)backend->plat_state->internal_renderer_state;
 
-	BX_INFO("Destroying Vulkan swapchain...");
-
-	vulkan_swapchain_destroy(context, &context->swapchain);
+		vulkan_window_system_destroy(context, window_system);
+		bfree(window_system, sizeof(vulkan_window_system), MEMORY_TAG_RENDERER);
+		backend->plat_state->internal_renderer_state = NULL;
+	}
 
 	vulkan_device_destroy(backend);
 
 	if (context->instance) {
-		if (context->config.enable_validation) {
+		if (context->debug_messenger) {
 			PFN_vkDestroyDebugUtilsMessengerEXT func =
 				(PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(context->instance, "vkDestroyDebugUtilsMessengerEXT");
+			
 			func(context->instance, context->debug_messenger, context->allocator);
 		}
 
@@ -265,11 +266,23 @@ void vulkan_renderer_backend_wait_until_idle(box_renderer_backend* backend, u64 
 	if (context->device.logical_device) vkDeviceWaitIdle(context->device.logical_device);
 }
 
+b8 vulkan_renderer_backend_create_rendertarget_on_platform(box_renderer_backend* backend, box_rendertarget** out_rendertarget) {
+	vulkan_context* context = (vulkan_context*)backend->internal_context;
+	
+	if (backend->plat_state == NULL) {
+		BX_ERROR("Renderer backend isn't connected to a platform surface");
+		return FALSE;
+	}
+	
+	vulkan_window_system* window_system = (vulkan_window_system*)backend->plat_state->internal_renderer_state;
+    return vulkan_window_system_connect_rendertarget(context, window_system, out_rendertarget);
+}
+
 void vulkan_renderer_backend_on_resized(box_renderer_backend* backend, uvec2 new_size) {
 	// TODO: Swapchain recreation.
 }
 
-b8 vulkan_renderer_backend_begin_frame(box_renderer_backend* backend, f32 delta_time) {
+b8 vulkan_renderer_backend_begin_frame(box_renderer_backend* backend, f64 delta_time) {
     vulkan_context* context = (vulkan_context*)backend->internal_context;
 
 	CHECK_VKRESULT(
@@ -285,6 +298,19 @@ b8 vulkan_renderer_backend_begin_frame(box_renderer_backend* backend, f32 delta_
 			context->device.logical_device, 
 			1, &context->in_flight_fences[context->current_frame]),
 		"Failed to wait or reset Vulkan fence");
+	
+	if (backend->plat_state != NULL) {
+		vulkan_window_system* window_system = (vulkan_window_system*)backend->plat_state->internal_renderer_state;
+		
+		if (!vulkan_window_system_acquire_frame(
+			context, 
+			window_system,
+			delta_time, 
+			UINT64_MAX)) {
+			BX_ERROR("Failed to acquire next window frame in Vulkan renderer");
+			return FALSE;
+		}
+	}
 
 	darray_length_set(context->memory_barriers, 0);
 	darray_length_set(context->queued_submissions, 0);
@@ -332,7 +358,8 @@ void vulkan_renderer_execute_command(box_renderer_backend* backend, box_rendercm
 
     switch (header->type) {
     case RENDERCMD_BIND_RENDERTARGET:
-        vulkan_rendertarget_begin(backend, curr_submission->command_buffer,
+        vulkan_rendertarget_begin(
+			context, curr_submission->command_buffer,
             rendercmd_context->current_target,
             TRUE, TRUE);
         break;
@@ -360,7 +387,7 @@ void vulkan_renderer_execute_command(box_renderer_backend* backend, box_rendercm
 		}
 
         vulkan_renderstage_bind(
-            backend, curr_submission->command_buffer,
+            context, curr_submission->command_buffer,
             rendercmd_context->current_shader);
         break;
 
@@ -388,7 +415,7 @@ void vulkan_renderer_execute_command(box_renderer_backend* backend, box_rendercm
     case RENDERCMD_END:
         if (rendercmd_context->current_target)
             vulkan_rendertarget_end(
-                backend, curr_submission->command_buffer,
+                context, curr_submission->command_buffer,
                 rendercmd_context->current_target);
         break;
     }
@@ -396,6 +423,8 @@ void vulkan_renderer_execute_command(box_renderer_backend* backend, box_rendercm
 
 b8 vulkan_renderer_backend_end_frame(box_renderer_backend* backend) {
     vulkan_context* context = (vulkan_context*)backend->internal_context;
+
+	VkSemaphore render_complete_semaphore;
 
 	for (u32 i = 0; i < darray_length(context->queued_submissions); ++i) {
 		vulkan_queue_submission* submission = &context->queued_submissions[i];
@@ -407,7 +436,7 @@ b8 vulkan_renderer_backend_end_frame(box_renderer_backend* backend) {
 
 		if (i == darray_length(context->queued_submissions) - 1)
 			signal_fence = context->in_flight_fences[context->current_frame];
-
+		
 		CHECK_VKRESULT(
 			vulkan_command_buffer_submit(
 				submission->command_buffer,
@@ -417,7 +446,21 @@ b8 vulkan_renderer_backend_end_frame(box_renderer_backend* backend) {
 				signal_fence),
 			"Failed to submit Vulkan command buffer");
 		
+		render_complete_semaphore = submission->signal_semaphore;
 		darray_destroy(submission->wait_semaphores);
+	}
+
+	if (backend->plat_state != NULL) {
+		vulkan_window_system* window_system = (vulkan_window_system*)backend->plat_state->internal_renderer_state;
+		
+		if (!vulkan_window_system_present(
+			context, 
+			window_system, 
+			context->device.mode_queues[VULKAN_QUEUE_TYPE_PRESENT].handle, 
+			&render_complete_semaphore, 1)) {
+			BX_ERROR("Failed to present internal Vulkan swapchain");
+			return FALSE;
+		}
 	}
 
 	// Advance to next frame

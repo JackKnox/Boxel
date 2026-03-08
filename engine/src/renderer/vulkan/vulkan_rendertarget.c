@@ -42,8 +42,6 @@ b8 vulkan_rendertarget_create_external(
     vulkan_image* external_images, 
     u32 image_count, 
     box_rendertarget* out_rendertarget) {
-    BX_ASSERT(image_count == out_rendertarget->attachment_count * context->config.frames_in_flight && "Mismatched image count on rendertarget with rendertarget config");
-
     out_rendertarget->internal_data = ballocate(sizeof(internal_vulkan_rendertarget), MEMORY_TAG_RENDERER);
     internal_vulkan_rendertarget* internal_rendertarget = (internal_vulkan_rendertarget*)out_rendertarget->internal_data;
 
@@ -156,12 +154,10 @@ b8 vulkan_rendertarget_create_external(
 }
 
 void vulkan_rendertarget_begin(
-    box_renderer_backend* backend, 
+    vulkan_context* context,
     vulkan_command_buffer* command_buffer, 
     box_rendertarget* rendertarget, 
     b8 set_viewport, b8 set_scissor) {
-    vulkan_context* context = (vulkan_context*)backend->internal_context;
-
     internal_vulkan_rendertarget* internal_rendertarget = (internal_vulkan_rendertarget*)rendertarget->internal_data;
 
     if (set_viewport) {
@@ -210,7 +206,7 @@ void vulkan_rendertarget_begin(
 }
 
 void vulkan_rendertarget_end(
-    box_renderer_backend* backend, 
+    vulkan_context* context,
     vulkan_command_buffer* command_buffer, 
     box_rendertarget* rendertarget) {
     internal_vulkan_rendertarget* internal_rendertarget = (internal_vulkan_rendertarget*)rendertarget->internal_data;

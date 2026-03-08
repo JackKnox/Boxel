@@ -96,3 +96,8 @@ u64 box_texture_get_size_in_bytes(box_texture* texture) {
 	if (!texture) return 0;
 	return texture->size.x * texture->size.y * texture->image_format.channel_count;
 }
+
+box_rendertarget box_rendertarget_default() {
+    box_rendertarget rendertarget = {};
+    return rendertarget;
+}

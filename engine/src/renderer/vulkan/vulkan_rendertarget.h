@@ -15,13 +15,13 @@ b8 vulkan_rendertarget_create_external(
     box_rendertarget* out_rendertarget);
 
 void vulkan_rendertarget_begin(
-    box_renderer_backend* backend,
+    vulkan_context* context,
     vulkan_command_buffer* command_buffer,
     box_rendertarget* rendertarget,
     b8 set_viewport, b8 set_scissor);
 
 void vulkan_rendertarget_end(
-    box_renderer_backend* backend,
+    vulkan_context* context,
     vulkan_command_buffer* command_buffer, 
     box_rendertarget* rendertarget);
 

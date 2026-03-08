@@ -71,8 +71,6 @@ VkResult vulkan_device_create(box_renderer_backend* backend) {
     VkResult result = vkCreateDevice(context->device.physical_device, &device_create_info, context->allocator, &context->device.logical_device);
     if (!vulkan_result_is_success(result)) return result;
 
-    BX_INFO("Logical device created.");
-
     darray_destroy(required_extensions);
     darray_destroy(queue_create_info);
 
@@ -99,17 +97,12 @@ VkResult vulkan_device_create(box_renderer_backend* backend) {
         if (!vulkan_result_is_success(result)) return result;
     }
 
-    BX_INFO("Queues obtained.");
-
-    BX_TRACE("Vulkan command pools created.");
     return VK_SUCCESS;
 }
 
 void vulkan_device_destroy(box_renderer_backend* backend) {
     vulkan_context* context = (vulkan_context*)backend->internal_context;
     if (!context->device.logical_device) return;
-
-    BX_TRACE("Freeing command pools...");
 
     for (u32 i = 0; i < VULKAN_QUEUE_TYPE_MAX; ++i) {
         vulkan_queue* queue = &context->device.mode_queues[i];
@@ -126,7 +119,6 @@ void vulkan_device_destroy(box_renderer_backend* backend) {
     }
 
     // Destroy logical device
-    BX_INFO("Destroying Vulkan device...");
     if (context->device.logical_device) {
         vkDestroyDevice(context->device.logical_device, context->allocator);
         context->device.logical_device = 0;
@@ -158,28 +150,6 @@ b8 select_physical_device(box_renderer_backend* backend) {
             context->device.mode_queues);
 
         if (result) {
-            BX_INFO("Selected device: '%s'.", capabilities.device_name);
-
-            // GPU type, etc.
-            switch (capabilities.device_type) {
-                default:
-                case RENDERER_DEVICE_TYPE_OTHER:
-                    BX_INFO("GPU type is Unknown.");
-                    break;
-                case RENDERER_DEVICE_TYPE_INTEGRATED_GPU:
-                    BX_INFO("GPU type is Integrated.");
-                    break;
-                case RENDERER_DEVICE_TYPE_DISCRETE_GPU:
-                    BX_INFO("GPU type is Descrete.");
-                    break;
-                case RENDERER_DEVICE_TYPE_VIRTUAL_GPU:
-                    BX_INFO("GPU type is Virtual.");
-                    break;
-                case RENDERER_DEVICE_TYPE_CPU:
-                    BX_INFO("GPU type is CPU.");
-                    break;
-            }
-
             context->device.physical_device = physical_devices[i];
             backend->capabilities = capabilities;
             break;
@@ -194,7 +164,6 @@ b8 select_physical_device(box_renderer_backend* backend) {
         return FALSE;
     }
 
-    BX_INFO("Physical device selected.");
     return TRUE;
 }
 
@@ -244,7 +213,6 @@ b8 physical_device_meets_requirements(
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, queue_families);
 
     // Look at each queue and see what queues it supports
-    BX_INFO("Graphics | Present | Compute | Transfer | Name");
     u8 min_transfer_score = 255;
     for (u32 i = 0; i < queue_family_count; ++i) {
         u8 current_transfer_score = 0;
@@ -283,25 +251,12 @@ b8 physical_device_meets_requirements(
 
     darray_destroy(queue_families);
 
-    // Print out some info about the device
-    BX_INFO("       %d |       %d |       %d |        %d | %s",
-        out_queue_support[VULKAN_QUEUE_TYPE_GRAPHICS].family_index != -1,
-        out_queue_support[VULKAN_QUEUE_TYPE_PRESENT].family_index != -1,
-        out_queue_support[VULKAN_QUEUE_TYPE_COMPUTE].family_index != -1,
-        out_queue_support[VULKAN_QUEUE_TYPE_TRANSFER].family_index != -1,
-        properties.deviceName);
-
     if (
         (!(context->config.modes & RENDERER_MODE_GRAPHICS) || ((context->config.modes & RENDERER_MODE_GRAPHICS) && out_queue_support[VULKAN_QUEUE_TYPE_GRAPHICS].family_index != -1)) &&
         (!(backend->plat_state != NULL)                    || ((backend->plat_state != NULL)                    && out_queue_support[VULKAN_QUEUE_TYPE_PRESENT].family_index != -1)) &&
         (!(context->config.modes & RENDERER_MODE_COMPUTE)  || ((context->config.modes & RENDERER_MODE_COMPUTE)  && out_queue_support[VULKAN_QUEUE_TYPE_COMPUTE].family_index != -1)) &&
         (!(context->config.modes & RENDERER_MODE_TRANSFER) || ((context->config.modes & RENDERER_MODE_TRANSFER) && out_queue_support[VULKAN_QUEUE_TYPE_TRANSFER].family_index != -1))) {
-        BX_INFO("Device meets queue requirements.");
-        BX_TRACE("Graphics Family Index: %i", out_queue_support[VULKAN_QUEUE_TYPE_GRAPHICS].family_index);
-        BX_TRACE("Present Family Index:  %i", out_queue_support[VULKAN_QUEUE_TYPE_PRESENT].family_index);
-        BX_TRACE("Transfer Family Index: %i", out_queue_support[VULKAN_QUEUE_TYPE_TRANSFER].family_index);
-        BX_TRACE("Compute Family Index:  %i", out_queue_support[VULKAN_QUEUE_TYPE_COMPUTE].family_index);
-
+        
         // Sampler anisotropy
         if (context->config.sampler_anisotropy && !features.samplerAnisotropy) {
             BX_INFO("Device does not support sampler anisotropy, skipping.");

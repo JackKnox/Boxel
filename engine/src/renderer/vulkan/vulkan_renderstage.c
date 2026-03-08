@@ -367,11 +367,9 @@ b8 vulkan_renderstage_update_descriptors(
 }
 
 void vulkan_renderstage_bind(
-    box_renderer_backend* backend, 
+    vulkan_context* context, 
     vulkan_command_buffer* command_buffer, 
     box_renderstage* renderstage) {
-    vulkan_context* context = (vulkan_context*)backend->internal_context;
-
     internal_vulkan_renderstage* internal_renderstage = (internal_vulkan_renderstage*)renderstage->internal_data;
     VkPipelineBindPoint bind_point = 0;
     switch (renderstage->mode) {
