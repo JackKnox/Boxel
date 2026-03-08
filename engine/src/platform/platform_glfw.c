@@ -1,17 +1,11 @@
 #include "defines.h"
 #include "platform/platform.h"
 
-#include "utils/darray.h"
-
 #define GLFW_INCLUDE_VULKAN
-#define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3.h>
-
-#include "renderer/vulkan/vulkan_types.h"
 
 #include <stdlib.h>
 #include <stdio.h>
-#include "platform.h"
 
 typedef struct internal_state {
 	GLFWwindow* window;
@@ -78,27 +72,12 @@ void on_window_resize(GLFWwindow* window, int width, int height) {
 	event_fire(EVENT_CODE_RESIZED, 0, context);
 }
 
-VkResult platform_create_vulkan_surface(box_platform* plat_state, VkInstance instance, const VkAllocationCallbacks* allocator, VkSurfaceKHR* surface) {
-	BX_ASSERT(plat_state != NULL && instance != 0 && surface != NULL && "Invalid arguments passed to platform_create_vulkan_surface");
-
-	internal_state* state = (internal_state*)plat_state->internal_state;
-	return glfwCreateWindowSurface(instance, state->window, allocator, surface);
-}
-
-u32 platform_get_vulkan_extensions(box_platform* platform, const char*** out_array) {
-	BX_ASSERT(out_array != NULL && "Invalid arguments passed to platform_get_vulkan_extensions");
-	uint32_t count;
-	const char** extensions = glfwGetRequiredInstanceExtensions(&count);
-
-    *out_array = extensions;
-	return count;
-}
-
 box_window_config box_window_default_config() {
 	box_window_config config = {};
 	config.window_mode = BOX_WINDOW_MODE_WINDOWED;
 	config.window_size = (uvec2) { 640, 360 };
 	config.window_centered = TRUE;
+	return config;
 }
 
 b8 platform_start(box_platform *plat_state, box_window_config *app_config) {
@@ -151,9 +130,6 @@ b8 platform_start(box_platform *plat_state, box_window_config *app_config) {
 	glfwSetCursorPosCallback(state->window, on_cursor_position);
 	glfwSetScrollCallback(state->window, on_scroll);
 	glfwSetWindowSizeCallback(state->window, on_window_resize);
-
-	plat_state->create_vulkan_surface = platform_create_vulkan_surface;
-	plat_state->get_required_vulkan_extensions = platform_get_vulkan_extensions;
 	return TRUE;
 }
 
@@ -172,7 +148,7 @@ b8 platform_pump_messages(box_platform* plat_state) {
 	return TRUE;
 }
 
-b8 platform_should_close_window(box_platform *plat_state) {
+b8 platform_should_close_window(box_platform* plat_state) {
 	BX_ASSERT(plat_state != NULL && "Invalid arguments passed to platform_should_close_window");
 	internal_state* state = (internal_state*)plat_state->internal_state;
     return glfwWindowShouldClose(state->window);
@@ -180,4 +156,21 @@ b8 platform_should_close_window(box_platform *plat_state) {
 
 f64 platform_get_absolute_time() {
     return 1000.0f * glfwGetTime();
+}
+
+VkResult vulkan_platform_create_surface(VkInstance instance, box_platform* platform, const VkAllocationCallbacks* allocator, VkSurfaceKHR* out_surface) {
+	internal_state* state = (internal_state*)platform->internal_state;
+    return glfwCreateWindowSurface(instance, state->window, allocator, out_surface);
+}
+
+u32 vulkan_platform_get_required_extensions(const char*** out_array) {
+    uint32_t count;
+	const char** extensions = glfwGetRequiredInstanceExtensions(&count);
+
+    *out_array = extensions;
+	return count;
+}
+
+b8 vulkan_platform_presentation_support(VkInstance instance, VkPhysicalDevice physical_device, u32 queue_family_index) {
+    return glfwGetPhysicalDevicePresentationSupport(instance, physical_device, queue_family_index);
 }

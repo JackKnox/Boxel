@@ -4,7 +4,7 @@
 
 #include "renderer/renderer_backend.h"
 
-#include <vulkan/vulkan.h>
+#include "platform/vulkan_platform.h"
 
 #if BOX_BUILD_DIST
 #define VK_CHECK(expr) BX_ASSERT(FALSE && "VK_CHECK found in Dist build" #expr) 
