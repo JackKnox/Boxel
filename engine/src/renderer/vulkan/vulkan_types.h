@@ -88,6 +88,18 @@ typedef struct vulkan_image {
     VkImageView view;
 } vulkan_image;
 
+typedef struct vulkan_rendertarget_attachment {
+    box_attachment_type type;
+    vulkan_image* images;
+    VkFormat format;
+    VkSampleCountFlags samples;
+    VkAttachmentLoadOp load_op;
+    VkAttachmentStoreOp store_op;
+    VkAttachmentLoadOp stencil_load_op;
+    VkAttachmentStoreOp stencil_store_op;
+    VkImageLayout final_layout;
+} vulkan_rendertarget_attachment;
+
 /**
  * @brief Lifecycle state of a Vulkan render pass instance.
  */
@@ -140,9 +152,6 @@ typedef struct vulkan_command_buffer {
 
     /** @brief Current command buffer state. */
     vulkan_command_buffer_state state;
-
-    /** @brief Indicates whether the buffer has been used this frame. */
-    b8 used;
 } vulkan_command_buffer;
 
 /**
@@ -233,6 +242,22 @@ typedef struct internal_vulkan_rendertarget {
     VkFramebuffer* framebuffers;
 } internal_vulkan_rendertarget;
 
+typedef struct vulkan_window_system {
+    vulkan_image* images;
+    u32 image_count;
+
+    VkSemaphore* image_available_semaphores;
+    VkFence** images_in_flight;
+
+    VkSurfaceKHR surface;
+    VkSurfaceCapabilitiesKHR capabilities;
+    VkSurfaceFormatKHR* formats;
+    VkPresentModeKHR* present_modes;
+
+    VkSwapchainKHR swapchain;
+    VkSurfaceFormatKHR swapchain_format;
+} vulkan_window_system;
+
 typedef struct memory_barrier {
     u64 created_on_submission;
 
@@ -254,11 +279,12 @@ typedef struct vulkan_queue_submission {
  * and per-frame resources. One context exists per renderer backend instance.
  */
 typedef struct vulkan_context {
-    /** @brief Backend configuration. */
     box_renderer_backend_config config;
 
     /** @brief Current frame-in-flight index. */
     u32 current_frame;
+
+    u32 image_index;
 
     /** @brief Vulkan instance handle. */
     VkInstance instance;
@@ -273,7 +299,8 @@ typedef struct vulkan_context {
     vulkan_device device;
 
     /** @brief Per-frame command buffers. */
-    vulkan_command_buffer* command_buffer_ring[2];
+    vulkan_command_buffer* graphics_command_ring;
+    vulkan_command_buffer* compute_command_ring;
 
     /** @brief Render-complete semaphores. */
     VkSemaphore* queue_complete_semaphores;
@@ -287,25 +314,6 @@ typedef struct vulkan_context {
     vulkan_queue_submission* queued_submissions;
     box_renderer_mode last_mode;
 } vulkan_context;
-
-/**
- * @brief Creates a CPU-visible staging buffer and optionally uploads data to it.
- *
- * Typically used for transferring data (e.g., vertex/index/texture data)
- * to device-local GPU buffers via a copy operation.
- *
- * @param context Pointer to the Vulkan context.
- * @param buf_size Size of the buffer in bytes.
- * @param map_ptr Optional pointer to data to copy into the buffer (can be NULL).
- * @param out_buffer Pointer that receives the created render buffer.
- *
- * @return True if creation succeeded, otherwise false.
- */
-b8 create_staging_buffer(
-    vulkan_context* context,
-    const void* map_ptr,
-    box_renderbuffer_config* config,
-    box_renderbuffer* out_buffer);
 
 /**
  * @brief Finds a compatible memory type index on the physical device.
@@ -347,7 +355,7 @@ VkSamplerAddressMode box_address_mode_to_vulkan_type(box_address_mode address);
 /**
  * @brief Converts engine render format to a Vulkan format.
  */
-VkFormat box_format_to_vulkan_type(box_render_format format);
+VkFormat box_render_format_to_vulkan_type(box_render_format format);
 
 /**
  * @brief Converts engine load op format to a Vulkan format.

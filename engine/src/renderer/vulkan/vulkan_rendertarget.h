@@ -4,18 +4,6 @@
 
 #include "vulkan_types.h"
 
-typedef struct vulkan_rendertarget_attachment {
-    box_attachment_type type;
-    vulkan_image* images;
-    VkFormat format;
-    VkSampleCountFlags samples;
-    VkAttachmentLoadOp load_op;
-    VkAttachmentStoreOp store_op;
-    VkAttachmentLoadOp stencil_load_op;
-    VkAttachmentStoreOp stencil_store_op;
-    VkImageLayout final_layout;
-} vulkan_rendertarget_attachment;
-
 b8 vulkan_rendertarget_create(
     box_renderer_backend* backend,
     box_rendertarget_config* config,
@@ -33,7 +21,6 @@ void vulkan_rendertarget_begin(
     vulkan_context* context,
     vulkan_command_buffer* command_buffer,
     box_rendertarget* rendertarget,
-    box_rendersurface* surface,
     b8 set_viewport, b8 set_scissor);
 
 void vulkan_rendertarget_end(

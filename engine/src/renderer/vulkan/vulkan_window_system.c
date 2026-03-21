@@ -6,7 +6,9 @@
 #include "vulkan_rendertarget.h"
 #include "vulkan_image.h"
 
-VkResult query_support_info(vulkan_context* context, vulkan_window_system* window_system) {
+VkResult query_support_info(
+    vulkan_context* context, 
+    vulkan_window_system* window_system) {
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(context->device.physical_device, window_system->surface, &window_system->capabilities);
     
     // Supported formats.
@@ -24,31 +26,27 @@ VkResult query_support_info(vulkan_context* context, vulkan_window_system* windo
     u32 present_mode_count = 0;
     vkGetPhysicalDeviceSurfacePresentModesKHR(context->device.physical_device, window_system->surface, &present_mode_count, 0);
 
-    window_system->present_modes = darray_reserve(VkSurfaceFormatKHR, present_mode_count, MEMORY_TAG_RENDERER);
+    window_system->present_modes = darray_reserve(VkPresentModeKHR, present_mode_count, MEMORY_TAG_RENDERER);
     vkGetPhysicalDeviceSurfacePresentModesKHR(context->device.physical_device, window_system->surface, &present_mode_count, window_system->present_modes);
     darray_length_set(window_system->present_modes, present_mode_count);
     return VK_SUCCESS;
 }
 
-b8 vulkan_window_system_create(
+VkResult vulkan_window_system_create(
     box_renderer_backend* backend,
-    box_platform* plat_state,
-    uvec2 window_size,
     vulkan_window_system* out_window_system) {
-    BX_ASSERT(backend != NULL && plat_state != NULL && window_size.width > 0 && window_size.height > 0 && out_window_system != NULL && "Invalid arguments passed to vulkan_window_system_create");
+    BX_ASSERT(backend->platform != NULL && "Vulkan window system created without attachted platform state");
     vulkan_context* context = (vulkan_context*)backend->internal_context;
 
-    CHECK_VKRESULT(
-        vulkan_platform_create_surface(
+    VkResult result = vulkan_platform_create_surface(
             context->instance, 
-            plat_state,
+            backend->platform,
             context->allocator, 
-            &out_window_system->surface),
-        "Failed to create Vulkan platform surface");
-    
-    CHECK_VKRESULT(
-        query_support_info(context, out_window_system), 
-        "Failed to query internal Vulkan surface data");
+            &out_window_system->surface);
+    if (!vulkan_result_is_success(result)) return result;
+
+    result = query_support_info(context, out_window_system);
+    if (!vulkan_result_is_success(result)) return result;
     
     out_window_system->swapchain_format = out_window_system->formats[0];
     for (u32 i = 0; i < darray_length(out_window_system->formats); ++i) {
@@ -63,11 +61,12 @@ b8 vulkan_window_system_create(
 
     VkExtent2D min = out_window_system->capabilities.minImageExtent;
     VkExtent2D max = out_window_system->capabilities.maxImageExtent;
-    window_size.width = BX_CLAMP(window_size.width, min.width, max.width);
-    window_size.height = BX_CLAMP(window_size.height, min.height, max.height);
+    //window_size.width = BX_CLAMP(window_size.width, min.width, max.width);
+    //window_size.height = BX_CLAMP(window_size.height, min.height, max.height);
 
     u32 image_count = out_window_system->capabilities.minImageCount + 1;
-    image_count = BX_CLAMP(image_count, 0, out_window_system->capabilities.maxImageCount);
+    if (out_window_system->capabilities.maxImageCount > 0)
+        image_count = BX_MIN(image_count, out_window_system->capabilities.maxImageCount);
 
     u32 queueFamilyIndices[] = {
         context->device.mode_queues[VULKAN_QUEUE_TYPE_GRAPHICS].family_index,
@@ -80,7 +79,7 @@ b8 vulkan_window_system_create(
     swapchain_create_info.imageFormat = out_window_system->swapchain_format.format;
     swapchain_create_info.imageColorSpace = out_window_system->swapchain_format.colorSpace;
     swapchain_create_info.preTransform = out_window_system->capabilities.currentTransform;
-    swapchain_create_info.imageExtent = (VkExtent2D) { window_size.width, window_size.height };
+    swapchain_create_info.imageExtent = (VkExtent2D) { context->config.starting_size.width, context->config.starting_size.height };
     swapchain_create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     swapchain_create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
     swapchain_create_info.presentMode = VK_PRESENT_MODE_FIFO_KHR;
@@ -88,41 +87,39 @@ b8 vulkan_window_system_create(
     swapchain_create_info.clipped = TRUE;
 
     // Setup the queue family indices
-    swapchain_create_info.pQueueFamilyIndices = queueFamilyIndices;
     swapchain_create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    swapchain_create_info.queueFamilyIndexCount = 1;
 
     if (context->device.mode_queues[VULKAN_QUEUE_TYPE_GRAPHICS].family_index != 
         context->device.mode_queues[VULKAN_QUEUE_TYPE_PRESENT].family_index) {
         swapchain_create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+        swapchain_create_info.pQueueFamilyIndices = queueFamilyIndices;
         swapchain_create_info.queueFamilyIndexCount = 2;
     }
 
-    CHECK_VKRESULT(
-        vkCreateSwapchainKHR(
+    result = vkCreateSwapchainKHR(
             context->device.logical_device,
             &swapchain_create_info,
             context->allocator,
-            &out_window_system->swapchain),
-        "Failed to create internal Vulkan swapchain");
+            &out_window_system->swapchain);
+    if (!vulkan_result_is_success(result)) return result;
 
-    CHECK_VKRESULT(
-        vkGetSwapchainImagesKHR(
+    result = vkGetSwapchainImagesKHR(
             context->device.logical_device, 
             out_window_system->swapchain, 
-            &out_window_system->swapchain_image_count,
-            0),
-        "Failed to obtain internal Vulkan swapchain images");
+            &out_window_system->image_count,
+            0);
+    if (!vulkan_result_is_success(result)) return result;
 
-    VkImage* images = (VkImage*)ballocate(sizeof(VkImage) * out_window_system->swapchain_image_count, MEMORY_TAG_RENDERER);
-    vkGetSwapchainImagesKHR(context->device.logical_device, out_window_system->swapchain, &out_window_system->swapchain_image_count, images);
+    VkImage* images = (VkImage*)ballocate(sizeof(VkImage) * out_window_system->image_count, MEMORY_TAG_RENDERER);
+    vkGetSwapchainImagesKHR(context->device.logical_device, out_window_system->swapchain, &out_window_system->image_count, images);
 
-    out_window_system->swapchain_images = (vulkan_image*)ballocate(sizeof(vulkan_image) * out_window_system->swapchain_image_count, MEMORY_TAG_RENDERER);
-    for (u32 i = 0; i < out_window_system->swapchain_image_count; ++i) {
-        out_window_system->swapchain_images[i].handle = images[i];
+    out_window_system->images = (vulkan_image*)ballocate(sizeof(vulkan_image) * out_window_system->image_count, MEMORY_TAG_RENDERER);
+
+    for (u32 i = 0; i < out_window_system->image_count; ++i) {
+        out_window_system->images[i].handle = images[i];
 
         VkImageViewCreateInfo view_info = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
-        view_info.image = out_window_system->swapchain_images[i].handle;
+        view_info.image = out_window_system->images[i].handle;
         view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
         view_info.format = out_window_system->swapchain_format.format;
         view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -131,35 +128,55 @@ b8 vulkan_window_system_create(
         view_info.subresourceRange.baseArrayLayer = 0;
         view_info.subresourceRange.layerCount = 1;
 
-        CHECK_VKRESULT(
-            vkCreateImageView(
+        result = vkCreateImageView(
                 context->device.logical_device, 
                 &view_info, 
                 context->allocator, 
-                &out_window_system->swapchain_images[i].view),
-            "Failed to create internal Vulkan image view");
+                &out_window_system->images[i].view);
+        if (!vulkan_result_is_success(result)) return result;
     }
+
+    bfree(images, sizeof(VkImage) * out_window_system->image_count, MEMORY_TAG_RENDERER);
+
+	out_window_system->images_in_flight = darray_reserve(VkFence*, out_window_system->image_count, MEMORY_TAG_RENDERER);
+	out_window_system->image_available_semaphores = darray_reserve(VkSemaphore, context->config.frames_in_flight, MEMORY_TAG_RENDERER);
+
+    for (u32 i = 0; i < context->config.frames_in_flight; ++i) {
+		VkSemaphoreCreateInfo semaphore_create_info = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
+        
+        VkSemaphore* semaphore = darray_push_empty(out_window_system->image_available_semaphores);
+
+        result = vkCreateSemaphore(
+            context->device.logical_device, 
+            &semaphore_create_info, 
+            context->allocator, 
+            semaphore);
+        if (!vulkan_result_is_success(result)) return result;
+    }
+
     return TRUE;
 }
 
-void vulkan_window_system_destroy(box_renderer_backend* backend, vulkan_window_system* window_system) {
+void vulkan_window_system_destroy(
+    box_renderer_backend* backend, 
+    vulkan_window_system* window_system) {
     vulkan_context* context = (vulkan_context*)backend->internal_context;
-    BX_ASSERT(backend != NULL && window_system != NULL && "Invalid arguments passed to vulkan_window_system_destroy");
+    
+    for (u32 i = 0; i < darray_length(window_system->image_available_semaphores); ++i) {
+        if (!window_system->image_available_semaphores[i]) continue;
 
-    // TODO: Should be in vulkan_rendertarget_destroy...
-    for (u32 i = 0; i < window_system->swapchain_image_count; ++i) {
-        if (window_system->swapchain_images[i].view) {
-            vkDestroyImageView(
-                context->device.logical_device, 
-                window_system->swapchain_images[i].view, 
-                context->allocator);
-        }
+        vkDestroySemaphore(
+            context->device.logical_device, 
+            window_system->image_available_semaphores[i], 
+            context->allocator);
     }
 
-    vulkan_rendertarget_destroy(backend, &window_system->surface_rendertarget);
+    darray_destroy(window_system->image_available_semaphores);
+    darray_destroy(window_system->images_in_flight);
 
-    bfree(window_system->swapchain_images, sizeof(VkImage) * window_system->swapchain_image_count, MEMORY_TAG_RENDERER);
-    window_system->swapchain_images = 0;
+    bfree(window_system->images, 
+        sizeof(vulkan_image) * window_system->image_count, 
+        MEMORY_TAG_RENDERER);
 
     vkDestroySwapchainKHR(context->device.logical_device, window_system->swapchain, context->allocator);
 
@@ -169,45 +186,61 @@ void vulkan_window_system_destroy(box_renderer_backend* backend, vulkan_window_s
     vkDestroySurfaceKHR(context->instance, window_system->surface, context->allocator);
 }
 
-b8 vulkan_window_system_connect_rendertarget(box_renderer_backend* backend, vulkan_window_system* window_system, box_rendertarget** out_rendertarget) {
-    BX_ASSERT(backend != NULL && window_system != NULL && out_rendertarget != NULL && "Invalid arguments passed to vulkan_window_system_connect_rendertarget");
+VkResult vulkan_window_system_acquire(
+    box_renderer_backend* backend, 
+    vulkan_window_system* window_system, 
+    u64 timeout, 
+    VkFence wait_fence) {
     vulkan_context* context = (vulkan_context*)backend->internal_context;
 
-    box_rendertarget_attachment swapchain_attachments[] = {
-		{
-			.type = BOX_ATTACHMENT_COLOR,
-			.format = BOX_FORMAT_RGBA8_UNORM,
-			.load_op = BOX_LOAD_OP_DONT_CARE,
-			.store_op = BOX_STORE_OP_STORE,
-			.stencil_load_op = BOX_LOAD_OP_DONT_CARE,
-			.stencil_store_op = BOX_STORE_OP_DONT_CARE,
-		}
-	};
-
-    box_rendertarget_config rendertarget_config = box_rendertarget_default();
-    rendertarget_config.size = (uvec2) { 640, 640 };
-    rendertarget_config.attachments = swapchain_attachments;
-    rendertarget_config.attachment_count = BX_ARRAYSIZE(swapchain_attachments);
+    VkResult result = vkAcquireNextImageKHR(
+            context->device.logical_device,
+            window_system->swapchain,
+            timeout,
+            window_system->image_available_semaphores[context->current_frame],
+            wait_fence,
+            &context->image_index);
+    if (!vulkan_result_is_success(result)) return result;
     
-    if (!vulkan_rendertarget_create_internal(
-        context, 
-        window_system->swapchain_images, 
-        window_system->swapchain_image_count, 
-        &rendertarget_config,
-        &window_system->surface_rendertarget)) {
-        return FALSE;
+	/*
+    // If this swapchain image is still in flight, wait for it
+	if (window_system->images_in_flight[context->image_index] != VK_NULL_HANDLE) {
+        result = vkWaitForFences(
+            context->device.logical_device, 
+            1, 
+            window_system->images_in_flight[context->image_index], 
+            TRUE, 
+            UINT64_MAX);
+        if (!vulkan_result_is_success(result)) return result;
     }
 
-    *out_rendertarget = &window_system->surface_rendertarget;
-    return TRUE;
+	window_system->images_in_flight[context->image_index] = &context->in_flight_fences[context->current_frame];
+    */
+    return VK_SUCCESS;
 }
 
-b8 vulkan_window_system_acquire_frame(box_renderer_backend* backend, vulkan_window_system* window_system, f64 delta_time, u64 timeout) {
-    BX_ASSERT(backend != NULL && window_system != NULL && delta_time > 0 && "Invalid arguments passed to vulkan_window_system_acquire_frame");
-    return TRUE;
-}
+VkResult vulkan_window_system_present(
+    box_renderer_backend* backend, 
+    vulkan_window_system* window_system, 
+    vulkan_queue* present_queue, 
+    u32 wait_semaphore_count, 
+    VkSemaphore* wait_semaphores) {
+    vulkan_context* context = (vulkan_context*)backend->internal_context;
+    
+    VkResult present_result = VK_SUCCESS;
 
-b8 vulkan_window_system_present(box_renderer_backend* backend, vulkan_window_system* window_system, VkQueue queue, VkSemaphore *wait_semaphores, u32 wait_semaphore_count) {
-    BX_ASSERT(backend != NULL && window_system != NULL && queue != VK_NULL_HANDLE && wait_semaphores != NULL && "Invalid arguments passed to vulkan_window_system_present");
-    return TRUE;
+    VkPresentInfoKHR present_info = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
+    present_info.waitSemaphoreCount = wait_semaphore_count;
+    present_info.pWaitSemaphores = wait_semaphores;
+    present_info.swapchainCount = 1;
+    present_info.pSwapchains = &window_system->swapchain;
+    present_info.pImageIndices = &context->image_index;
+    present_info.pResults = &present_result;
+
+    VkResult result = vkQueuePresentKHR(
+            present_queue->handle, 
+            &present_info);
+    if (!vulkan_result_is_success(result)) return result;
+
+    return present_result;
 }

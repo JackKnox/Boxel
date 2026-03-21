@@ -50,7 +50,7 @@ VkResult vulkan_command_buffer_begin(
  *
  * @param command_buffer Pointer to the command buffer to end.
  */
-void vulkan_command_buffer_end(
+VkResult vulkan_command_buffer_end(
     vulkan_command_buffer* command_buffer);
 
 /**

@@ -184,35 +184,6 @@ box_texture_config box_texture_default();
  */
 u64 box_texture_get_size_in_bytes(box_texture* texture);
 
-/**
- * @brief Describes a single render target attachment.
- */
-typedef struct box_rendertarget_attachment {
-    /** Logical attachment type (color, depth, stencil, etc.). */
-    box_attachment_type type;
-
-    /** Engine-defined pixel format. Must be compatible with the attachment type. */
-    box_render_format format;
-
-    /** Load operation for color or depth aspect. */
-    box_load_op load_op;
-
-    /** Store operation for color or depth aspect. */
-    box_store_op store_op;
-
-    /**
-     * Load operation for stencil aspect.
-     * Only relevant for stencil or depth-stencil attachments.
-     */
-    box_load_op stencil_load_op;
-
-    /**
-     * Store operation for stencil aspect.
-     * Only relevant for stencil or depth-stencil attachments.
-     */
-    box_store_op stencil_store_op;
-} box_rendertarget_attachment;
-
 typedef struct box_rendertarget_config {
     /** @brief Render area origin. */
     uvec2 origin;
@@ -235,6 +206,9 @@ typedef struct box_rendertarget_config {
  * offscreen render target (such as a framebuffer or texture).
  */
 typedef struct box_rendertarget {
+    /** @brief Indicates whetever rendertarget connects to a platform surface. */
+    b8 window_dest;
+
     /** @brief Clear colour value used when beginning a render pass. */
     u32 clear_colour;
 

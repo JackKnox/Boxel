@@ -47,7 +47,7 @@ void* _darray_resize(void* array) {
     u64 length = darray_length(array);
     u64 stride = darray_stride(array);
     void* temp = _darray_create(
-        (DARRAY_RESIZE_FACTOR * darray_capacity(array)),
+        (DARRAY_RESIZE_FACTOR * (darray_capacity(array) == 0 ? DARRAY_DEFAULT_CAPACITY : darray_capacity(array))),
         stride, array, 
         _darray_field_get(array, DARRAY_MEMORY_TAG));
 

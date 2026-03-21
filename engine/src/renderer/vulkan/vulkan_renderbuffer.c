@@ -138,10 +138,17 @@ void vulkan_renderbuffer_destroy(
 	box_renderer_backend* backend,
 	box_renderbuffer* buffer) {
     vulkan_context* context = (vulkan_context*)backend->internal_context;
+	if (context->device.logical_device) vkDeviceWaitIdle(context->device.logical_device);
 
     internal_vulkan_renderbuffer* internal_buffer = (internal_vulkan_renderbuffer*)buffer->internal_data;
 
-	vkDestroyBuffer(context->device.logical_device, internal_buffer->handle, context->allocator);
-	vkFreeMemory(context->device.logical_device, internal_buffer->memory, context->allocator);
-    bfree(internal_buffer, sizeof(internal_vulkan_renderbuffer), MEMORY_TAG_RENDERER);
+	if (internal_buffer != NULL) {
+		if (internal_buffer->handle)
+			vkDestroyBuffer(context->device.logical_device, internal_buffer->handle, context->allocator);
+
+		if (internal_buffer->memory)
+			vkFreeMemory(context->device.logical_device, internal_buffer->memory, context->allocator);
+
+		bfree(internal_buffer, sizeof(internal_vulkan_renderbuffer), MEMORY_TAG_RENDERER);
+	}
 }

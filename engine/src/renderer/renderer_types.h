@@ -130,10 +130,10 @@ typedef enum box_render_format {
     /**
      * @brief sRGB formats
      */
-    BOX_FORMAT_R8_SRGB    = BOX_RENDER_FORMAT(BOX_FORMAT_UINT, 8, 1, BOX_FORMAT_FLAG_NORMALIZED | BOX_FORMAT_FLAG_SRGB),
-    BOX_FORMAT_RG8_SRGB   = BOX_RENDER_FORMAT(BOX_FORMAT_UINT, 8, 2, BOX_FORMAT_FLAG_NORMALIZED | BOX_FORMAT_FLAG_SRGB),
-    BOX_FORMAT_RGB8_SRGB  = BOX_RENDER_FORMAT(BOX_FORMAT_UINT, 8, 3, BOX_FORMAT_FLAG_NORMALIZED | BOX_FORMAT_FLAG_SRGB),
-    BOX_FORMAT_RGBA8_SRGB = BOX_RENDER_FORMAT(BOX_FORMAT_UINT, 8, 4, BOX_FORMAT_FLAG_NORMALIZED | BOX_FORMAT_FLAG_SRGB),
+    BOX_FORMAT_R8_SRGB    = BOX_RENDER_FORMAT(BOX_FORMAT_UINT, 8, 1, BOX_FORMAT_FLAG_SRGB),
+    BOX_FORMAT_RG8_SRGB   = BOX_RENDER_FORMAT(BOX_FORMAT_UINT, 8, 2, BOX_FORMAT_FLAG_SRGB),
+    BOX_FORMAT_RGB8_SRGB  = BOX_RENDER_FORMAT(BOX_FORMAT_UINT, 8, 3, BOX_FORMAT_FLAG_SRGB),
+    BOX_FORMAT_RGBA8_SRGB = BOX_RENDER_FORMAT(BOX_FORMAT_UINT, 8, 4, BOX_FORMAT_FLAG_SRGB),
 } box_render_format;
 
 /**
@@ -272,6 +272,35 @@ typedef enum box_address_mode {
 } box_address_mode;
 
 /**
+ * @brief Describes a single render target attachment.
+ */
+typedef struct {
+    /** Logical attachment type (color, depth, stencil, etc.). */
+    box_attachment_type type;
+
+    /** Engine-defined pixel format. Must be compatible with the attachment type. */
+    box_render_format format;
+
+    /** Load operation for color or depth aspect. */
+    box_load_op load_op;
+
+    /** Store operation for color or depth aspect. */
+    box_store_op store_op;
+
+    /**
+     * Load operation for stencil aspect.
+     * Only relevant for stencil or depth-stencil attachments.
+     */
+    box_load_op stencil_load_op;
+
+    /**
+     * Store operation for stencil aspect.
+     * Only relevant for stencil or depth-stencil attachments.
+     */
+    box_store_op stencil_store_op;
+} box_rendertarget_attachment;
+
+/**
  * @brief Describes a single descriptor binding.
  */
 typedef struct {
@@ -301,7 +330,7 @@ typedef struct box_shader_src {
 /**
  * @brief Describes the capabilities of the active renderer device.
  */
-typedef struct box_renderer_capabilities {
+typedef struct {
     /** @brief Human-readable device name. */
     char* device_name;
 
@@ -311,27 +340,17 @@ typedef struct box_renderer_capabilities {
     /** @brief Maximum supported anisotropic filtering level. */
     f32 max_anisotropy;
 } box_renderer_capabilities;
-
-typedef struct box_rendersurface_config {
-    uvec2 starting_size;
-    b8 window_surface;
-
-    union {
-        struct {
-            box_platform* platform;
-        } window;
-
-        struct {
-            /* attachments / texture usage */
-        } offscreen;
-    };
-} box_rendersurface_config;
-
-box_rendersurface_config box_rendersurface_default_config();
 /**
  * @brief Configuration for creating a renderer backend.
  */
 typedef struct box_renderer_backend_config {
+    const char* application_name;
+
+    uvec2 starting_size;
+
+    box_rendertarget_attachment* main_attachments;
+    u32 main_attachment_count;
+
     /** @brief Enabled renderer modes (bitmask). */
     box_renderer_mode modes;
 
@@ -344,8 +363,6 @@ typedef struct box_renderer_backend_config {
      * Must be greater than 1.
      */
     u32 frames_in_flight;
-
-    b8 enable_platform_window;
 
     /** @brief Enable validation and debug messages. */
     b8 enable_validation;

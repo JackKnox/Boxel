@@ -64,7 +64,7 @@ VkSamplerAddressMode box_address_mode_to_vulkan_type(box_address_mode address) {
     }
 }
 
-VkFormat box_format_to_vulkan_type(box_render_format format) {
+VkFormat box_render_format_to_vulkan_type(box_render_format format) {
     switch (format) {
         /* 8-bit integer  */
         case BOX_FORMAT_R8_UINT:    return VK_FORMAT_R8_UINT;

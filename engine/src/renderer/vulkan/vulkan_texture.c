@@ -51,7 +51,7 @@ b8 vulkan_texture_create(
         vulkan_image_create(
             context, 
             out_texture->size, 
-            box_format_to_vulkan_type(out_texture->image_format), 
+            box_render_format_to_vulkan_type(out_texture->image_format), 
             get_vulkan_texture_usage(context, config), 
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
             TRUE, 
@@ -110,7 +110,7 @@ b8 vulkan_texture_upload_data(
     const void* data, 
     uvec2 offset, 
     uvec2 region) {
-    BX_ASSERT(backend != NULL && texture != NULL && data != NULL && offset.x > 0 && offset.y > 0 && "Invalid arguments passed to vulkan_texture_upload_data");
+    BX_ASSERT(backend != NULL && texture != NULL && data != NULL && "Invalid arguments passed to vulkan_texture_upload_data");
     vulkan_context* context = (vulkan_context*)backend->internal_context;
 
     internal_vulkan_texture* internal_texture = (internal_vulkan_texture*)texture->internal_data;
@@ -121,8 +121,8 @@ b8 vulkan_texture_upload_data(
 		return FALSE;
 	}
 
-    if (region.width > texture->size.width || region.height > texture->size.height) {
-        BX_ERROR("vulkan_texture_create(): Region size must be within overral texture size: Region = (%u, %u)", region.width, region.height);
+    if (offset.x + region.width > texture->size.width || offset.y + region.height > texture->size.height) {
+        BX_ERROR("vulkan_texture_create(): Region size must be within overral texture size: Region = ((%u, %u) -> (%u, %u))", offset.x, offset.y, offset.x + region.width, offset.y + region.height);
         return FALSE;
     }
 #endif
@@ -159,12 +159,14 @@ b8 vulkan_texture_upload_data(
     }
 
     vulkan_renderbuffer_destroy(backend, &staging_buffer);
+    return TRUE;
 }
 
 void vulkan_texture_destroy(
     box_renderer_backend* backend, 
     box_texture* texture) {
     vulkan_context* context = (vulkan_context*)backend->internal_context;
+	if (context->device.logical_device) vkDeviceWaitIdle(context->device.logical_device);
 
     internal_vulkan_texture* internal_texture = (internal_vulkan_texture*)texture->internal_data;
     

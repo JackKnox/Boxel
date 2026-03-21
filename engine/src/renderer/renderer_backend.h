@@ -141,8 +141,12 @@ typedef struct box_renderer_backend {
     /** @brief Backend-specific internal state. */
     void* internal_context;
 
+    box_platform* platform;
+
     /** @brief Renderer capabilities supported by this backend. */
     box_renderer_capabilities capabilities;
+
+    box_rendertarget main_rendertarget;
 
     /**
      * @brief Initializes the renderer backend.
@@ -153,23 +157,12 @@ typedef struct box_renderer_backend {
      * @param application_name Name of the application.
      * @return True if initialization succeeded.
      */
-    b8 (*initialize)(struct box_renderer_backend* backend, const char* application_name, box_renderer_backend_config* config);
-
-    b8 (*connect_rendersurface)(struct box_renderer_backend* backend, box_rendersurface_config* config, box_rendersurface* out_rendersurface);
+    b8 (*initialize)(struct box_renderer_backend* backend, box_renderer_backend_config* config);
 
     /**
      * @brief Shuts down the renderer backend and releases resources.
      */
     void (*shutdown)(struct box_renderer_backend* backend);
-
-    // TODO: Remove as this doesn't really exist in other Graphics APIs
-    /**
-     * @brief Waits until all submitted work has completed.
-     *
-     * @param backend Pointer to the backend instance.
-     * @param timeout Timeout in nanoseconds.
-     */
-    void (*wait_until_idle)(struct box_renderer_backend* backend, u64 timeout);
 
     /**
      * @brief Notifies the backend of a framebuffer resize.
@@ -186,7 +179,7 @@ typedef struct box_renderer_backend {
      * @param delta_time Time elapsed since last frame.
      * @return True if frame preparation succeeded.
      */
-    b8 (*begin_frame)(struct box_renderer_backend* backend, box_rendersurface* rendersurface, f64 delta_time);
+    b8 (*begin_frame)(struct box_renderer_backend* backend, f64 delta_time);
 
     /**
      * @brief Executes a single render command.
@@ -270,12 +263,11 @@ typedef struct box_renderer_backend {
 /**
  * @brief Creates and initializes a renderer backend.
  *
- * @param application_name Application name.
+ * @param renderer_backend Output backend instance.
  * @param config Backend configuration.
- * @param out_renderer_backend Output backend instance.
  * @return True if creation succeeded.
  */
-b8 box_renderer_backend_create(const char* application_name, box_renderer_backend_config* config, box_renderer_backend* out_renderer_backend);
+b8 box_renderer_backend_create(box_renderer_backend* renderer_backend, box_renderer_backend_config* config, box_platform* platform);
 
 /**
  * @brief Destroys a renderer backend instance.

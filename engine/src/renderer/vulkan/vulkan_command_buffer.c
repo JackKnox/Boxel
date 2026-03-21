@@ -26,10 +26,12 @@ VkResult vulkan_command_buffer_allocate(
 void vulkan_command_buffer_free(
     vulkan_context* context,
     vulkan_command_buffer* command_buffer) {
-    vkFreeCommandBuffers(context->device.logical_device, command_buffer->owner->pool, 1, &command_buffer->handle);
+    if (command_buffer && command_buffer->handle) {
+        vkFreeCommandBuffers(context->device.logical_device, command_buffer->owner->pool, 1, &command_buffer->handle);
 
-    command_buffer->handle = 0;
-    command_buffer->state = COMMAND_BUFFER_STATE_NOT_ALLOCATED;
+        command_buffer->handle = 0;
+        command_buffer->state = COMMAND_BUFFER_STATE_NOT_ALLOCATED;
+    }
 }
 
 VkResult vulkan_command_buffer_begin(
@@ -38,23 +40,25 @@ VkResult vulkan_command_buffer_begin(
     b8 is_renderpass_continue,
     b8 is_simultaneous_use) {
     VkCommandBufferBeginInfo begin_info = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
-    if (is_single_use)
-        begin_info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    if (is_renderpass_continue)
-        begin_info.flags |= VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT;
-    if (is_simultaneous_use)
-        begin_info.flags |= VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+    if (is_single_use)          begin_info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    if (is_renderpass_continue) begin_info.flags |= VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT;
+    if (is_simultaneous_use)    begin_info.flags |= VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
 
-    VkResult result = vkBeginCommandBuffer(command_buffer->handle, &begin_info);
+    VkResult result = vkBeginCommandBuffer(
+            command_buffer->handle, 
+            &begin_info);
     if (!vulkan_result_is_success(result)) return result;
+
     command_buffer->state = COMMAND_BUFFER_STATE_RECORDING;
     return VK_SUCCESS;
 }
 
-void vulkan_command_buffer_end(vulkan_command_buffer* command_buffer) {
-    VK_CHECK(vkEndCommandBuffer(command_buffer->handle));
+VkResult vulkan_command_buffer_end(vulkan_command_buffer* command_buffer) {
+    VkResult result = vkEndCommandBuffer(command_buffer->handle);
+    if (!vulkan_result_is_success(result)) return result;
+
     command_buffer->state = COMMAND_BUFFER_STATE_RECORDING_ENDED;
-    command_buffer->used = FALSE;
+    return VK_SUCCESS;
 }
 
 VkResult vulkan_command_buffer_submit(
@@ -91,7 +95,7 @@ VkResult vulkan_command_buffer_allocate_and_begin_single_use(
     VkResult result = vulkan_command_buffer_allocate(context, owner, TRUE, out_command_buffer);
     if (!vulkan_result_is_success(result)) return result;
     
-    vulkan_command_buffer_begin(out_command_buffer, TRUE, FALSE, FALSE);
+    return vulkan_command_buffer_begin(out_command_buffer, TRUE, FALSE, FALSE);
 }
 
 VkResult vulkan_command_buffer_end_single_use(

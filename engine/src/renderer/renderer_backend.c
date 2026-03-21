@@ -12,7 +12,7 @@ u64 box_render_format_size(box_render_format format) {
     u32 bits_index = (format >> 16) & 0xF;
     u32 channels   = (format >> 12) & 0xF;
 
-	return (u64)((bits_index + 1) * 8 * channels);
+	return bits_index * channels + channels; // ((b + 1) * 8c) / 8
 }
 
 b8 box_render_format_normalized(box_render_format format) {

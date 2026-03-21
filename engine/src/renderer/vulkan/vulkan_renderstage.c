@@ -55,7 +55,6 @@ VkResult vulkan_renderstage_create_layout(
         // ------------------------------------------
 
         // Create descriptor pool.
-        // TODO: Global descriptor pool that belongs to the context.
 		VkDescriptorPoolCreateInfo pool_info = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
 		pool_info.poolSizeCount = darray_length(descriptor_pools);
 		pool_info.pPoolSizes = descriptor_pools;
@@ -163,7 +162,7 @@ b8 vulkan_renderstage_create_graphic(
         VkVertexInputAttributeDescription* descriptor = darray_push_empty(attributes);
         descriptor->binding = 0;
         descriptor->location = i;
-        descriptor->format = box_format_to_vulkan_type(attribute);
+        descriptor->format = box_render_format_to_vulkan_type(attribute);
         descriptor->offset = attribute_stride;
         attribute_stride += box_render_format_size(attribute);
     }
@@ -298,12 +297,12 @@ b8 vulkan_renderstage_create_compute(
     
 #if BOX_ENABLE_VALIDATION
     if (darray_length(shader_stages) > 1) {
-        BX_ERROR("Compute shader contain more than 1 stage (only needs a single compute shader stage)");
+        BX_ERROR("vulkan_renderstage_create_compute(): Compute shaders contain more than 1 stage (only needs a single compute shader stage)");
         return FALSE;
     }
 
     if (shader_stages[0].stage != VK_SHADER_STAGE_COMPUTE_BIT) {
-        BX_ERROR("Compute renderstage contains no compute stages");
+        BX_ERROR("vulkan_renderstage_create_compute(): Compute renderstage contains no compute stages");
         return FALSE;
     }
 #endif
@@ -440,14 +439,25 @@ void vulkan_renderstage_destroy(
     box_renderer_backend* backend, 
     box_renderstage* renderstage) {
     vulkan_context* context = (vulkan_context*)backend->internal_context;
+	if (context->device.logical_device) vkDeviceWaitIdle(context->device.logical_device);
 
     internal_vulkan_renderstage* internal_renderstage = (internal_vulkan_renderstage*)renderstage->internal_data;
 
-    darray_destroy(internal_renderstage->descriptor_sets);
+    if (internal_renderstage != NULL) {
+        if (internal_renderstage->descriptor_sets) darray_destroy(internal_renderstage->descriptor_sets);
+        
+        if (internal_renderstage->descriptor)
+            vkDestroyDescriptorSetLayout(context->device.logical_device, internal_renderstage->descriptor, context->allocator);
+        
+        if (internal_renderstage->descriptor_pool)
+            vkDestroyDescriptorPool(context->device.logical_device, internal_renderstage->descriptor_pool, context->allocator);
 
-    vkDestroyDescriptorSetLayout(context->device.logical_device, internal_renderstage->descriptor, context->allocator);
-    vkDestroyDescriptorPool(context->device.logical_device, internal_renderstage->descriptor_pool, context->allocator);
-    vkDestroyPipelineLayout(context->device.logical_device, internal_renderstage->layout, context->allocator);
-    vkDestroyPipeline(context->device.logical_device, internal_renderstage->handle, context->allocator);
-    bfree(renderstage->internal_data, sizeof(internal_vulkan_renderstage), MEMORY_TAG_RENDERER);
+        if (internal_renderstage->layout)
+            vkDestroyPipelineLayout(context->device.logical_device, internal_renderstage->layout, context->allocator);
+
+        if (internal_renderstage->handle)
+            vkDestroyPipeline(context->device.logical_device, internal_renderstage->handle, context->allocator);
+
+        bfree(renderstage->internal_data, sizeof(internal_vulkan_renderstage), MEMORY_TAG_RENDERER);
+    }
 }

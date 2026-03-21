@@ -14,10 +14,13 @@ box_renderer_mode queue_type_to_mode(vulkan_queue_type type) {
     return 0;
 }
 
-b8 select_physical_device(box_renderer_backend* backend, const char** required_extensions);
-b8 physical_device_meets_requirements(
-    VkPhysicalDevice device,
+b8 select_physical_device(
     box_renderer_backend* backend,
+    const char** required_extensions);
+
+b8 physical_device_meets_requirements(
+    box_renderer_backend* backend,
+    VkPhysicalDevice device,
     const char** required_extensions,
     box_renderer_capabilities* out_capabilities,
     vulkan_queue* out_queue_support);
@@ -78,8 +81,7 @@ VkResult vulkan_device_create(box_renderer_backend* backend) {
     // Create command pool for necessary queue.
     for (u32 i = 0; i < VULKAN_QUEUE_TYPE_MAX; ++i) {
         vulkan_queue* mode = &context->device.mode_queues[i];
-        if (!(context->config.modes & mode->supported_modes))
-            continue;
+        if (!(context->config.modes & mode->supported_modes)) continue;
 
         vkGetDeviceQueue(
             context->device.logical_device,
@@ -143,12 +145,12 @@ b8 select_physical_device(box_renderer_backend* backend, const char** required_e
     VK_CHECK(vkEnumeratePhysicalDevices(context->instance, &physical_device_count, physical_devices));
 
     for (u32 i = 0; i < physical_device_count; ++i) {
-        box_renderer_capabilities capabilities = {0};
+        box_renderer_capabilities capabilities = {};
         b8 result = physical_device_meets_requirements(
+            backend, 
             physical_devices[i],
-            backend,
             required_extensions,
-            &capabilities,
+            &capabilities, 
             context->device.mode_queues);
 
         if (result) {
@@ -170,8 +172,8 @@ b8 select_physical_device(box_renderer_backend* backend, const char** required_e
 }
 
 b8 physical_device_meets_requirements(
-    VkPhysicalDevice device,
     box_renderer_backend* backend,
+    VkPhysicalDevice device,
     const char** required_extensions,
     box_renderer_capabilities* out_capabilities,
     vulkan_queue* out_queue_support) {
@@ -269,7 +271,7 @@ b8 physical_device_meets_requirements(
 
         for (u32 i = 0; i < darray_length(required_extensions); ++i) {
             b8 found = FALSE;
-            for (u32 j = 0; j < darray_length(required_extensions); ++j) {
+            for (u32 j = 0; j < darray_length(supported_extensions); ++j) {
                 if (strings_equal(required_extensions[i], supported_extensions[j].extensionName)) {
                     found = TRUE;
                     break;
