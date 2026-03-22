@@ -2,7 +2,7 @@
 #include "freelist.h"
 
 #pragma pack(push, 1)
-typedef struct {
+typedef struct freelist_header {
     u64 payload_size;
 } freelist_header;
 #pragma pack(pop)

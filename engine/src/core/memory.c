@@ -5,7 +5,7 @@
 
 #if BOX_ENABLE_DIAGNOSTICS
 
-typedef struct {
+typedef struct memory_stats {
 	u64 total_allocated;
 	u64 tagged_allocations[MEMORY_TAG_MAX_TAGS];
 } memory_stats;

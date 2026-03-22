@@ -4,7 +4,7 @@
 #include "render_objects.h"
 
 #if BOX_ENABLE_VALIDATION
-#   define CHECK_FINISHED() if (!cmd) return; if (cmd->finished) { BX_ERROR("Adding to render command after ending, users should not be calling box_rendercmd_end before beginning."); return; }
+#   define CHECK_FINISHED() if (!cmd) return; if (cmd->finished) { BX_ERROR("Tried to record command into box_rendercmd after ending."); return; }
 #else
 #   define CHECK_FINISHED()
 #endif
@@ -20,7 +20,7 @@ rendercmd_payload* add_command(box_rendercmd* cmd, box_renderer_mode mode, rende
 
     void* user_memory = freelist_push(&cmd->buffer, user_block_size, NULL);
     if (!user_memory) {
-        BX_ERROR("Render command buffer out of memory!");
+        BX_ERROR("Render command buffer out of memory.");
         return NULL;
     }
 

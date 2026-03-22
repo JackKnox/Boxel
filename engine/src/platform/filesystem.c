@@ -32,7 +32,7 @@ b8 filesystem_open(const char* path, file_modes mode, b8 binary, file_handle* ou
         mode_str = binary ? "wb" : "w";
     }
     else {
-        BX_ERROR("Invalid mode passed while trying to open file: '%s'", path);
+        BX_ERROR("filesystem_open(): Invalid mode passed while trying to open file: '%s'", path);
         return FALSE;
     }
 

@@ -264,24 +264,19 @@ void vulkan_rendertarget_begin(
     begin_info.pClearValues = &clear_value;
 
     vkCmdBeginRenderPass(command_buffer->handle, &begin_info, VK_SUBPASS_CONTENTS_INLINE);
-    internal_rendertarget->state = RENDER_PASS_STATE_RECORDING;
-    command_buffer->state = COMMAND_BUFFER_STATE_IN_RENDER_PASS;
 }
 
 void vulkan_rendertarget_end(
     vulkan_context* context,
     vulkan_command_buffer* command_buffer, 
     box_rendertarget* rendertarget) {
-    internal_vulkan_rendertarget* internal_rendertarget = (internal_vulkan_rendertarget*)rendertarget->internal_data;
-
     vkCmdEndRenderPass(command_buffer->handle);
-    internal_rendertarget->state = RENDER_PASS_STATE_RECORDING_ENDED;
-    command_buffer->state = COMMAND_BUFFER_STATE_RECORDING;
 }
 
 void vulkan_rendertarget_destroy(
     box_renderer_backend* backend, 
     box_rendertarget* rendertarget) {
+    BX_ASSERT(backend != NULL && rendertarget != NULL && "Invalid arguments passed to vulkan_rendertarget_destroy");
     vulkan_context* context = (vulkan_context*)backend->internal_context;
 	if (context->device.logical_device) vkDeviceWaitIdle(context->device.logical_device);
 

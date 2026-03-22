@@ -61,8 +61,7 @@ int main(int argc, char** argv) {
 
 	box_texture_config tex_config = box_texture_default();
 	tex_config.size = (uvec2) { width, height };
-	tex_config.usage = BOX_TEXTURE_USAGE_SAMPLED;
-	tex_config.image_format = BOX_RENDER_FORMAT(BOX_FORMAT_UINT, 8, channels, BOX_FORMAT_FLAG_SRGB);
+	tex_config.image_format = BOX_RENDER_FORMAT(BOX_DATA_TYPE_UINT, 8, channels, BOX_RENDER_FORMAT_FLAG_SRGB);
 
 	box_texture texture = {};
 	if (!backend.create_texture(&backend, &tex_config, &texture) ||

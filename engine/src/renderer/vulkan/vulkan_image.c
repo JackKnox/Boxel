@@ -70,7 +70,7 @@ VkResult vulkan_image_create(
 
 void vulkan_image_transition_layout(
     vulkan_context* context, 
-    vulkan_command_buffer* cmd, 
+    vulkan_command_buffer* command_buffer, 
     vulkan_image* image, 
     VkImageLayout new_layout) {
     if (image->layout == new_layout) return;
@@ -91,7 +91,7 @@ void vulkan_image_transition_layout(
     VkPipelineStageFlags src_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
     VkPipelineStageFlags dst_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 
-    vkCmdPipelineBarrier(cmd->handle,
+    vkCmdPipelineBarrier(command_buffer->handle,
         src_stage, 
         dst_stage,
         0,
@@ -104,7 +104,7 @@ void vulkan_image_transition_layout(
 
 void vulkan_image_copy_from_buffer(
     vulkan_context* context, 
-    vulkan_command_buffer* cmd, 
+    vulkan_command_buffer* command_buffer, 
     vulkan_image* image, 
     VkBuffer buffer,
     u64 buf_offset,
@@ -121,19 +121,21 @@ void vulkan_image_copy_from_buffer(
     region.imageExtent.height = img_region.height;
     region.imageExtent.depth = 1;
 
-    vkCmdCopyBufferToImage(cmd->handle, buffer, image->handle, image->layout, 1, &region);
+    vkCmdCopyBufferToImage(command_buffer->handle, buffer, image->handle, image->layout, 1, &region);
 }
 
 void vulkan_image_destroy(
     vulkan_context* context, 
     vulkan_image* image,
     b8 ownes_image) {
-    if (image->view)
-        vkDestroyImageView(context->device.logical_device, image->view, context->allocator);
-    
-    if (image->memory && ownes_image)
-        vkFreeMemory(context->device.logical_device, image->memory, context->allocator);
+    if (image != NULL) {
+        if (image->view)
+            vkDestroyImageView(context->device.logical_device, image->view, context->allocator);
+        
+        if (image->memory && ownes_image)
+            vkFreeMemory(context->device.logical_device, image->memory, context->allocator);
 
-    if (image->handle && ownes_image)
-        vkDestroyImage(context->device.logical_device, image->handle, context->allocator);
+        if (image->handle && ownes_image)
+            vkDestroyImage(context->device.logical_device, image->handle, context->allocator);
+    }
 }

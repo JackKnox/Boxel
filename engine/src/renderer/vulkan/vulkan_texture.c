@@ -165,6 +165,7 @@ b8 vulkan_texture_upload_data(
 void vulkan_texture_destroy(
     box_renderer_backend* backend, 
     box_texture* texture) {
+    BX_ASSERT(backend != NULL && texture != NULL && "Invalid arguments passed to vulkan_texture_destroy");
     vulkan_context* context = (vulkan_context*)backend->internal_context;
 	if (context->device.logical_device) vkDeviceWaitIdle(context->device.logical_device);
 

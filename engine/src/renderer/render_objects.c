@@ -25,6 +25,7 @@ box_texture_config box_texture_default() {
     box_texture_config config = {};
 	config.address_mode = BOX_ADDRESS_MODE_REPEAT;
 	config.filter_type = BOX_FILTER_TYPE_NEAREST;
+	config.usage = BOX_TEXTURE_USAGE_SAMPLED;
 
 	return config;
 }

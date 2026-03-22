@@ -43,12 +43,13 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
 }
 
 b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, box_renderer_backend_config* config) {
+	BX_ASSERT(backend != NULL && config != NULL && "Invalid arguments passed to vulkan_renderer_backend_initialize");
 	backend->internal_context = ballocate(sizeof(vulkan_context), MEMORY_TAG_RENDERER);
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 	context->config = *config;
 
 	if (backend->platform == NULL) {
-		BX_ERROR("Offscreen renderering is not supported by the Vulkan backend");
+		BX_ERROR("Vulkan backend: Offscreen renderering is not supported by the Vulkan backend");
 		return FALSE;
 	}
 
@@ -300,6 +301,7 @@ b8 vulkan_renderer_backend_initialize(box_renderer_backend* backend, box_rendere
 }
 
 void vulkan_renderer_backend_shutdown(box_renderer_backend* backend) {
+	BX_ASSERT(backend != NULL && "Invalid arguments passed to vulkan_renderer_backend_shutdown");
 	vulkan_context* context = (vulkan_context*)backend->internal_context;
 	if (context->device.logical_device) vkDeviceWaitIdle(context->device.logical_device);
 
@@ -383,10 +385,12 @@ void vulkan_renderer_backend_shutdown(box_renderer_backend* backend) {
 }
 
 void vulkan_renderer_backend_on_resized(box_renderer_backend* backend, uvec2 new_size) {
+	BX_ASSERT(backend != NULL && "Invalid arguments passed to vulkan_renderer_backend_on_resized");
 	// TODO: Swapchain recreation.
 }
 
 b8 vulkan_renderer_backend_begin_frame(box_renderer_backend* backend, f64 delta_time) {
+	BX_ASSERT(backend != NULL && "Invalid arguments passed to vulkan_renderer_backend_begin_frame");
     vulkan_context* context = (vulkan_context*)backend->internal_context;
 
 	CHECK_VKRESULT(
@@ -422,6 +426,7 @@ b8 vulkan_renderer_backend_begin_frame(box_renderer_backend* backend, f64 delta_
 }
 
 void vulkan_renderer_execute_command(box_renderer_backend* backend, box_rendercmd_context* rendercmd_context, rendercmd_header* header, rendercmd_payload* payload) {
+	BX_ASSERT(backend != NULL && rendercmd_context != NULL && header != NULL && payload != NULL && "Invalid arguments passed to vulkan_renderer_execute_command");
     vulkan_context* context = (vulkan_context*)backend->internal_context;
 
 	if (rendercmd_context->current_mode != context->last_mode) {
@@ -521,6 +526,7 @@ void vulkan_renderer_execute_command(box_renderer_backend* backend, box_rendercm
 }
 
 b8 vulkan_renderer_backend_end_frame(box_renderer_backend* backend) {
+	BX_ASSERT(backend != NULL && "Invalid arguments passed to vulkan_renderer_backend_end_frame");
     vulkan_context* context = (vulkan_context*)backend->internal_context;
 
 	VkSemaphore render_complete_semaphore;

@@ -1,11 +1,3 @@
-/**
- * @file renderer_backend.h
- * @brief Internal renderer backend command and interface definitions.
- *
- * Defines low-level render command payloads and the backend interface
- * used to translate high-level rendering intent into API-specific calls.
- */
-
 #pragma once
 
 #include "defines.h"
@@ -121,14 +113,14 @@ typedef union rendercmd_payload {
  * Tracks currently active render state while commands are executed.
  */
 typedef struct box_rendercmd_context {
+    /** @brief Current renderer mode (graphics or compute). */
+    box_renderer_mode current_mode;
+
     /** @brief Currently bound render target. */
     box_rendertarget* current_target;
 
     /** @brief Currently bound render stage. */
     box_renderstage* current_shader;
-
-    /** @brief Current renderer mode (graphics or compute). */
-    box_renderer_mode current_mode;
 } box_rendercmd_context;
 
 /**
@@ -141,11 +133,13 @@ typedef struct box_renderer_backend {
     /** @brief Backend-specific internal state. */
     void* internal_context;
 
+    /** @brief Platform state attachted to renderer backend, can be null */
     box_platform* platform;
 
     /** @brief Renderer capabilities supported by this backend. */
     box_renderer_capabilities capabilities;
 
+    /** @brief Main rendertarget created automattically on init, exists regardless of platform state */
     box_rendertarget main_rendertarget;
 
     /**
@@ -253,8 +247,10 @@ typedef struct box_renderer_backend {
     /** @brief Destroys a texture resource. */
     void (*destroy_texture)(struct box_renderer_backend* backend, box_texture* texture);
 
+    /** @brief Creates a rendertarget. */
     b8 (*create_rendertarget)(struct box_renderer_backend* backend,  box_rendertarget_config* config, box_rendertarget* rendertarget);
 
+    /** @brief Destroys a rendertarget. */
     void (*destroy_rendertarget)(struct box_renderer_backend* backend, box_rendertarget* rendertarget);
 
     /** @} */

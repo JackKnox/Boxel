@@ -17,7 +17,7 @@ u64 box_render_format_size(box_render_format format) {
 
 b8 box_render_format_normalized(box_render_format format) {
     u32 flags = (format >> 24) & 0xFF;
-    return (flags & BOX_FORMAT_FLAG_NORMALIZED) != 0;
+    return (flags & BOX_RENDER_FORMAT_FLAG_NORMALIZED) != 0;
 }
 
 u32 box_render_format_channel_count(box_render_format format) {
@@ -35,12 +35,24 @@ box_renderer_backend_config box_renderer_backend_default_config() {
 }
 
 b8 box_renderer_backend_create(box_renderer_backend* renderer_backend, box_renderer_backend_config* config, box_platform* platform) {
-	BX_ASSERT(renderer_backend != NULL && config != NULL && "Invalid arguments passed to box_renderer_backend_create");
+	BX_ASSERT(renderer_backend != NULL && config != NULL && config->application_name != NULL && (platform != NULL || config->main_attachments != NULL) && "Invalid arguments passed to box_renderer_backend_create");
 
+#if BOX_ENABLE_VALIDATION
 	if (platform->internal_renderer_state != NULL) {
-		BX_ERROR("Cannot attach second renderer backend to platform state");
+		BX_ERROR("box_renderer_backend_create(): Cannot attach more than 1 renderer backend to the same platform");
 		return FALSE;
 	}
+
+	if (config->frames_in_flight < 1) {
+		BX_ERROR("box_renderer_backend_create(): Must create renderer backend with at least 1 frame(s) in flight: %u", config->frames_in_flight);
+		return FALSE;
+	}
+
+	if (!platform && config->main_attachment_count == 0) {
+		BX_ERROR("box_renderer_backend_create(): Cannot set zero attachments without platform state attached to renderer");
+		return FALSE;
+	}
+#endif
 
 	renderer_backend->platform = platform;
 
@@ -78,6 +90,7 @@ b8 box_renderer_backend_create(box_renderer_backend* renderer_backend, box_rende
 }
 
 void box_renderer_backend_destroy(box_renderer_backend* renderer_backend) {
+	BX_ASSERT(renderer_backend != NULL && "Invalid arguments passed to box_renderer_backend_destroy");
     if (renderer_backend->shutdown != NULL) 
         renderer_backend->shutdown(renderer_backend);
     
@@ -87,9 +100,18 @@ void box_renderer_backend_destroy(box_renderer_backend* renderer_backend) {
 b8 box_renderer_backend_submit_rendercmd(box_renderer_backend* renderer_backend, box_rendercmd_context* playback_context, box_rendercmd* rendercmd) {
 	BX_ASSERT(renderer_backend != NULL && playback_context != NULL && rendercmd != NULL && "Invalid arguments passed to box_renderer_backend_submit_rendercmd");
 
+#if BOX_ENABLE_VALIDATION
+	if (!rendercmd->finished) {
+		BX_ERROR("box_renderer_backend_submit_rendercmd(): Tried to submit rendercmd before ending commands.");
+		return FALSE;
+	}
+#endif
+
 	u8* cursor = 0;
 	while (freelist_next_block(&rendercmd->buffer, &cursor)) {
 		rendercmd_header* hdr = (rendercmd_header*)cursor;
+		BX_ASSERT(hdr->type <= RENDERCMD_END && "Malformed data in box_rendercmd");
+
 		rendercmd_payload* payload = (rendercmd_payload*)(cursor + sizeof(rendercmd_header));
 
 		if (hdr->supported_mode)
@@ -99,7 +121,7 @@ b8 box_renderer_backend_submit_rendercmd(box_renderer_backend* renderer_backend,
 		case RENDERCMD_BIND_RENDERTARGET:
 #if BOX_ENABLE_VALIDATION
 			if (playback_context->current_target != NULL) {
-				BX_ERROR("Tried to bind rendertarget twice in box_rendercmd.");
+				BX_ERROR("Submission validation: Tried to bind rendertarget twice in box_rendercmd.");
 				return FALSE;
 			}
 #endif
@@ -110,7 +132,7 @@ b8 box_renderer_backend_submit_rendercmd(box_renderer_backend* renderer_backend,
 		case RENDERCMD_BEGIN_RENDERSTAGE:
 #if BOX_ENABLE_VALIDATION
 			if (playback_context->current_shader != NULL) {
-				BX_ERROR("Tried to begin renderstage twice in box_rendercmd.");
+				BX_ERROR("Submission validation: Tried to begin renderstage twice in box_rendercmd.");
 				return FALSE;
 			}
 #endif
@@ -121,7 +143,7 @@ b8 box_renderer_backend_submit_rendercmd(box_renderer_backend* renderer_backend,
 		case RENDERCMD_END_RENDERSTAGE:
 #if BOX_ENABLE_VALIDATION
 			if (playback_context->current_shader == NULL) {
-				BX_ERROR("Tried to end renderstage twice in box_rendercmd.");
+				BX_ERROR("Submission validation: Tried to end renderstage twice in box_rendercmd.");
 				return FALSE;
 			}
 #endif
@@ -134,7 +156,7 @@ b8 box_renderer_backend_submit_rendercmd(box_renderer_backend* renderer_backend,
 		case RENDERCMD_DISPATCH:
 #if BOX_ENABLE_VALIDATION
 			if (playback_context->current_shader == NULL) {
-				BX_ERROR("Tried to dispatch draw call without a renderstage in box_rendercmd.");
+				BX_ERROR("Submission validation: Tried to dispatch draw call without a renderstage in box_rendercmd.");
 				return FALSE;
 			}
 #endif

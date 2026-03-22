@@ -104,12 +104,12 @@ b8 platform_start(box_platform *plat_state, box_window_config *app_config) {
 	}
 
 	if (window_pos.x > monitorX + mode->width || window_pos.y > monitorY + mode->height) {
-		BX_ERROR("Specififed window position is outside range of monitior");
+		BX_ERROR("platform_start(): Specififed window position is outside range of monitior");
 		return FALSE;
 	}
 
 	if (app_config->window_size.width == mode->width || app_config->window_size.height == mode->height) {
-		BX_ERROR("Specififed window size is larger than size of monitior");
+		BX_ERROR("platform_start(): Specififed window size is larger than size of monitior");
 		return FALSE;
 	}
 
@@ -120,7 +120,7 @@ b8 platform_start(box_platform *plat_state, box_window_config *app_config) {
 
 	state->window = glfwCreateWindow(app_config->window_size.width, app_config->window_size.height, app_config->title, app_config->window_mode == BOX_WINDOW_MODE_FULLSCREEN ? monitor : NULL, NULL);
 	if (!state->window) {
-		BX_ERROR("Failed creating application window.");
+		BX_ERROR("platform_start(): Failed creating application window.");
 		return FALSE;
 	}
 

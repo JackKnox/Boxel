@@ -105,6 +105,7 @@ b8 vulkan_renderstage_create_graphic(
     box_graphicstage_config* config, 
     box_rendertarget* bound_rendertarget, 
     box_renderstage* out_renderstage) {
+	BX_ASSERT(backend != NULL && config != NULL && bound_rendertarget != NULL && out_renderstage != NULL && "Invalid arguments passed to vulkan_renderstage_create_graphic");
     vulkan_context* context = (vulkan_context*)backend->internal_context;
     
     out_renderstage->internal_data = ballocate(sizeof(internal_vulkan_renderstage), MEMORY_TAG_RENDERER);
@@ -277,6 +278,7 @@ b8 vulkan_renderstage_create_compute(
     box_renderer_backend* backend, 
     box_computestage_config* config, 
     box_renderstage* out_renderstage) {
+	BX_ASSERT(backend != NULL && config != NULL && out_renderstage != NULL && "Invalid arguments passed to vulkan_renderstage_create_compute");
     vulkan_context* context = (vulkan_context*)backend->internal_context;
     
     out_renderstage->internal_data = ballocate(sizeof(internal_vulkan_renderstage), MEMORY_TAG_RENDERER);
@@ -297,7 +299,7 @@ b8 vulkan_renderstage_create_compute(
     
 #if BOX_ENABLE_VALIDATION
     if (darray_length(shader_stages) > 1) {
-        BX_ERROR("vulkan_renderstage_create_compute(): Compute shaders contain more than 1 stage (only needs a single compute shader stage)");
+        BX_ERROR("vulkan_renderstage_create_compute(): Compute renderstage contain more than 1 stage (only needs a single compute shader stage)");
         return FALSE;
     }
 
@@ -331,6 +333,7 @@ b8 vulkan_renderstage_update_descriptors(
     box_renderer_backend* backend,
     box_update_descriptors* descriptors,
     u32 descriptor_count) {
+    BX_ASSERT(backend != NULL && descriptors && "Invalid arguments passed to vulkan_renderstage_update_descriptors");
     vulkan_context* context = (vulkan_context*)backend->internal_context;
 
     u32 image_count = context->config.frames_in_flight;
@@ -349,6 +352,7 @@ b8 vulkan_renderstage_update_descriptors(
             continue;
         }
 
+        BX_ASSERT(write->renderstage != NULL && "Malformed data when updating descriptors");
         internal_vulkan_renderstage* internal_renderstage = (internal_vulkan_renderstage*)write->renderstage->internal_data;
 
         for (u32 j = 0; j < image_count; ++j) {
@@ -404,6 +408,7 @@ void vulkan_renderstage_bind(
     vulkan_command_buffer* command_buffer, 
     box_renderstage* renderstage) {
     internal_vulkan_renderstage* internal_renderstage = (internal_vulkan_renderstage*)renderstage->internal_data;
+
     VkPipelineBindPoint bind_point = 0;
     switch (renderstage->pipeline_type) {
         case RENDERER_MODE_GRAPHICS: bind_point = VK_PIPELINE_BIND_POINT_GRAPHICS; break;
@@ -438,6 +443,7 @@ void vulkan_renderstage_bind(
 void vulkan_renderstage_destroy(
     box_renderer_backend* backend, 
     box_renderstage* renderstage) {
+    BX_ASSERT(backend != NULL && renderstage != NULL && "Invalid arguments passed to vulkan_renderstage_destroy");
     vulkan_context* context = (vulkan_context*)backend->internal_context;
 	if (context->device.logical_device) vkDeviceWaitIdle(context->device.logical_device);
 

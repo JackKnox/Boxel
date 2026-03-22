@@ -1,11 +1,3 @@
-/**
- * @file renderer_objects.h
- * @brief Backend-agnostic GPU resource and render command abstractions.
- *
- * Defines core rendering resources such as buffers, textures,
- * render stages (pipelines), and command buffers.
- */
-
 #pragma once
 
 #include "defines.h"
@@ -53,14 +45,14 @@ box_renderbuffer_config box_renderbuffer_default();
  * graphics and compute stages.
  */
 typedef struct box_renderstage_layout {
-    /** @brief Shader stages indexed by box_shader_stage_type. */
-    box_shader_src stages[BOX_SHADER_STAGE_TYPE_MAX];
+    /** @brief Number of active descriptor bindings. */
+	u32 descriptor_count;
 
     /** @brief Descriptor binding descriptions used by the pipeline. */
 	box_descriptor_desc* descriptors;
 
-    /** @brief Number of active descriptor bindings. */
-	u32 descriptor_count;
+    /** @brief Shader stages indexed by box_shader_stage_type. */
+    box_shader_src stages[BOX_SHADER_STAGE_TYPE_MAX];
 } box_renderstage_layout;
 
 /**
@@ -70,36 +62,35 @@ typedef struct box_renderstage_layout {
  * vertex/index buffers used when creating a graphics pipeline.
  */
 typedef struct box_graphicstage_config {
-    /** @brief Shader layout used by the stage. */
-    box_renderstage_layout layout;
-
-    /** @brief Vertex attribute formats in binding order. */
-    box_render_format* vertex_attributes;
-
     /** @brief Number of active vertex attributes. */
     u32 vertex_attribute_count;
+    
+    /** @brief Vertex attribute formats in binding order. */
+    box_render_format* vertex_attributes;
 
     /** @brief Optional vertex buffer bound to this render stage. */
     box_renderbuffer* vertex_buffer;
 
     /** @brief Optional index buffer bound to this render stage. */
     box_renderbuffer* index_buffer;
+
+    /** @brief Shader layout used by the stage. */
+    box_renderstage_layout layout;
 } box_graphicstage_config;
 
-
+/**
+ * @brief Configuration for a compute render stage.
+ */
 typedef struct box_computestage_config {
     /** @brief Shader layout used by the stage. */
     box_renderstage_layout layout;
 } box_computestage_config;
 
 /**
- * @brief Represents a render pipeline configuration.
+ * @brief Backend-agnostic GPU pipeline handle.
  *
- * A render stage defines shader stages, vertex layout,
- * descriptor bindings, and pipeline state.
- *
- * This structure is backend-agnostic and translated
- * into API-specific pipeline objects internally.
+ * Defines a GPU pipeline internally coupled with
+ * descriptors or a vertex/index buffer.
  */
 typedef struct box_renderstage {
     // TODO: Remove this as box_renderer_mode is technically a bitmask
@@ -131,10 +122,12 @@ box_graphicstage_config box_renderstage_default_graphic();
  */
 box_computestage_config box_renderstage_default_compute();
 
+/**
+ * @brief Configuration for a texture.
+ *
+ * Defines a sampled image stored on the GPU.
+ */
 typedef struct box_texture_config {
-    /** @brief Dimensions of the texture in pixels. */
-    uvec2 size;
-       
     /** @brief Image format of the texture data. */
     box_render_format image_format;
 
@@ -144,28 +137,31 @@ typedef struct box_texture_config {
     /** @brief Texture address (wrap) mode. */
     box_address_mode address_mode;
 
+    /** @brief Intended usage of texture after creation. */
+    box_texture_usage usage;
+
     /** @brief Max anisotropy of attached sampler in backend, ignored if texture is not sampled. */
     f32 max_anisotropy;
 
-    /** @brief Intended usage of texture after creation. */
-    box_texture_usage usage;
+    /** @brief Dimensions of the texture in pixels. */
+    uvec2 size;
 } box_texture_config;
 
 /**
- * @brief Backend-agnostic texture resource.
+ * @brief Backend-agnostic GPU texture handle.
  *
  * Represents GPU image data along with sampling configuration.
  * Converted internally into API-specific image and sampler objects.
  */
 typedef struct box_texture {
-    /** @brief Dimensions of the texture in pixels. */
-    uvec2 size;
-
     /** @brief Image format of the texture data. */
     box_render_format image_format;
 
     /** @brief Backend-specific image and sampler state. */
     void* internal_data;
+
+    /** @brief Dimensions of the texture in pixels. */
+    uvec2 size;
 } box_texture;
 
 /**
@@ -184,18 +180,24 @@ box_texture_config box_texture_default();
  */
 u64 box_texture_get_size_in_bytes(box_texture* texture);
 
+/**
+ * @brief Configuration for a rendertarget.
+ *
+ * Contains attachments, image layout transitions
+ * and attachment images.
+ */
 typedef struct box_rendertarget_config {
+    /** @brief Number of attachments attached to the rendertarget. */
+    u32 attachment_count;
+
+    /** @brief Attachments created within the rendertarget. */
+    box_rendertarget_attachment* attachments;
+
     /** @brief Render area origin. */
     uvec2 origin;
 
     /** @brief Render area size. */
     uvec2 size;
-
-    /** @brief Attachments created within the rendertarget. */
-    box_rendertarget_attachment* attachments;
-
-    /** @brief Number of attachments attached to the rendertarget. */
-    u32 attachment_count;
 } box_rendertarget_config;
 
 /**
@@ -215,14 +217,14 @@ typedef struct box_rendertarget {
     /** @brief Number of attachments attached to the rendertarget. */
     u32 attachment_count;
 
+    /** @brief Backend-specific internal data. */
+    void* internal_data;
+
     /** @brief Render area origin. */
     uvec2 origin;
     
     /** @brief Render area size. */
     uvec2 size;
-
-    /** @brief Backend-specific internal data. */
-    void* internal_data;
 } box_rendertarget;
 
 box_rendertarget_config box_rendertarget_default();
@@ -236,12 +238,12 @@ box_rendertarget_config box_rendertarget_default();
  *
  * @note Only one union member must be set, according to the value of @ref type.
  */
-typedef struct {
-    /** @brief Renderstage to update descriptor to. */
-    box_renderstage* renderstage;
-
+typedef struct box_update_descriptors {
     /** @brief Binding index as declared in the shader. */
     u32 binding;
+
+    /** @brief Renderstage to update descriptor to. */
+    box_renderstage* renderstage;
 
     /** @brief Type of descriptor being updated (buffer, texture, etc.). */
     box_descriptor_type type;
@@ -261,12 +263,12 @@ typedef struct {
  * Collects rendering commands for deferred execution
  * by the renderer.
  */
-typedef struct {
-    /** @brief Allocator backing the render command buffer. */
-    freelist buffer;
-
+typedef struct box_rendercmd {
     /** @brief True if no further commands may be written. */
     b8 finished;
+
+    /** @brief Allocator backing the render command buffer. */
+    freelist buffer;
 } box_rendercmd;
 
 /**

@@ -26,8 +26,21 @@ b8 vulkan_renderbuffer_create(
 	box_renderer_backend* backend,
 	box_renderbuffer_config* config,
 	box_renderbuffer* out_buffer) {
+	BX_ASSERT(backend != NULL && config != NULL && out_buffer != NULL && "Invalid arguments passed to vulkan_renderbuffer_create");
     vulkan_context* context = (vulkan_context*)backend->internal_context;
     
+#if BOX_ENABLE_VALIDATION
+	if (config->buffer_size <= 0) {
+		BX_ERROR("vulkan_renderbuffer_create(): Cannot create a render buffer with a size of 0");
+		return FALSE;
+	}
+
+	if (!config->usage) {
+		BX_ERROR("vulkan_renderbuffer_create(): Cannot create a render buffer with no usage set");
+		return FALSE;
+	}
+#endif
+
     out_buffer->internal_data = ballocate(sizeof(internal_vulkan_renderbuffer), MEMORY_TAG_RENDERER);
     internal_vulkan_renderbuffer* internal_buffer = (internal_vulkan_renderbuffer*)out_buffer->internal_data;
 
@@ -70,12 +83,20 @@ b8 vulkan_renderbuffer_upload_data(
 	const void* buf_data,
     u64 buf_offset, 
     u64 buf_size) {
+	BX_ASSERT(backend != NULL && buffer != NULL && buf_data != NULL && "Invalid arguments passed to vulkan_renderbuffer_upload_data");
     vulkan_context* context = (vulkan_context*)backend->internal_context;
 
+#if BOX_ENABLE_VALIDATION
     if (!(context->config.modes & RENDERER_MODE_TRANSFER)) {
 		BX_ERROR("vulkan_renderbuffer_upload_data(): Attempting to upload to renderbuffer without enabling transfer mode.");
 		return FALSE;
 	}
+
+	if (buf_offset + buf_size > buffer->buffer_size) {
+		BX_ERROR("vulkan_renderbuffer_upload_data(): Upload range reaches outside of renderbuffer size.");
+		return FALSE;
+	}
+#endif
 
     internal_vulkan_renderbuffer* internal_buffer = (internal_vulkan_renderbuffer*)buffer->internal_data;
 
@@ -86,7 +107,7 @@ b8 vulkan_renderbuffer_upload_data(
 	box_renderbuffer staging_buffer = {};
     if (!vulkan_renderbuffer_create(backend, &staging_buffer_config, &staging_buffer) || 
 		!vulkan_renderbuffer_map_data(backend, &staging_buffer, buf_data, 0, staging_buffer.buffer_size)) {
-        BX_ERROR("Failed to create staging buffer for uploading data.");
+        BX_ERROR("vulkan_renderbuffer_upload_data(): Failed to create staging buffer for uploading data.");
         return FALSE;
     }
 
@@ -117,7 +138,9 @@ b8 vulkan_renderbuffer_map_data(
 	const void* source, 
     u64 buf_offset, 
 	u64 buf_size) {
+	BX_ASSERT(backend != NULL && buffer != NULL && source != NULL && "Invalid arguments passed to vulkan_renderbuffer_map_data");
     vulkan_context* context = (vulkan_context*)backend->internal_context;
+
     internal_vulkan_renderbuffer* internal_buffer = (internal_vulkan_renderbuffer*)buffer->internal_data;
 
     void* map_ptr = NULL;
@@ -137,6 +160,7 @@ b8 vulkan_renderbuffer_map_data(
 void vulkan_renderbuffer_destroy(
 	box_renderer_backend* backend,
 	box_renderbuffer* buffer) {
+	BX_ASSERT(backend != NULL && buffer != NULL && "Invalid arguments passed to vulkan_renderbuffer_destroy");
     vulkan_context* context = (vulkan_context*)backend->internal_context;
 	if (context->device.logical_device) vkDeviceWaitIdle(context->device.logical_device);
 

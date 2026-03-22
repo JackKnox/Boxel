@@ -1,11 +1,3 @@
-/**
- * @file renderer_types.h
- * @brief Public renderer frontend types and configuration.
- *
- * Include this file to access renderer enums, formats,
- * configuration structures, and capability descriptions.
- */
-
 #pragma once
 
 #include "defines.h"
@@ -41,15 +33,15 @@ typedef enum box_renderer_mode {
     RENDERER_MODE_TRANSFER = 1 << 2,  /**< Data transfer operations */
 } box_renderer_mode;
 
-#define BOX_FORMAT_UINT  0
-#define BOX_FORMAT_SINT  1
-#define BOX_FORMAT_FLOAT 2
-#define BOX_FORMAT_BOOL  3
+#define BOX_DATA_TYPE_UINT  0
+#define BOX_DATA_TYPE_SINT  1
+#define BOX_DATA_TYPE_FLOAT 2
+#define BOX_DATA_TYPE_BOOL  3
 
-#define BOX_FORMAT_FLAG_NORMALIZED 1 << 0
-#define BOX_FORMAT_FLAG_SRGB       1 << 1
-//#define BOX_FORMAT_FLAG_DEPTH      = 1 << 2
-//#define BOX_FORMAT_FLAG_STENCIL    = 1 << 3
+#define BOX_RENDER_FORMAT_FLAG_NORMALIZED 1 << 0
+#define BOX_RENDER_FORMAT_FLAG_SRGB       1 << 1
+//#define BOX_RENDER_FORMAT_FLAG_DEPTH    1 << 2
+//#define BOX_RENDER_FORMAT_FLAG_STENCIL  1 << 3
 
 #define BOX_RENDER_FORMAT(type, bits, channels, flags) \
     (((flags)              << 24)  | \
@@ -68,72 +60,72 @@ typedef enum box_render_format {
     /**
      * @brief 8-bit integer formats
      */
-    BOX_FORMAT_R8_UINT    = BOX_RENDER_FORMAT(BOX_FORMAT_UINT, 8, 1, 0),
-    BOX_FORMAT_RG8_UINT   = BOX_RENDER_FORMAT(BOX_FORMAT_UINT, 8, 2, 0),
-    BOX_FORMAT_RGB8_UINT  = BOX_RENDER_FORMAT(BOX_FORMAT_UINT, 8, 3, 0),
-    BOX_FORMAT_RGBA8_UINT = BOX_RENDER_FORMAT(BOX_FORMAT_UINT, 8, 4, 0),
+    BOX_FORMAT_R8_UINT    = BOX_RENDER_FORMAT(BOX_DATA_TYPE_UINT, 8, 1, 0),
+    BOX_FORMAT_RG8_UINT   = BOX_RENDER_FORMAT(BOX_DATA_TYPE_UINT, 8, 2, 0),
+    BOX_FORMAT_RGB8_UINT  = BOX_RENDER_FORMAT(BOX_DATA_TYPE_UINT, 8, 3, 0),
+    BOX_FORMAT_RGBA8_UINT = BOX_RENDER_FORMAT(BOX_DATA_TYPE_UINT, 8, 4, 0),
 
-    BOX_FORMAT_R8_SINT    = BOX_RENDER_FORMAT(BOX_FORMAT_SINT, 8, 1, 0),
-    BOX_FORMAT_RG8_SINT   = BOX_RENDER_FORMAT(BOX_FORMAT_SINT, 8, 2, 0),
-    BOX_FORMAT_RGB8_SINT  = BOX_RENDER_FORMAT(BOX_FORMAT_SINT, 8, 3, 0),
-    BOX_FORMAT_RGBA8_SINT = BOX_RENDER_FORMAT(BOX_FORMAT_SINT, 8, 4, 0),
+    BOX_FORMAT_R8_SINT    = BOX_RENDER_FORMAT(BOX_DATA_TYPE_SINT, 8, 1, 0),
+    BOX_FORMAT_RG8_SINT   = BOX_RENDER_FORMAT(BOX_DATA_TYPE_SINT, 8, 2, 0),
+    BOX_FORMAT_RGB8_SINT  = BOX_RENDER_FORMAT(BOX_DATA_TYPE_SINT, 8, 3, 0),
+    BOX_FORMAT_RGBA8_SINT = BOX_RENDER_FORMAT(BOX_DATA_TYPE_SINT, 8, 4, 0),
 
     /**
      * @brief 8-bit normalized formats
      */
-    BOX_FORMAT_R8_UNORM    = BOX_RENDER_FORMAT(BOX_FORMAT_UINT, 8, 1, BOX_FORMAT_FLAG_NORMALIZED),
-    BOX_FORMAT_RG8_UNORM   = BOX_RENDER_FORMAT(BOX_FORMAT_UINT, 8, 2, BOX_FORMAT_FLAG_NORMALIZED),
-    BOX_FORMAT_RGB8_UNORM  = BOX_RENDER_FORMAT(BOX_FORMAT_UINT, 8, 3, BOX_FORMAT_FLAG_NORMALIZED),
-    BOX_FORMAT_RGBA8_UNORM = BOX_RENDER_FORMAT(BOX_FORMAT_UINT, 8, 4, BOX_FORMAT_FLAG_NORMALIZED),
+    BOX_FORMAT_R8_UNORM    = BOX_RENDER_FORMAT(BOX_DATA_TYPE_UINT, 8, 1, BOX_RENDER_FORMAT_FLAG_NORMALIZED),
+    BOX_FORMAT_RG8_UNORM   = BOX_RENDER_FORMAT(BOX_DATA_TYPE_UINT, 8, 2, BOX_RENDER_FORMAT_FLAG_NORMALIZED),
+    BOX_FORMAT_RGB8_UNORM  = BOX_RENDER_FORMAT(BOX_DATA_TYPE_UINT, 8, 3, BOX_RENDER_FORMAT_FLAG_NORMALIZED),
+    BOX_FORMAT_RGBA8_UNORM = BOX_RENDER_FORMAT(BOX_DATA_TYPE_UINT, 8, 4, BOX_RENDER_FORMAT_FLAG_NORMALIZED),
 
-    BOX_FORMAT_R8_SNORM    = BOX_RENDER_FORMAT(BOX_FORMAT_SINT, 8, 1, BOX_FORMAT_FLAG_NORMALIZED),
-    BOX_FORMAT_RG8_SNORM   = BOX_RENDER_FORMAT(BOX_FORMAT_SINT, 8, 2, BOX_FORMAT_FLAG_NORMALIZED),
-    BOX_FORMAT_RGB8_SNORM  = BOX_RENDER_FORMAT(BOX_FORMAT_SINT, 8, 3, BOX_FORMAT_FLAG_NORMALIZED),
-    BOX_FORMAT_RGBA8_SNORM = BOX_RENDER_FORMAT(BOX_FORMAT_SINT, 8, 4, BOX_FORMAT_FLAG_NORMALIZED),
+    BOX_FORMAT_R8_SNORM    = BOX_RENDER_FORMAT(BOX_DATA_TYPE_SINT, 8, 1, BOX_RENDER_FORMAT_FLAG_NORMALIZED),
+    BOX_FORMAT_RG8_SNORM   = BOX_RENDER_FORMAT(BOX_DATA_TYPE_SINT, 8, 2, BOX_RENDER_FORMAT_FLAG_NORMALIZED),
+    BOX_FORMAT_RGB8_SNORM  = BOX_RENDER_FORMAT(BOX_DATA_TYPE_SINT, 8, 3, BOX_RENDER_FORMAT_FLAG_NORMALIZED),
+    BOX_FORMAT_RGBA8_SNORM = BOX_RENDER_FORMAT(BOX_DATA_TYPE_SINT, 8, 4, BOX_RENDER_FORMAT_FLAG_NORMALIZED),
 
     /**
      * @brief 16-bit formats
      */
-    BOX_FORMAT_R16_UINT    = BOX_RENDER_FORMAT(BOX_FORMAT_UINT, 16, 1, 0),
-    BOX_FORMAT_RG16_UINT   = BOX_RENDER_FORMAT(BOX_FORMAT_UINT, 16, 2, 0),
-    BOX_FORMAT_RGB16_UINT  = BOX_RENDER_FORMAT(BOX_FORMAT_UINT, 16, 3, 0),
-    BOX_FORMAT_RGBA16_UINT = BOX_RENDER_FORMAT(BOX_FORMAT_UINT, 16, 4, 0),
+    BOX_FORMAT_R16_UINT    = BOX_RENDER_FORMAT(BOX_DATA_TYPE_UINT, 16, 1, 0),
+    BOX_FORMAT_RG16_UINT   = BOX_RENDER_FORMAT(BOX_DATA_TYPE_UINT, 16, 2, 0),
+    BOX_FORMAT_RGB16_UINT  = BOX_RENDER_FORMAT(BOX_DATA_TYPE_UINT, 16, 3, 0),
+    BOX_FORMAT_RGBA16_UINT = BOX_RENDER_FORMAT(BOX_DATA_TYPE_UINT, 16, 4, 0),
 
-    BOX_FORMAT_R16_SINT    = BOX_RENDER_FORMAT(BOX_FORMAT_SINT, 16, 1, 0),
-    BOX_FORMAT_RG16_SINT   = BOX_RENDER_FORMAT(BOX_FORMAT_SINT, 16, 2, 0),
-    BOX_FORMAT_RGB16_SINT  = BOX_RENDER_FORMAT(BOX_FORMAT_SINT, 16, 3, 0),
-    BOX_FORMAT_RGBA16_SINT = BOX_RENDER_FORMAT(BOX_FORMAT_SINT, 16, 4, 0),
+    BOX_FORMAT_R16_SINT    = BOX_RENDER_FORMAT(BOX_DATA_TYPE_SINT, 16, 1, 0),
+    BOX_FORMAT_RG16_SINT   = BOX_RENDER_FORMAT(BOX_DATA_TYPE_SINT, 16, 2, 0),
+    BOX_FORMAT_RGB16_SINT  = BOX_RENDER_FORMAT(BOX_DATA_TYPE_SINT, 16, 3, 0),
+    BOX_FORMAT_RGBA16_SINT = BOX_RENDER_FORMAT(BOX_DATA_TYPE_SINT, 16, 4, 0),
 
-    BOX_FORMAT_R16_FLOAT   = BOX_RENDER_FORMAT(BOX_FORMAT_FLOAT, 16, 1, 0),
-    BOX_FORMAT_RG16_FLOAT  = BOX_RENDER_FORMAT(BOX_FORMAT_FLOAT, 16, 2, 0),
-    BOX_FORMAT_RGB16_FLOAT = BOX_RENDER_FORMAT(BOX_FORMAT_FLOAT, 16, 3, 0),
-    BOX_FORMAT_RGBA16_FLOAT = BOX_RENDER_FORMAT(BOX_FORMAT_FLOAT, 16, 4, 0),
+    BOX_FORMAT_R16_FLOAT   = BOX_RENDER_FORMAT(BOX_DATA_TYPE_FLOAT, 16, 1, 0),
+    BOX_FORMAT_RG16_FLOAT  = BOX_RENDER_FORMAT(BOX_DATA_TYPE_FLOAT, 16, 2, 0),
+    BOX_FORMAT_RGB16_FLOAT = BOX_RENDER_FORMAT(BOX_DATA_TYPE_FLOAT, 16, 3, 0),
+    BOX_FORMAT_RGBA16_FLOAT = BOX_RENDER_FORMAT(BOX_DATA_TYPE_FLOAT, 16, 4, 0),
 
     /**
      * @brief 32-bit formats
      */
-    BOX_FORMAT_R32_UINT    = BOX_RENDER_FORMAT(BOX_FORMAT_UINT,  32, 1, 0),
-    BOX_FORMAT_RG32_UINT   = BOX_RENDER_FORMAT(BOX_FORMAT_UINT,  32, 2, 0),
-    BOX_FORMAT_RGB32_UINT  = BOX_RENDER_FORMAT(BOX_FORMAT_UINT,  32, 3, 0),
-    BOX_FORMAT_RGBA32_UINT = BOX_RENDER_FORMAT(BOX_FORMAT_UINT,  32, 4, 0),
+    BOX_FORMAT_R32_UINT    = BOX_RENDER_FORMAT(BOX_DATA_TYPE_UINT,  32, 1, 0),
+    BOX_FORMAT_RG32_UINT   = BOX_RENDER_FORMAT(BOX_DATA_TYPE_UINT,  32, 2, 0),
+    BOX_FORMAT_RGB32_UINT  = BOX_RENDER_FORMAT(BOX_DATA_TYPE_UINT,  32, 3, 0),
+    BOX_FORMAT_RGBA32_UINT = BOX_RENDER_FORMAT(BOX_DATA_TYPE_UINT,  32, 4, 0),
 
-    BOX_FORMAT_R32_SINT    = BOX_RENDER_FORMAT(BOX_FORMAT_SINT,  32, 1, 0),
-    BOX_FORMAT_RG32_SINT   = BOX_RENDER_FORMAT(BOX_FORMAT_SINT,  32, 2, 0),
-    BOX_FORMAT_RGB32_SINT  = BOX_RENDER_FORMAT(BOX_FORMAT_SINT,  32, 3, 0),
-    BOX_FORMAT_RGBA32_SINT = BOX_RENDER_FORMAT(BOX_FORMAT_SINT,  32, 4, 0),
+    BOX_FORMAT_R32_SINT    = BOX_RENDER_FORMAT(BOX_DATA_TYPE_SINT,  32, 1, 0),
+    BOX_FORMAT_RG32_SINT   = BOX_RENDER_FORMAT(BOX_DATA_TYPE_SINT,  32, 2, 0),
+    BOX_FORMAT_RGB32_SINT  = BOX_RENDER_FORMAT(BOX_DATA_TYPE_SINT,  32, 3, 0),
+    BOX_FORMAT_RGBA32_SINT = BOX_RENDER_FORMAT(BOX_DATA_TYPE_SINT,  32, 4, 0),
 
-    BOX_FORMAT_R32_FLOAT   = BOX_RENDER_FORMAT(BOX_FORMAT_FLOAT, 32, 1, 0),
-    BOX_FORMAT_RG32_FLOAT  = BOX_RENDER_FORMAT(BOX_FORMAT_FLOAT, 32, 2, 0),
-    BOX_FORMAT_RGB32_FLOAT = BOX_RENDER_FORMAT(BOX_FORMAT_FLOAT, 32, 3, 0),
-    BOX_FORMAT_RGBA32_FLOAT = BOX_RENDER_FORMAT(BOX_FORMAT_FLOAT, 32, 4, 0),
+    BOX_FORMAT_R32_FLOAT   = BOX_RENDER_FORMAT(BOX_DATA_TYPE_FLOAT, 32, 1, 0),
+    BOX_FORMAT_RG32_FLOAT  = BOX_RENDER_FORMAT(BOX_DATA_TYPE_FLOAT, 32, 2, 0),
+    BOX_FORMAT_RGB32_FLOAT = BOX_RENDER_FORMAT(BOX_DATA_TYPE_FLOAT, 32, 3, 0),
+    BOX_FORMAT_RGBA32_FLOAT = BOX_RENDER_FORMAT(BOX_DATA_TYPE_FLOAT, 32, 4, 0),
 
     /**
      * @brief sRGB formats
      */
-    BOX_FORMAT_R8_SRGB    = BOX_RENDER_FORMAT(BOX_FORMAT_UINT, 8, 1, BOX_FORMAT_FLAG_SRGB),
-    BOX_FORMAT_RG8_SRGB   = BOX_RENDER_FORMAT(BOX_FORMAT_UINT, 8, 2, BOX_FORMAT_FLAG_SRGB),
-    BOX_FORMAT_RGB8_SRGB  = BOX_RENDER_FORMAT(BOX_FORMAT_UINT, 8, 3, BOX_FORMAT_FLAG_SRGB),
-    BOX_FORMAT_RGBA8_SRGB = BOX_RENDER_FORMAT(BOX_FORMAT_UINT, 8, 4, BOX_FORMAT_FLAG_SRGB),
+    BOX_FORMAT_R8_SRGB    = BOX_RENDER_FORMAT(BOX_DATA_TYPE_UINT, 8, 1, BOX_RENDER_FORMAT_FLAG_SRGB),
+    BOX_FORMAT_RG8_SRGB   = BOX_RENDER_FORMAT(BOX_DATA_TYPE_UINT, 8, 2, BOX_RENDER_FORMAT_FLAG_SRGB),
+    BOX_FORMAT_RGB8_SRGB  = BOX_RENDER_FORMAT(BOX_DATA_TYPE_UINT, 8, 3, BOX_RENDER_FORMAT_FLAG_SRGB),
+    BOX_FORMAT_RGBA8_SRGB = BOX_RENDER_FORMAT(BOX_DATA_TYPE_UINT, 8, 4, BOX_RENDER_FORMAT_FLAG_SRGB),
 } box_render_format;
 
 /**
@@ -163,7 +155,7 @@ u32 box_render_format_channel_count(box_render_format format);
 /**
  * @brief Intended usage of a render buffer.
  *
- * Usage flags may be combined.
+ * Usage flags may be combined as bit flags.
  */
 typedef enum box_renderbuffer_usage {
     BOX_RENDERBUFFER_USAGE_VERTEX  = 1 << 0, /**< Vertex buffer */
@@ -175,7 +167,7 @@ typedef enum box_renderbuffer_usage {
 /**
  * @brief Intended usage of a texture.
  *
- * Usage flags may be combined.
+ * Usage flags may be combined as bit flags.
  */
 typedef enum box_texture_usage {
     BOX_TEXTURE_USAGE_STORAGE = 1 << 0, /**< Storage image */
@@ -213,8 +205,8 @@ typedef enum box_load_op {
  * after the render pass completes.
  */
 typedef enum box_store_op {
-    BOX_STORE_OP_STORE,     /**< Store the results for later use */
-    BOX_STORE_OP_DONT_CARE, /**< Contents become undefined after the pass completes */
+    BOX_STORE_OP_STORE,      /**< Store the results for later use */
+    BOX_STORE_OP_DONT_CARE,  /**< Contents become undefined after the pass completes */
 } box_store_op;
 
 /**
@@ -227,19 +219,19 @@ typedef enum box_store_op {
  * Usage flags may be combined.
  */
 typedef enum box_access_flags {
-    BOX_ACCESS_FLAGS_SHADER_WRITE            = 1 << 0, /**< Written by a shader */
-    BOX_ACCESS_FLAGS_SHADER_READ             = 1 << 1, /**< Resource read by a shader */
-    BOX_ACCESS_FLAGS_VERTEX_ATTRIBUTE_READ   = 1 << 2, /**< Read as a vertex attribute during vertex input */
-    BOX_ACCESS_FLAGS_COLOUR_ATTACHMENT_WRITE = 1 << 3  /**< Written as a colour attachment during rendering */
+    BOX_ACCESS_FLAGS_SHADER_WRITE            = 1 << 0,  /**< Written by a shader */
+    BOX_ACCESS_FLAGS_SHADER_READ             = 1 << 1,  /**< Resource read by a shader */
+    BOX_ACCESS_FLAGS_VERTEX_ATTRIBUTE_READ   = 1 << 2,  /**< Read as a vertex attribute during vertex input */
+    BOX_ACCESS_FLAGS_COLOUR_ATTACHMENT_WRITE = 1 << 3,  /**< Written as a colour attachment during rendering */
 } box_access_flags;
 
 /**
  * @brief Descriptor types supported by shaders.
  */
 typedef enum box_descriptor_type {
-    BOX_DESCRIPTOR_TYPE_STORAGE_BUFFER, /**< Storage buffer (SSBO) */
-    BOX_DESCRIPTOR_TYPE_STORAGE_IMAGE,  /**< Storage image, no sampler */
-    BOX_DESCRIPTOR_TYPE_IMAGE_SAMPLER,  /**< Combined image + sampler */
+    BOX_DESCRIPTOR_TYPE_STORAGE_BUFFER,  /**< Storage buffer (SSBO) */
+    BOX_DESCRIPTOR_TYPE_STORAGE_IMAGE,   /**< Storage image, no sampler */
+    BOX_DESCRIPTOR_TYPE_IMAGE_SAMPLER,   /**< Combined image + sampler */
 } box_descriptor_type;
 
 /**
@@ -274,7 +266,7 @@ typedef enum box_address_mode {
 /**
  * @brief Describes a single render target attachment.
  */
-typedef struct {
+typedef struct box_rendertarget_attachment {
     /** Logical attachment type (color, depth, stencil, etc.). */
     box_attachment_type type;
 
@@ -303,7 +295,7 @@ typedef struct {
 /**
  * @brief Describes a single descriptor binding.
  */
-typedef struct {
+typedef struct box_descriptor_desc {
     /** @brief Binding index within the shader. */
     u32 binding;
 
@@ -330,40 +322,20 @@ typedef struct box_shader_src {
 /**
  * @brief Describes the capabilities of the active renderer device.
  */
-typedef struct {
-    /** @brief Human-readable device name. */
-    char* device_name;
+typedef struct box_renderer_capabilities {
+    /** @brief Maximum supported anisotropic filtering level. */
+    f32 max_anisotropy;
 
     /** @brief Device classification. */
     box_renderer_device_type device_type;
 
-    /** @brief Maximum supported anisotropic filtering level. */
-    f32 max_anisotropy;
+    /** @brief Human-readable device name. */
+    char* device_name;
 } box_renderer_capabilities;
 /**
  * @brief Configuration for creating a renderer backend.
  */
 typedef struct box_renderer_backend_config {
-    const char* application_name;
-
-    uvec2 starting_size;
-
-    box_rendertarget_attachment* main_attachments;
-    u32 main_attachment_count;
-
-    /** @brief Enabled renderer modes (bitmask). */
-    box_renderer_mode modes;
-
-    /** @brief Selected backend API type. */
-    box_renderer_backend_type api_type;
-
-    /**
-     * @brief Number of frames processed concurrently.
-     *
-     * Must be greater than 1.
-     */
-    u32 frames_in_flight;
-
     /** @brief Enable validation and debug messages. */
     b8 enable_validation;
 
@@ -372,6 +344,31 @@ typedef struct box_renderer_backend_config {
 
     /** @brief Prefer or require a discrete GPU. */
     b8 discrete_gpu;
+
+    /** @brief Number of attachments in @ref main_attachments. */
+    u32 main_attachment_count;
+
+    /**
+     * @brief Number of frames processed concurrently.
+     *
+     * Must be greater than 1.
+     */
+    u32 frames_in_flight;
+
+    /** @brief Enabled renderer modes (bitmask). */
+    box_renderer_mode modes;
+
+    /** @brief Selected backend API type. */
+    box_renderer_backend_type api_type;
+
+    /** @brief Initial size of the main rendering surface (in pixels). */
+    uvec2 starting_size;
+
+    /** @brief Name of the application. */
+    const char* application_name;
+
+    /** @brief Array of attachments for the main render target. */
+    box_rendertarget_attachment* main_attachments;
 } box_renderer_backend_config;
 
 /**

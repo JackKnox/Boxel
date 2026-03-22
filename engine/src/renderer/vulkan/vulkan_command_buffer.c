@@ -13,25 +13,18 @@ VkResult vulkan_command_buffer_allocate(
     allocate_info.commandPool = owner->pool;
     allocate_info.commandBufferCount = 1;
 
-    out_command_buffer->state = COMMAND_BUFFER_STATE_NOT_ALLOCATED;
-
     VkResult result = vkAllocateCommandBuffers(context->device.logical_device, &allocate_info, &out_command_buffer->handle);
     if (!vulkan_result_is_success(result)) return result;
 
     out_command_buffer->owner = owner;
-    out_command_buffer->state = COMMAND_BUFFER_STATE_READY;
     return VK_SUCCESS;
 }
 
 void vulkan_command_buffer_free(
     vulkan_context* context,
     vulkan_command_buffer* command_buffer) {
-    if (command_buffer && command_buffer->handle) {
+    if (command_buffer->handle)
         vkFreeCommandBuffers(context->device.logical_device, command_buffer->owner->pool, 1, &command_buffer->handle);
-
-        command_buffer->handle = 0;
-        command_buffer->state = COMMAND_BUFFER_STATE_NOT_ALLOCATED;
-    }
 }
 
 VkResult vulkan_command_buffer_begin(
@@ -44,21 +37,13 @@ VkResult vulkan_command_buffer_begin(
     if (is_renderpass_continue) begin_info.flags |= VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT;
     if (is_simultaneous_use)    begin_info.flags |= VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
 
-    VkResult result = vkBeginCommandBuffer(
+    return vkBeginCommandBuffer(
             command_buffer->handle, 
             &begin_info);
-    if (!vulkan_result_is_success(result)) return result;
-
-    command_buffer->state = COMMAND_BUFFER_STATE_RECORDING;
-    return VK_SUCCESS;
 }
 
 VkResult vulkan_command_buffer_end(vulkan_command_buffer* command_buffer) {
-    VkResult result = vkEndCommandBuffer(command_buffer->handle);
-    if (!vulkan_result_is_success(result)) return result;
-
-    command_buffer->state = COMMAND_BUFFER_STATE_RECORDING_ENDED;
-    return VK_SUCCESS;
+    return vkEndCommandBuffer(command_buffer->handle);
 }
 
 VkResult vulkan_command_buffer_submit(
@@ -67,7 +52,6 @@ VkResult vulkan_command_buffer_submit(
     u32 signal_semaphore_count, VkSemaphore* signal_semaphores,
     VkPipelineStageFlags* wait_stages, 
     VkFence fence) {
-        
 	VkSubmitInfo submit_info = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
     submit_info.pCommandBuffers = &command_buffer->handle;
     submit_info.commandBufferCount = 1;
@@ -76,22 +60,17 @@ VkResult vulkan_command_buffer_submit(
     submit_info.signalSemaphoreCount = signal_semaphore_count;
     submit_info.pSignalSemaphores = signal_semaphores;
     submit_info.pWaitDstStageMask = wait_stages;
-
-    VkResult result = vkQueueSubmit(command_buffer->owner->handle, 1, &submit_info, fence);
-    if (!vulkan_result_is_success(result)) return result;
-
-    command_buffer->state = COMMAND_BUFFER_STATE_SUBMITTED;
-    return VK_SUCCESS;
+    return vkQueueSubmit(command_buffer->owner->handle, 1, &submit_info, fence);
 }
 
-void vulkan_command_buffer_reset(vulkan_command_buffer *command_buffer) {
-    command_buffer->state = COMMAND_BUFFER_STATE_READY;
+void vulkan_command_buffer_reset(vulkan_command_buffer* command_buffer) {
 }
 
 VkResult vulkan_command_buffer_allocate_and_begin_single_use(
     vulkan_context* context,
     vulkan_queue* owner,
     vulkan_command_buffer* out_command_buffer) {
+    BX_ASSERT(context != NULL && owner != NULL && out_command_buffer != NULL && "Invalid arguments passed to vulkan_command_buffer_allocate_and_begin_single_use");
     VkResult result = vulkan_command_buffer_allocate(context, owner, TRUE, out_command_buffer);
     if (!vulkan_result_is_success(result)) return result;
     
@@ -101,15 +80,12 @@ VkResult vulkan_command_buffer_allocate_and_begin_single_use(
 VkResult vulkan_command_buffer_end_single_use(
     vulkan_context* context,
     vulkan_command_buffer* command_buffer) {
+    BX_ASSERT(context != NULL && command_buffer != NULL && "Invalid arguments passed to vulkan_command_buffer_end_single_use");
     // End the command buffer.
     vulkan_command_buffer_end(command_buffer);
 
-    VkSubmitInfo submit_info = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
-    submit_info.commandBufferCount = 1;
-    submit_info.pCommandBuffers = &command_buffer->handle;
-
     // Submit the queue
-    VkResult result = vkQueueSubmit(command_buffer->owner->handle, 1, &submit_info, 0);
+    VkResult result = vulkan_command_buffer_submit(command_buffer, 0, NULL, 0, NULL, NULL, VK_NULL_HANDLE);
     if (!vulkan_result_is_success(result)) return result;
 
     // Wait for it to finish

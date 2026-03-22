@@ -301,7 +301,7 @@ b8 cond_timedwait(box_cond* cond, box_mutex* mtx, const struct timespec* ts) {
 }
 
 // Information to pass to the new thread (what to run).
-typedef struct {
+typedef struct thread_start_info {
     PFN_thread_start function;
     void* arg;
 } thread_start_info;

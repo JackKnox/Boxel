@@ -2,17 +2,17 @@
 
 #include "utils/darray.h"
 
-typedef struct {
+typedef struct registered_event {
     void* listener;
     PFN_on_event callback;
 } registered_event;
 
-typedef struct {
+typedef struct event_code_entry {
     registered_event* events;
 } event_code_entry;
 
 // State structure.
-typedef struct {
+typedef struct event_system_state {
     // Lookup table for event codes.
     event_code_entry registered[MAX_EVENT_CODE];
 } event_system_state;

@@ -44,7 +44,7 @@ typedef enum box_mutex_type {
 
 // Mutexs
 #if defined(BX_PLATFORM_WINDOWS)
-typedef struct {
+typedef struct box_mutex {
     union {
         CRITICAL_SECTION cs;
         HANDLE mut;         
@@ -76,7 +76,7 @@ b8 mutex_unlock(box_mutex* mtx);
 
 // Condition variable
 #if defined(BX_PLATFORM_WINDOWS)
-typedef struct {
+typedef struct box_cond {
     HANDLE mEvents[2];
     unsigned int mWaitersCount;
     CRITICAL_SECTION mWaitersCountLock;

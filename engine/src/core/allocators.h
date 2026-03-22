@@ -3,7 +3,7 @@
 #include "defines.h"
 
 // Represents a single allocation request within a burst allocator.
-typedef struct {
+typedef struct burst_allocator_entry {
 	// Address of a pointer that will receive the allocated memory block.
 	void** out_pointer;
 
@@ -14,9 +14,9 @@ typedef struct {
 	memory_tag tag;
 } burst_allocator_entry;
 
-// Burst allocator which collects multiple allocation requests and
+// Custom allocator that collects multiple allocation requests and
 // fulfills them all at once using a single contiguous memory block.
-typedef struct {
+typedef struct burst_allocator {
 	// Total size in bytes required to satisfy all recorded allocation entries.
 	u64 total_size;
 

@@ -2,7 +2,7 @@
 
 #include "defines.h"
 
-typedef struct {
+typedef struct event_context {
     // 128 bytes
     union {
         i64 i64[2];

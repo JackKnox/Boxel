@@ -3,7 +3,7 @@
 #include "defines.h"
 
 // Holds a handle to a file.
-typedef struct {
+typedef struct file_handle {
     // Opaque handle to internal file handle.
     void* handle;
 
